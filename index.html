@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BYB NORTH | Sistema Integrado Profesional</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .alert-count {
+            background: #f39c12; color: #000; border-radius: 50%;
+            padding: 2px 7px; font-size: 0.8em; font-weight: bold;
+            margin-left: 8px; display: inline-block; animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .card-ot { border-left: 5px solid #3498db; padding: 15px; margin-bottom: 20px; background: #fff; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .tab-tec { width: 100%; border-collapse: collapse; font-size: 0.85em; margin-top: 10px;}
+        .tab-tec th, .tab-tec td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        textarea { width: 100%; min-height: 80px; margin: 10px 0; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { padding: 10px 15px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
+        .btn-del { background: #e74c3c; color: white; }
+        /* Estilo para el buscador */
+        .search-container { margin-bottom: 15px; display: flex; gap: 10px; }
+        .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; flex-grow: 1; font-size: 1em; }
+    </style>
+</head>
+<body>
+    <div class="layout">
+        <aside class="sidebar">
+            <h2 class="logo">BYB NORTH</h2>
+            <div class="menu-group">ADMINISTRACIÓN</div>
+            <div class="menuItem" onclick="window.mostrarVista('dashboard')">Listado Gral</div>
+            <div class="menuItem" onclick="window.mostrarVista('mensual')">Control Mensual</div>
+            <div class="menuItem" onclick="window.mostrarVista('crear')">Crear OT</div>
+            <div class="menu-group">TALLER</div>
+            <div id="m-desarme" class="menuItem" onclick="window.mostrarVista('desarme_mant')">Desarme y Mant.</div>
+            <div id="m-calidad" class="menuItem" onclick="window.mostrarVista('calidad')">Control Calidad</div>
+            <div id="m-mecanica" class="menuItem" onclick="window.mostrarVista('mecanica')">Área Mecánica</div>
+            <div id="m-bobinado" class="menuItem" onclick="window.mostrarVista('bobinado')">Área Bobinado</div>
+            <div id="m-armado" class="menuItem" onclick="window.mostrarVista('armado_bal')">Balanceo y Armado</div>
+            <div id="m-despacho" class="menuItem" onclick="window.mostrarVista('despacho')" style="color:#f1c40f; border-top: 1px solid #2c3e50; margin-top:10px;">Área Despacho</div>
+        </aside>
+        <main class="main">
+            <div id="vista">Cargando sistema...</div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfpmCbLoL679LhwYX28aeTXnD9ydAAfAA",
+            authDomain: "byb-norte.firebaseapp.com",
+            databaseURL: "https://byb-norte-default-rtdb.firebaseio.com", 
+            projectId: "byb-norte",
+            appId: "1:345988575327:web:ee82e53fc079346189ebea"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const dbRef = ref(db, 'taller_byb');
+
+        window.data = [];
+        window.vistaActual = "dashboard";
+        window.filtroBusqueda = "";
+
+        onValue(dbRef, (snapshot) => {
+            window.data = snapshot.val() || [];
+            window.actualizarAlertas();
+            window.render();
+        });
+
+        window.save = () => set(dbRef, window.data);
+        window.mostrarVista = (v) => { window.vistaActual = v; window.render(); };
+
+        window.actualizarAlertas = () => {
+            const counts = { desarme: 0, calidad: 0, mecanica: 0, bobinado: 0, armado: 0, despacho: 0 };
+            window.data.forEach(d => {
+                const p = d.pasos || {};
+                if (d.estado === 'desarme' && !p.desarme_ok) counts.desarme++;
+                if (d.estado === 'ejecucion_trabajos' && !p.mant_ok) counts.desarme++;
+                if (d.estado === 'ingresos_pendientes' && !p.med_ok) counts.calidad++;
+                if (d.estado === 'detalle_pendiente' && !p.detalle_ok) counts.calidad++;
+                if (d.estado === 'pruebas_dinamicas' && !p.pruebas_ok) counts.calidad++;
+                if (d.estado === 'check_salida' && !p.salida_ok) counts.calidad++;
+                if (d.estado === 'ingresos_pendientes' && !p.met_ok) counts.mecanica++;
+                if (d.estado === 'ejecucion_trabajos' && !p.mec_fin) counts.mecanica++;
+                if (d.estado === 'ejecucion_trabajos' && d.tipoTrabajo === 'bobinado' && !p.bobinado_fin) counts.bobinado++;
+                if (d.estado === 'ejecucion_trabajos' && !p.armado_ok) counts.armado++;
+                if (d.estado === 'terminaciones' && !p.term_ok) counts.armado++;
+                if (d.estado === 'despacho') counts.despacho++;
+            });
+            const setLabel = (id, text, num) => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = num > 0 ? `${text} <span class="alert-count">${num}</span>` : text;
+            };
+            setLabel('m-desarme', 'Desarme y Mant.', counts.desarme);
+            setLabel('m-calidad', 'Control Calidad', counts.calidad);
+            setLabel('m-mecanica', 'Área Mecánica', counts.mecanica);
+            setLabel('m-bobinado', 'Área Bobinado', counts.bobinado);
+            setLabel('m-armado', 'Balanceo y Armado', counts.armado);
+            setLabel('m-despacho', 'Área Despacho', counts.despacho);
+        };
+
+        window.descargarInforme = (i) => {
+            const d = window.data[i];
+            const obs = d.observaciones || {};
+            let c = `==========================================\n      BYB NORTH - INFORME TÉCNICO\n==========================================\n`;
+            c += `OT: ${d.ot}\nCLIENTE: ${d.empresa}\nESTADO: ${d.estado.toUpperCase()}\n------------------------------------------\n\n`;
+            c += `OBSERVACIONES:\n`;
+            for (let k in obs) { if (obs[k]) c += `[${k.toUpperCase()}]: ${obs[k]}\n`; }
+            const blob = new Blob([c], { type: "text/plain" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Informe_OT_${d.ot}.txt`;
+            link.click();
+        };
+
+        window.nuevaOT = () => {
+            const ot = document.getElementById('not').value;
+            const em = document.getElementById('nemp').value;
+            if(!ot || !em) return alert("Complete los campos");
+            window.data.push({
+                ot, empresa: em, estado: 'desarme', pri: 'normal', 
+                pasos: {}, observaciones: {}, mes: "",
+                enc_lc: 'no', enc_ll: 'no', met_lc: 'no', met_ll: 'no',
+                ejec_enc_lc: false, ejec_enc_ll: false, ejec_met_lc: false, ejec_met_ll: false,
+                tipoTrabajo: ''
+            });
+            window.save();
+            window.mostrarVista('dashboard');
+        };
+
+        window.updateFlujo = (i, paso, sig) => {
+            if (!window.data[i].pasos) window.data[i].pasos = {};
+            window.data[i].pasos[paso] = true;
+            if (paso === 'med_ok' || paso === 'met_ok') {
+                if (window.data[i].pasos.med_ok && window.data[i].pasos.met_ok) window.data[i].estado = 'detalle_pendiente';
+            } else if (sig) {
+                window.data[i].estado = sig;
+            }
+            window.save();
+        };
+
+        window.guardarObs = (i, key) => {
+            const txt = document.getElementById(`obs_${key}_${i}`);
+            if (!window.data[i].observaciones) window.data[i].observaciones = {};
+            window.data[i].observaciones[key] = txt ? txt.value : "";
+            window.save();
+        };
+
+        window.render = () => {
+            const v = document.getElementById("vista");
+            if (!v) return;
+            
+            if (window.vistaActual === "dashboard") {
+                // Ordenar: Urgentes primero, luego por número de OT descendente
+                const dataOrdenada = [...window.data]
+                    .map((d, indexOriginal) => ({ ...d, indexOriginal }))
+                    .sort((a, b) => {
+                        if (a.pri === 'urgente' && b.pri !== 'urgente') return -1;
+                        if (a.pri !== 'urgente' && b.pri === 'urgente') return 1;
+                        return b.ot.localeCompare(a.ot, undefined, {numeric: true});
+                    });
+
+                // Filtrar por buscador
+                const filtradas = dataOrdenada.filter(d => 
+                    d.ot.toLowerCase().includes(window.filtroBusqueda.toLowerCase()) || 
+                    d.empresa.toLowerCase().includes(window.filtroBusqueda.toLowerCase())
+                );
+
+                let html = `<div class="card"><h2>📋 Listado General</h2>
+                <div class="search-container">
+                    <input type="text" class="search-input" id="buscado" placeholder="Buscar por OT o Empresa..." value="${window.filtroBusqueda}" oninput="window.filtroBusqueda=this.value; window.render()">
+                </div>
+                <table><thead><tr><th>Prioridad</th><th>OT</th><th>Empresa</th><th>Acciones</th></tr></thead><tbody>`;
+                
+                filtradas.forEach((d) => {
+                    html += `<tr>
+                        <td><button onclick="window.data[${d.indexOriginal}].pri=(window.data[${d.indexOriginal}].pri=='urgente'?'normal':'urgente'); window.save()" style="background:none; cursor:pointer; font-size:1.2em;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
+                        <td><b>${d.ot}</b></td><td>${d.empresa}</td>
+                        <td>
+                            <button onclick="window.descargarInforme(${d.indexOriginal})" style="background:#2ecc71; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">📄 Informe</button>
+                            <input type="month" value="${d.mes||''}" onchange="window.data[${d.indexOriginal}].mes=this.value; if(window.data[${d.indexOriginal}].estado=='espera_fecha')window.data[${d.indexOriginal}].estado='ejecucion_trabajos'; window.save()">
+                            <button onclick="if(confirm('¿Eliminar?')){window.data.splice(${d.indexOriginal},1); window.save()}" class="btn-del">X</button>
+                        </td></tr>`;
+                });
+                v.innerHTML = html + "</tbody></table></div>";
+                document.getElementById('buscado')?.focus();
+            } 
+            else if (window.vistaActual === "mensual") {
+                let mesSel = document.getElementById("fMes")?.value || "";
+                let filtrados = window.data.filter(d => d.mes === mesSel);
+                let filas = filtrados.map(d => {
+                    const st = (req, hecho) => (req === 'si') ? (hecho ? '<td style="color:green">✔</td>' : '<td style="color:red">✘</td>') : '<td>-</td>';
+                    const ck = (p) => (d.pasos && d.pasos[p]) ? '<td style="color:green">✔</td>' : '<td>-</td>';
+                    return `<tr><td>${d.ot}</td><td>${d.empresa}</td>${st(d.enc_lc, d.ejec_enc_lc)}${st(d.enc_ll, d.ejec_enc_ll)}${st(d.met_lc, d.ejec_met_lc)}${st(d.met_ll, d.ejec_met_ll)}${ck('mant_ok')}${ck('bobinado_fin')}${ck('armado_ok')}<td>${d.estado.toUpperCase()}</td></tr>`;
+                }).join("");
+                v.innerHTML = `<div class="card"><h2>📅 Control Mensual</h2><input type="month" id="fMes" value="${mesSel}" onchange="window.render()"><div style="overflow-x:auto"><table class="tab-tec"><thead><tr><th>OT</th><th>Empresa</th><th>E.LC</th><th>E.LL</th><th>M.LC</th><th>M.LL</th><th>Mant</th><th>Bob</th><th>Arm</th><th>Estado</th></tr></thead><tbody>${filas || '<tr><td colspan="10">Sin datos</td></tr>'}</tbody></table></div></div>`;
+            }
+            else if (window.vistaActual === "crear") {
+                v.innerHTML = `<div class="card"><h2>➕ Nueva OT</h2><input type="text" id="not" placeholder="Número OT"><input type="text" id="nemp" placeholder="Empresa"><button onclick="window.nuevaOT()">Registrar</button></div>`;
+            }
+            else {
+                let html = `<h2>Área: ${window.vistaActual.toUpperCase()}</h2>`;
+                let hay = false;
+                window.data.forEach((d, i) => {
+                    let UI = ""; let p = d.pasos || {};
+                    const obs = (k) => `<textarea id="obs_${k}_${i}" onchange="window.guardarObs(${i},'${k}')" placeholder="Notas...">${d.observaciones?.[k]||''}</textarea>`;
+                    if (window.vistaActual === 'desarme_mant') {
+                        if (d.estado === 'desarme') UI = `<h3>Desarme</h3>${obs('desarme')}<button onclick="window.updateFlujo(${i},'desarme_ok','ingresos_pendientes')">Fin Desarme</button>`;
+                        else if (d.estado === 'ejecucion_trabajos') UI = `<h3>Mantención</h3>${obs('mantencion')}<button onclick="window.updateFlujo(${i},'mant_ok')">Fin Mantención</button>`;
+                    }
+                    else if (window.vistaActual === 'calidad') {
+                        if (d.estado === 'ingresos_pendientes') UI = `<h3>Mediciones</h3><select onchange="window.data[${i}].tipoTrabajo=this.value; window.save()"><option value="">Tipo...</option><option value="bobinado" ${d.tipoTrabajo=='bobinado'?'selected':''}>Bobinado</option><option value="mantencion" ${d.tipoTrabajo=='mantencion'?'selected':''}>Mantención</option></select><br>${obs('mediciones')}<button onclick="window.updateFlujo(${i},'med_ok')">Guardar</button>`;
+                        else if (d.estado === 'detalle_pendiente') UI = `<h3>Oficina</h3>${obs('detalle')}<button onclick="window.updateFlujo(${i},'detalle_ok','espera_fecha')">Enviar a Taller</button>`;
+                        else if (d.estado === 'pruebas_dinamicas') UI = `<h3>Pruebas</h3>${obs('pruebas')}<button onclick="window.updateFlujo(${i},'pruebas_ok','terminaciones')">Fin Pruebas</button>`;
+                        else if (d.estado === 'check_salida') UI = `<h3>Salida Final</h3>${obs('salida')}<button onclick="window.updateFlujo(${i},'salida_ok','despacho')">DAR CHECK SALIDA</button>`;
+                    }
+                    else if (window.vistaActual === 'mecanica') {
+                        if (d.estado === 'ingresos_pendientes') UI = `<h3>Metrología</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"><label><input type="checkbox" ${d.enc_lc=='si'?'checked':''} onchange="window.data[${i}].enc_lc=this.checked?'si':'no'; window.save()"> Enc.LC</label><label><input type="checkbox" ${d.enc_ll=='si'?'checked':''} onchange="window.data[${i}].enc_ll=this.checked?'si':'no'; window.save()"> Enc.LL</label><label><input type="checkbox" ${d.met_lc=='si'?'checked':''} onchange="window.data[${i}].met_lc=this.checked?'si':'no'; window.save()"> Met.LC</label><label><input type="checkbox" ${d.met_ll=='si'?'checked':''} onchange="window.data[${i}].met_ll=this.checked?'si':'no'; window.save()"> Met.LL</label></div><br>${obs('metrologia')}<button onclick="window.updateFlujo(${i},'met_ok')">Guardar Metrología</button>`;
+                        else if (d.estado === 'ejecucion_trabajos') {
+                            UI = `<h3>Mecánica</h3>`;
+                            if(d.enc_lc=='si') UI += `<label><input type="checkbox" ${d.ejec_enc_lc?'checked':''} onchange="window.data[${i}].ejec_enc_lc=this.checked; window.save()"> E.LC OK</label><br>`;
+                            if(d.enc_ll=='si') UI += `<label><input type="checkbox" ${d.ejec_enc_ll?'checked':''} onchange="window.data[${i}].ejec_enc_ll=this.checked; window.save()"> E.LL OK</label><br>`;
+                            if(d.met_lc=='si') UI += `<label><input type="checkbox" ${d.ejec_met_lc?'checked':''} onchange="window.data[${i}].ejec_met_lc=this.checked; window.save()"> M.LC OK</label><br>`;
+                            if(d.met_ll=='si') UI += `<label><input type="checkbox" ${d.ejec_met_ll?'checked':''} onchange="window.data[${i}].ejec_met_ll=this.checked; window.save()"> M.LL OK</label><br>`;
+                            UI += `<br>${obs('mecanica')}<button onclick="window.updateFlujo(${i},'mec_fin')">Fin Mecánica</button>`;
+                        }
+                    }
+                    else if (window.vistaActual === 'bobinado' && d.estado === 'ejecucion_trabajos' && d.tipoTrabajo === 'bobinado') {
+                        UI = `<h3>Bobinado</h3>${obs('bobinado')}<button onclick="window.updateFlujo(${i},'bobinado_fin')">Fin Bobinado</button>`;
+                    }
+                    else if (window.vistaActual === 'armado_bal') {
+                        if (d.estado === 'ejecucion_trabajos') {
+                            UI = `<h3>Balanceo</h3>${obs('balanceo')}<button onclick="window.updateFlujo(${i},'bal_ok')">Bal OK</button><hr><h3>Armado</h3>${obs('armado')}`;
+                            if(p.bal_ok) UI += `<button onclick="window.updateFlujo(${i},'armado_ok','pruebas_dinamicas')">Fin Armado</button>`;
+                        } else if (d.estado === 'terminaciones') {
+                            UI = `<h3>Terminaciones</h3>${obs('terminaciones')}<button onclick="window.updateFlujo(${i},'term_ok','check_salida')">Listo para Check Salida</button>`;
+                        }
+                    }
+                    else if (window.vistaActual === 'despacho' && d.estado === 'despacho') {
+                        UI = `<h3>Despacho</h3><button onclick="window.updateFlujo(${i},'salida_final','entregado')" style="background:green">MARCAR ENTREGADO</button>`;
+                    }
+                    if (UI) { html += `<div class="card-ot"><h4>OT: ${d.ot} - ${d.empresa}</h4>${UI}</div>`; hay = true; }
+                });
+                v.innerHTML = hay ? html : html + "<p>Sin tareas pendientes.</p>";
+            }
+        };
+    </script>
+</body>
+</html>
