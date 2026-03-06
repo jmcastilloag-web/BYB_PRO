@@ -22,7 +22,7 @@
         .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; flex-grow: 1; font-size: 1em; }
         .rod-box { background: #fdf9e1; padding: 10px; border: 1px solid #f1c40f; border-radius: 4px; margin: 10px 0; }
         .status-cell { font-size: 0.9em; display: block; white-space: nowrap; }
-        
+
         /* Estilos para mediciones y modal */
         .med-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee; margin-bottom: 10px; }
         .med-input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 3px; box-sizing: border-box; margin-top: 2px; }
@@ -45,12 +45,174 @@
         .medidas-seccion input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         .medidas-seccion div { margin-bottom: 10px; }
         .medidas-seccion div:last-child { margin-bottom: 0; }
+
+        /* Estilos para pantallas pequeñas (móviles) */
+        .layout {
+            display: flex;
+            flex-direction: column; /* Apilar elementos verticalmente en móviles */
+        }
+
+        .sidebar {
+            width: 100%; /* Ocupar todo el ancho */
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            box-sizing: border-box;
+            position: fixed; /* Para que se mantenga fijo al hacer scroll */
+            top: 0;
+            left: 0;
+            z-index: 100; /* Asegurar que esté por encima del contenido principal */
+            height: 60px; /* Altura fija para el menú colapsado */
+            overflow: hidden; /* Ocultar el contenido extra */
+            transition: height 0.3s ease-in-out; /* Transición suave al expandir/colapsar */
+        }
+
+        .sidebar.expanded {
+            height: 100vh; /* Ocupar toda la altura cuando está expandido */
+            overflow-y: auto; /* Permitir scroll si el contenido es largo */
+        }
+
+        .sidebar .logo {
+            font-size: 1.5em;
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .sidebar .menu-group {
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #34495e;
+            text-transform: uppercase;
+        }
+
+        .sidebar .menuItem {
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+            border-radius: 4px;
+        }
+
+        .sidebar .menuItem:hover {
+            background-color: #34495e;
+        }
+
+        .main {
+            margin-left: 0; /* Eliminar margen izquierdo en móviles */
+            padding: 15px;
+            padding-top: 80px; /* Espacio para el menú fijo */
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Botón para mostrar/ocultar el menú */
+        .menu-toggle {
+            display: block; /* Mostrar el botón en móviles */
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 101; /* Asegurar que esté por encima de todo */
+        }
+
+        /* Ocultar el botón de toggle en pantallas grandes */
+        @media (min-width: 768px) {
+            .menu-toggle {
+                display: none;
+            }
+            .sidebar {
+                position: static;
+                height: auto;
+                overflow: visible;
+                width: 250px; /* Ancho fijo del sidebar en escritorio */
+            }
+            .layout {
+                flex-direction: row; /* Restaurar layout de columnas en escritorio */
+            }
+            .main {
+                margin-left: 250px; /* Espacio para el sidebar */
+                padding-top: 15px; /* Quitar padding superior excesivo */
+            }
+        }
+
+        /* Estilos para el contenido de cada vista */
+        .card {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .card h2, .card h3, .card h4 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        .card table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .card th, .card td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .card th {
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }
+        .card tr:last-child td {
+            border-bottom: none;
+        }
+        .card input[type="text"], .card input[type="month"], .card select, .card button {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            width: 100%;
+        }
+        .card button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s ease;
+        }
+        .card button:hover {
+            background-color: #2980b9;
+        }
+        .card button.btn-del {
+            background-color: #e74c3c;
+        }
+        .card button.btn-del:hover {
+            background-color: #c0392b;
+        }
+        .card label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .card input[type="checkbox"] {
+            margin-right: 5px;
+        }
+
     </style>
 </head>
 <body>
     <div class="layout">
-        <aside class="sidebar">
+        <aside class="sidebar" id="sidebar">
             <h2 class="logo">BYB NORTH</h2>
+            <div class="menu-toggle" onclick="toggleMenu()">☰</div>
             <div class="menu-group">ADMINISTRACIÓN</div>
             <div class="menuItem" onclick="window.mostrarVista('dashboard')">Listado Gral</div>
             <div class="menuItem" onclick="window.mostrarVista('mensual')">Control Mensual</div>
@@ -63,7 +225,7 @@
             <div id="m-armado" class="menuItem" onclick="window.mostrarVista('armado_bal')">Balanceo y Armado</div>
             <div id="m-despacho" class="menuItem" onclick="window.mostrarVista('despacho')" style="color:#f1c40f; border-top: 1px solid #2c3e50; margin-top:10px;">Área Despacho</div>
         </aside>
-        <main class="main">
+        <main class="main" id="main-content">
             <div id="vista">Cargando sistema...</div>
         </main>
     </div>
@@ -83,7 +245,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyDfpmCbLoL679LhwYX28aeTXnD9ydAAfAA",
             authDomain: "byb-norte.firebaseapp.com",
-            databaseURL: "https://byb-norte-default-rtdb.firebaseio.com", 
+            databaseURL: "https://byb-norte-default-rtdb.firebaseio.com",
             projectId: "byb-norte",
             appId: "1:345988575327:web:ee82e53fc079346189ebea",
             storageBucket: "byb-norte.appspot.com"
@@ -97,6 +259,7 @@
         window.data = [];
         window.vistaActual = "dashboard";
         window.filtroBusqueda = "";
+        window.menuAbierto = false; // Estado del menú
 
         onValue(dbRef, (snapshot) => {
             window.data = snapshot.val() || [];
@@ -105,7 +268,20 @@
         });
 
         window.save = () => set(dbRef, window.data);
-        window.mostrarVista = (v) => { window.vistaActual = v; window.render(); };
+        window.mostrarVista = (v) => {
+            window.vistaActual = v;
+            window.render();
+            if (window.menuAbierto) { // Cerrar menú al cambiar de vista en móvil
+                toggleMenu();
+            }
+        };
+
+        // Función para alternar la visibilidad del menú en móviles
+        window.toggleMenu = () => {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('expanded');
+            window.menuAbierto = sidebar.classList.contains('expanded');
+        }
 
         window.subirArchivo = async (i) => {
             const input = document.getElementById(`file_input_${i}`);
@@ -282,7 +458,7 @@
     if (obs.pruebas)    c += `   [PRUEBAS] : ${obs.pruebas}\n`;
     if (obs.salida)     c += `   [SALIDA]  : ${obs.salida}\n`;
     c += `\n============================================================\n`;
-    c += `                DOCUMENTO GENERADO POR SISTEMA BYB                \n`;
+    c += `                DOCUMENTO GENERADO POR SISTEMA BYB-NORTE                \n`;
     c += `============================================================\n`;
 
     const blob = new Blob([c], { type: "text/plain" });
@@ -296,8 +472,12 @@
             const em = document.getElementById('nemp').value;
             if(!ot || !em) return alert("Complete los campos");
             window.data.push({
-                ot, empresa: em, estado: 'desarme', pri: 'normal', 
-                pasos: {}, observaciones: {}, mediciones: {}, archivos: [], placa: {},
+                ot, empresa: em, estado: 'desarme', pri: 'normal',
+                pasos: {},
+                observaciones: {},
+                mediciones: {},
+                archivos: [],
+                placa: {},
                 enc_lc: 'no', enc_ll: 'no', met_lc: 'no', met_ll: 'no',
                 met_val_lc: '', met_val_ll: '', met_val_mlc: '', met_val_mll: '',
                 ejec_enc_lc: '', ejec_enc_ll: '', ejec_met_lc: '', ejec_met_ll: '',
@@ -329,7 +509,7 @@
         window.render = () => {
             const v = document.getElementById("vista");
             if (!v) return;
-            
+
             if (window.vistaActual === "dashboard") {
                 const dataOrdenada = [...window.data]
                     .map((d, indexOriginal) => ({ ...d, indexOriginal }))
@@ -339,8 +519,8 @@
                         return b.ot.localeCompare(a.ot, undefined, {numeric: true});
                     });
 
-                const filtradas = dataOrdenada.filter(d => 
-                    d.ot.toLowerCase().includes(window.filtroBusqueda.toLowerCase()) || 
+                const filtradas = dataOrdenada.filter(d =>
+                    d.ot.toLowerCase().includes(window.filtroBusqueda.toLowerCase()) ||
                     d.empresa.toLowerCase().includes(window.filtroBusqueda.toLowerCase())
                 );
 
@@ -349,7 +529,7 @@
                     <input type="text" class="search-input" id="buscado" placeholder="Buscar por OT o Empresa..." value="${window.filtroBusqueda}" oninput="window.filtroBusqueda=this.value; window.render()">
                 </div>
                 <table><thead><tr><th>Prioridad</th><th>OT</th><th>Empresa</th><th>Acciones</th></tr></thead><tbody>`;
-                
+
                 filtradas.forEach((d) => {
                     html += `<tr>
                         <td><button onclick="window.data[${d.indexOriginal}].pri=(window.data[${d.indexOriginal}].pri=='urgente'?'normal':'urgente'); window.save()" style="background:none; cursor:pointer; font-size:1.2em;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
@@ -363,7 +543,7 @@
                 });
                 v.innerHTML = html + "</tbody></table></div>";
                 document.getElementById('buscado')?.focus();
-            } 
+            }
             else if (window.vistaActual === "mensual") {
                 let mesSel = document.getElementById("fMes")?.value || "";
                 let filtrados = window.data.filter(d => d.mes === mesSel);
@@ -387,7 +567,7 @@
                 window.data.forEach((d, i) => {
                     let UI = ""; let p = d.pasos || {}; if(!d.mediciones) d.mediciones = {}; if(!d.placa) d.placa = {};
                     const obs = (k) => `<textarea id="obs_${k}_${i}" onchange="window.guardarObs(${i},'${k}')" placeholder="Notas...">${d.observaciones?.[k]||''}</textarea>`;
-                    
+
                     if (window.vistaActual === 'desarme_mant') {
                         if (d.estado === 'desarme') UI = `<h3>Desarme</h3>${obs('desarme')}<button onclick="window.updateFlujo(${i},'desarme_ok','ingresos_pendientes')">Fin Desarme</button>`;
                         else if (d.estado === 'ejecucion_trabajos') UI = `<h3>Mantención</h3>${obs('mantencion')}<button onclick="window.updateFlujo(${i},'mant_ok')">Fin Mantención</button>`;
@@ -527,7 +707,7 @@
                                         </tr>
                                         <tr>
                                             <td>Conexión</td>
-                                            <td><input type="text" value="${d.bobinado?.conexion || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, conexion: this.value}; window.save()"></td>
+                                            <td><input type="text" value="${d.bobinado?.conexion || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado,conexion: this.value}; window.save()"></td>
                                             <td>Sección Original</td>
                                             <td><input type="text" value="${d.bobinado?.seccion_original || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, seccion_original: this.value}; window.save()"></td>
                                         </tr>
