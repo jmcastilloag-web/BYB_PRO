@@ -20,10 +20,31 @@
         .btn-del { background: #e74c3c; color: white; }
         .search-container { margin-bottom: 15px; display: flex; gap: 10px; }
         .search-input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; flex-grow: 1; font-size: 1em; }
-        
         .rod-box { background: #fdf9e1; padding: 10px; border: 1px solid #f1c40f; border-radius: 4px; margin: 10px 0; }
-        /* Estilo para el estado del rodamiento en la tabla */
         .status-cell { font-size: 0.9em; display: block; white-space: nowrap; }
+        
+        /* Estilos para mediciones y modal */
+        .med-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee; margin-bottom: 10px; }
+        .med-input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 3px; box-sizing: border-box; margin-top: 2px; }
+        .modal { display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); overflow-y:auto; }
+        .modal-content { background:#fff; margin:5% auto; padding:20px; width:80%; border-radius:8px; position:relative; }
+        .close { position:absolute; right:20px; top:10px; font-size:28px; cursor:pointer; }
+        .row-met-ingreso { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; background: #fff; padding: 5px; border-radius: 4px; }
+        .placa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #fcfcfc; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-top: 10px;}
+        .bobinado-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; padding: 15px; background: #f0f7ff; border-radius: 8px; border: 1px solid #aed6f1; margin-top: 10px; }
+        .bobinado-grid label { font-weight: bold; margin-bottom: 5px; display: block; }
+        .bobinado-grid input[type="text"], .bobinado-grid select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .bobinado-section { background: #ffffff; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .bobinado-section h4 { margin-top: 0; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px; }
+        .fierro-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; padding: 15px; background: #fff8e1; border-radius: 8px; border: 1px solid #f1c40f; margin-top: 10px; }
+        .fierro-grid label { font-weight: bold; margin-bottom: 5px; display: block; }
+        .fierro-grid input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .medidas-seccion { background: #e8f5e9; padding: 15px; border-radius: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-top: 15px; }
+        .medidas-seccion h4 { margin-top: 0; color: #1b5e20; border-bottom: 1px solid #c8e6c9; padding-bottom: 5px; margin-bottom: 10px; }
+        .medidas-seccion label { font-weight: bold; margin-bottom: 5px; display: block; }
+        .medidas-seccion input[type="text"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .medidas-seccion div { margin-bottom: 10px; }
+        .medidas-seccion div:last-child { margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -47,20 +68,30 @@
         </main>
     </div>
 
+    <div id="modalDetalle" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="document.getElementById('modalDetalle').style.display='none'">&times;</span>
+            <div id="contenidoDetalle"></div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDfpmCbLoL679LhwYX28aeTXnD9ydAAfAA",
             authDomain: "byb-norte.firebaseapp.com",
             databaseURL: "https://byb-norte-default-rtdb.firebaseio.com", 
             projectId: "byb-norte",
-            appId: "1:345988575327:web:ee82e53fc079346189ebea"
+            appId: "1:345988575327:web:ee82e53fc079346189ebea",
+            storageBucket: "byb-norte.appspot.com"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const storage = getStorage(app);
         const dbRef = ref(db, 'taller_byb');
 
         window.data = [];
@@ -75,6 +106,55 @@
 
         window.save = () => set(dbRef, window.data);
         window.mostrarVista = (v) => { window.vistaActual = v; window.render(); };
+
+        window.subirArchivo = async (i) => {
+            const input = document.getElementById(`file_input_${i}`);
+            const file = input.files[0];
+            if (!file) return alert("Selecciona un archivo");
+            const btn = document.getElementById(`btn_file_${i}`);
+            btn.innerText = "Subiendo..."; btn.disabled = true;
+            try {
+                const storagePath = sRef(storage, `ot_${window.data[i].ot}/${Date.now()}_${file.name}`);
+                await uploadBytes(storagePath, file);
+                const url = await getDownloadURL(storagePath);
+                if (!window.data[i].archivos) window.data[i].archivos = [];
+                window.data[i].archivos.push({ name: file.name, url: url });
+                window.save();
+                alert("Archivo subido correctamente");
+            } catch (e) { alert("Error al subir archivo"); }
+            finally { btn.innerText = "Subir"; btn.disabled = false; input.value = ""; }
+        };
+
+        window.verDetalle = (i) => {
+            const d = window.data[i];
+            const m = d.mediciones || {};
+            const p = d.placa || {};
+            const modal = document.getElementById('modalDetalle');
+            const cont = document.getElementById('contenidoDetalle');
+            cont.innerHTML = `
+                <h2>Detalle OT: ${d.ot} - ${d.empresa}</h2>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                    <div>
+                        <h4>📋 Datos de Placa</h4>
+                        <p><b>Marca:</b> ${p.marca||'-'} | <b>Potencia:</b> ${p.pot||'-'}</p>
+                        <p><b>RPM:</b> ${p.rpm||'-'} | <b>Volt:</b> ${p.volt||'-'}</p>
+                        <p><b>Amp:</b> ${p.amp||'-'} | <b>Frame:</b> ${p.frame||'-'}</p>
+                        <hr>
+                        <h4>📊 Mediciones de Ingreso</h4>
+                        <p><b>Resistencia (Ω):</b> 1-2: ${m.res12||'-'} | 1-3: ${m.res13||'-'} | 2-3: ${m.res23||'-'}</p>
+                        <p><b>Inductancia (mH):</b> 1-2: ${m.ind12||'-'} | 1-3: ${m.ind13||'-'} | 2-3: ${m.ind23||'-'}</p>
+                        <p><b>Surge (%):</b> 1: ${m.sur1||'-'} | 2: ${m.sur2||'-'} | 3: ${m.sur3||'-'}</p>
+                        <p><b>Aislación:</b> ${m.aisla||'-'} MΩ</p>
+                        <p><b>IP / DAR:</b> ${m.ipdar||'-'}</p>
+                    </div>
+                    <div>
+                        <h4>📁 Archivos y Evidencia</h4>
+                        ${(d.archivos || []).map(f => `<a href="${f.url}" target="_blank" style="display:block; margin-bottom:5px; color:#3498db;">📄 ${f.name}</a>`).join('') || 'Sin archivos cargados.'}
+                    </div>
+                </div>
+            `;
+            modal.style.display = "block";
+        };
 
         window.actualizarAlertas = () => {
             const counts = { desarme: 0, calidad: 0, mecanica: 0, bobinado: 0, armado: 0, despacho: 0 };
@@ -105,43 +185,97 @@
             setLabel('m-despacho', 'Área Despacho', counts.despacho);
         };
 
-        window.descargarInforme = (i) => {
+       window.descargarInforme = (i) => {
             const d = window.data[i];
+            const m = d.mediciones || {};
+            const p = d.placa || {};
             const obs = d.observaciones || {};
-            let c = `==========================================\n      BYB NORTH - INFORME TÉCNICO\n==========================================\n`;
-            c += `OT: ${d.ot} | CLIENTE: ${d.empresa}\n`;
+            const fecha = new Date().toLocaleDateString();
+
+            // Función auxiliar para valores vacíos
+            const v = (val, def = "-") => (val && val.trim() !== "") ? val : def;
+            const sm = (val) => (val && val.trim() !== "") ? val : "S/M";
+            const sr = (req) => (req === 'si') ? "REQUERIDO" : "S/R";
+            const ok = (hecho) => hecho ? "[INSTALADO]" : "(PENDIENTE)";
+
+            let c = `============================================================\n`;
+            c += `                BYB NORTH - PROTOCOLO TÉCNICO                \n`;
+            c += `============================================================\n`;
+            c += `FECHA: ${fecha} | OT: ${d.ot} | CLIENTE: ${d.empresa}\n`;
+            c += `MARCA   : ${v(p.marca).padEnd(14)} POTENCIA: ${v(p.pot)}\n`;
+            c += `RPM     : ${v(p.rpm).padEnd(14)}   VOLT    : ${v(p.volt)}\n`;
+            c += `AMP     : ${v(p.amp).padEnd(14)}   FRAME   : ${v(p.frame)}\n`;
             c += `TIPO TRABAJO: ${d.tipoTrabajo ? d.tipoTrabajo.toUpperCase() : 'NO DEFINIDO'}\n`;
-            c += `ESTADO ACTUAL: ${d.estado.toUpperCase()}\n`;
-            c += `------------------------------------------\n`;
-            c += `DETALLE RODAMIENTOS:\n`;
-            c += ` - LC: ${d.rod_lc || 'N/A'} ${d.rod_lc_ok ? '[INSTALADO]' : '[PENDIENTE]'}\n`;
-            c += ` - LL: ${d.rod_ll || 'N/A'} ${d.rod_ll_ok ? '[INSTALADO]' : '[PENDIENTE]'}\n`;
-            c += `------------------------------------------\n`;
-            c += `REQUERIMIENTOS MECÁNICOS:\n`;
-            c += ` - Enc.LC: ${d.enc_lc.toUpperCase()} | Ejecutado: ${d.ejec_enc_lc ? 'SÍ' : 'NO'}\n`;
-            c += ` - Enc.LL: ${d.enc_ll.toUpperCase()} | Ejecutado: ${d.ejec_enc_ll ? 'SÍ' : 'NO'}\n`;
-            c += ` - Met.LC: ${d.met_lc.toUpperCase()} | Ejecutado: ${d.ejec_met_lc ? 'SÍ' : 'NO'}\n`;
-            c += ` - Met.LL: ${d.met_ll.toUpperCase()} | Ejecutado: ${d.ejec_met_ll ? 'SÍ' : 'NO'}\n`;
-            c += `------------------------------------------\n`;
-            c += `OBSERVACIONES POR ÁREA:\n`;
-            for (let k in obs) { if (obs[k]) c += `[${k.toUpperCase()}]: ${obs[k]}\n`; }
+            c += `------------------------------------------------------------\n`;
+            c += `============================================================\n`;
+            c += `1. DETALLE DEL REQUERIMIENTO (OFICINA):\n`;
+            c += `   ${v(obs.detalle, "Sin detalles registrados.")}\n`;
+            c += `============================================================\n`;
+            c += `2. MEDICIONES ELÉCTRICAS DE INGRESO:\n`;
+            c += `   RESISTENCIA  -> 1-2: ${v(m.res12)}  | 1-3: ${v(m.res13)}  | 2-3: ${v(m.res23)}\n`;
+            c += `   INDUCTANCIA  -> 1-2: ${v(m.ind12)}  | 1-3: ${v(m.ind13)}  | 2-3: ${v(m.ind23)}\n`;
+            c += `   SURGE TEST   -> 1:   ${v(m.sur1)}   | 2: ${v(m.sur2)}     | 3: ${v(m.sur3)}\n`;
+            c += `   AISLACIÓN    -> ${v(m.aisla)} MΩ\n`;
+            c += `   IP/DAR       -> ${v(m.ipdar)}\n`;
+            c += `============================================================\n\n`;
+            c += `3. METROLOGÍA Y COMPONENTES:\n`;
+            c += `   ROD. LC: ${d.rod_lc || 'N/A'} ${ok(d.rod_lc_ok)}\n`;
+            c += `   ROD. LL: ${d.rod_ll || 'N/A'} ${ok(d.rod_ll_ok)}\n\n`;
+            c += `   INICIAL (INGRESO)\n`;
+            c += `   ENC. LC: ${sr(d.enc_lc)} | MEDIDA: ${sm(d.met_val_lc)}\n`;
+            c += `   ENC. LL: ${sr(d.enc_ll)} | MEDIDA: ${sm(d.met_val_ll)}\n`;
+            c += `   MET. LC: ${sr(d.met_lc)} | MEDIDA: ${sm(d.met_val_mlc)}\n`;
+            c += `   MET. LL: ${sr(d.met_ll)} | MEDIDA: ${sm(d.met_val_mll)}\n\n`;
+            c += `   FINAL (ENTREGA)\n`;
+            c += `   ENC. LC: ${d.enc_lc === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_enc_lc)}\n`;
+            c += `   ENC. LL: ${d.enc_ll === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_enc_ll)}\n`;
+            c += `   MET. LC: ${d.met_lc === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_met_lc)}\n`;
+            c += `   MET. LL: ${d.met_ll === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_met_ll)}\n\n`;
+            c += `============================================================\n\n`;
+            c += `4. PRUEBAS DINÁMICAS Y DE SALIDA:\n`;
+            c += `   GRASA ALTERNATIVA: ${sm(m.grasa_alt)}\n`;
+            c += `   GRASA (SI): ${sm(m.grasa_si)}\n`;
+            c += `============================================================\n\n`;
+            c += `   VOLTAJE PRUEBA: ${sm(m.voltaje_prueba)}V\n`;
+            c += `   RESISTENCIA SALIDA  -> 1-2: ${sm(m.res_salida12)}  | 1-3: ${sm(m.res_salida13)}  | 2-3: ${sm(m.res_salida23)}\n`;
+            c += `   INDUCTANCIA SALIDA  -> 1-2: ${sm(m.ind_salida12)}  | 1-3: ${sm(m.ind_salida13)}  | 2-3: ${sm(m.ind_salida23)}\n`;
+            c += `   SURGE TEST SALIDA   -> 1:   ${sm(m.surge_salida1)} | 2: ${sm(m.surge_salida2)}   | 3: ${sm(m.surge_salida3)}\n`;
+            c += `   AISLACIÓN SALIDA    ->      ${sm(m.aisla_salida)} MΩ\n`;
+            c += `   IP/DAR SALIDA       ->      ${sm(m.ipdar_salida)}\n`;
+            c += `============================================================\n\n`;
+            c += `   VOLTAJE PRUEBA SALIDA ->    ${sm(m.voltaje_prueba_salida)}V\n`;
+            c += `   CONSUMO (R/S/T)       ->    ${sm(m.consumo_r)} / ${sm(m.consumo_s)} / ${sm(m.consumo_t)}\n`;
+            c += `   RPM SALIDA            ->    ${sm(m.rpm_salida)}\n`;
+            c += `   VIBRACIONES 1 (A/H/V) ->    ${sm(m.vib_1a)} / ${sm(m.vib_1h)} / ${sm(m.vib_1v)}\n`;
+            c += `   VIBRACIONES 2 (A/H/V) ->    ${sm(m.vib_2a)} / ${sm(m.vib_2h)} / ${sm(m.vib_2v)}\n`;
+            c += `============================================================\n\n`;
+            c += `5. REGISTRO DE OBSERVACIONES POR ÁREA:\n`;
+            if (obs.desarme)    c += `   [DESARME] : ${obs.desarme}\n`;
+            if (obs.mecanica)   c += `   [MECÁNICA]: ${obs.mecanica}\n`;
+            if (obs.bobinado)   c += `   [BOBINADO]: ${obs.bobinado}\n`;
+            if (obs.armado)     c += `   [ARMADO]  : ${obs.armado}\n`;
+            if (obs.pruebas)    c += `   [PRUEBAS] : ${obs.pruebas}\n`;
+            if (obs.salida)     c += `   [SALIDA]  : ${obs.salida}\n`;
+            c += `\n============================================================\n`;
+            c += `                DOCUMENTO GENERADO POR SISTEMA BYB                \n`;
+            c += `============================================================\n`;
             
             const blob = new Blob([c], { type: "text/plain" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `Informe_OT_${d.ot}.txt`;
+            link.download = `Protocolo_OT_${d.ot}_${d.empresa}.txt`;
             link.click();
         };
-
         window.nuevaOT = () => {
             const ot = document.getElementById('not').value;
             const em = document.getElementById('nemp').value;
             if(!ot || !em) return alert("Complete los campos");
             window.data.push({
                 ot, empresa: em, estado: 'desarme', pri: 'normal', 
-                pasos: {}, observaciones: {}, mes: "",
+                pasos: {}, observaciones: {}, mediciones: {}, archivos: [], placa: {},
                 enc_lc: 'no', enc_ll: 'no', met_lc: 'no', met_ll: 'no',
-                ejec_enc_lc: false, ejec_enc_ll: false, ejec_met_lc: false, ejec_met_ll: false,
+                met_val_lc: '', met_val_ll: '', met_val_mlc: '', met_val_mll: '',
+                ejec_enc_lc: '', ejec_enc_ll: '', ejec_met_lc: '', ejec_met_ll: '',
                 rod_lc: '', rod_ll: '', rod_lc_ok: false, rod_ll_ok: false,
                 tipoTrabajo: ''
             });
@@ -196,9 +330,10 @@
                         <td><button onclick="window.data[${d.indexOriginal}].pri=(window.data[${d.indexOriginal}].pri=='urgente'?'normal':'urgente'); window.save()" style="background:none; cursor:pointer; font-size:1.2em;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
                         <td><b>${d.ot}</b></td><td>${d.empresa}</td>
                         <td>
+                            <button onclick="window.verDetalle(${d.indexOriginal})" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">🔍 Detalle</button>
                             <button onclick="window.descargarInforme(${d.indexOriginal})" style="background:#2ecc71; color:white; border:none; padding:5px 10px; border-radius:3px; cursor:pointer;">📄 Informe</button>
                             <input type="month" value="${d.mes||''}" onchange="window.data[${d.indexOriginal}].mes=this.value; if(window.data[${d.indexOriginal}].estado=='espera_fecha')window.data[${d.indexOriginal}].estado='ejecucion_trabajos'; window.save()">
-                            <button onclick="if(confirm('¿Eliminar?')){window.data.splice(${d.indexOriginal},1); window.save()}" class="btn-del">X</button>
+                            <button onclick="if(confirm('¿Eliminar OT ${d.ot}?')){window.data.splice(${d.indexOriginal},1); window.save()}" class="btn-del">X</button>
                         </td></tr>`;
                 });
                 v.innerHTML = html + "</tbody></table></div>";
@@ -210,13 +345,10 @@
                 let filas = filtrados.map(d => {
                     const st = (req, hecho) => (req === 'si') ? (hecho ? '<td style="color:green">✔</td>' : '<td style="color:red">✘</td>') : '<td>-</td>';
                     const ck = (p) => (d.pasos && d.pasos[p]) ? '<td style="color:green">✔</td>' : '<td>-</td>';
-                    
-                    // Columna dinámica de rodamientos: Nombre + Icono
                     const rod_st = (modelo, hecho) => {
                         if(!modelo) return '<td>-</td>';
                         return `<td><span class="status-cell">${modelo} ${hecho ? '<b style="color:green">✔</b>' : '<b style="color:red">✘</b>'}</span></td>`;
                     };
-                    
                     return `<tr><td>${d.ot}</td><td>${d.empresa}</td>${rod_st(d.rod_lc, d.rod_lc_ok)}${rod_st(d.rod_ll, d.rod_ll_ok)}${st(d.enc_lc, d.ejec_enc_lc)}${st(d.enc_ll, d.ejec_enc_ll)}${st(d.met_lc, d.ejec_met_lc)}${st(d.met_ll, d.ejec_met_ll)}${ck('mant_ok')}<td>${d.estado.toUpperCase()}</td></tr>`;
                 }).join("");
                 v.innerHTML = `<div class="card"><h2>📅 Control Mensual</h2><input type="month" id="fMes" value="${mesSel}" onchange="window.render()"><div style="overflow-x:auto"><table class="tab-tec"><thead><tr><th>OT</th><th>Empresa</th><th>R.LC</th><th>R.LL</th><th>E.LC</th><th>E.LL</th><th>M.LC</th><th>M.LL</th><th>Mant</th><th>Estado</th></tr></thead><tbody>${filas || '<tr><td colspan="10">Sin datos</td></tr>'}</tbody></table></div></div>`;
@@ -228,7 +360,7 @@
                 let html = `<h2>Área: ${window.vistaActual.toUpperCase()}</h2>`;
                 let hay = false;
                 window.data.forEach((d, i) => {
-                    let UI = ""; let p = d.pasos || {};
+                    let UI = ""; let p = d.pasos || {}; if(!d.mediciones) d.mediciones = {}; if(!d.placa) d.placa = {};
                     const obs = (k) => `<textarea id="obs_${k}_${i}" onchange="window.guardarObs(${i},'${k}')" placeholder="Notas...">${d.observaciones?.[k]||''}</textarea>`;
                     
                     if (window.vistaActual === 'desarme_mant') {
@@ -236,32 +368,244 @@
                         else if (d.estado === 'ejecucion_trabajos') UI = `<h3>Mantención</h3>${obs('mantencion')}<button onclick="window.updateFlujo(${i},'mant_ok')">Fin Mantención</button>`;
                     }
                     else if (window.vistaActual === 'calidad') {
-                        if (d.estado === 'ingresos_pendientes') UI = `<h3>Mediciones</h3><select onchange="window.data[${i}].tipoTrabajo=this.value; window.save()"><option value="">Tipo...</option><option value="bobinado" ${d.tipoTrabajo=='bobinado'?'selected':''}>Bobinado</option><option value="mantencion" ${d.tipoTrabajo=='mantencion'?'selected':''}>Mantención</option></select><br>${obs('mediciones')}<button onclick="window.updateFlujo(${i},'med_ok')">Guardar</button>`;
-                        else if (d.estado === 'detalle_pendiente') UI = `<h3>Oficina</h3>${obs('detalle')}<button onclick="window.updateFlujo(${i},'detalle_ok','espera_fecha')">Enviar a Taller</button>`;
-                        else if (d.estado === 'pruebas_dinamicas') UI = `<h3>Pruebas</h3>${obs('pruebas')}<button onclick="window.updateFlujo(${i},'pruebas_ok','terminaciones')">Fin Pruebas</button>`;
+                        if (d.estado === 'ingresos_pendientes') {
+                            UI = `<h3>Mediciones de Ingreso</h3>
+                                <select onchange="window.data[${i}].tipoTrabajo=this.value; window.save()" style="width:100%; padding:8px; margin-bottom:10px;">
+                                    <option value="">Tipo...</option><option value="bobinado" ${d.tipoTrabajo=='bobinado'?'selected':''}>Bobinado</option><option value="mantencion" ${d.tipoTrabajo=='mantencion'?'selected':''}>Mantención</option>
+                                </select>
+                                <div class="med-grid">
+                                    <div><strong>RESISTENCIA (Ohm)</strong>
+                                        <input class="med-input" placeholder="1-2" value="${d.mediciones.res12||''}" onchange="window.data[${i}].mediciones.res12=this.value; window.save()">
+                                        <input class="med-input" placeholder="1-3" value="${d.mediciones.res13||''}" onchange="window.data[${i}].mediciones.res13=this.value; window.save()">
+                                        <input class="med-input" placeholder="2-3" value="${d.mediciones.res23||''}" onchange="window.data[${i}].mediciones.res23=this.value; window.save()">
+                                    </div>
+                                    <div><strong>INDUCTANCIA (mH)</strong>
+                                        <input class="med-input" placeholder="1-2" value="${d.mediciones.ind12||''}" onchange="window.data[${i}].mediciones.ind12=this.value; window.save()">
+                                        <input class="med-input" placeholder="1-3" value="${d.mediciones.ind13||''}" onchange="window.data[${i}].mediciones.ind13=this.value; window.save()">
+                                        <input class="med-input" placeholder="2-3" value="${d.mediciones.ind23||''}" onchange="window.data[${i}].mediciones.ind23=this.value; window.save()">
+                                    </div>
+                                    <div><strong>SURGE (%)</strong>
+                                        <input class="med-input" placeholder="1.-" value="${d.mediciones.sur1||''}" onchange="window.data[${i}].mediciones.sur1=this.value; window.save()">
+                                        <input class="med-input" placeholder="2.-" value="${d.mediciones.sur2||''}" onchange="window.data[${i}].mediciones.sur2=this.value; window.save()">
+                                        <input class="med-input" placeholder="3.-" value="${d.mediciones.sur3||''}" onchange="window.data[${i}].mediciones.sur3=this.value; window.save()">
+                                    </div>
+                                </div>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                                    <div><strong>AISLACIÓN (MOhm)</strong><input class="med-input" value="${d.mediciones.aisla||''}" onchange="window.data[${i}].mediciones.aisla=this.value; window.save()"></div>
+                                    <div><strong>IP / DAR</strong><input class="med-input" value="${d.mediciones.ipdar||''}" onchange="window.data[${i}].mediciones.ipdar=this.value; window.save()"></div>
+                                </div>
+                                <button onclick="window.updateFlujo(${i},'med_ok')">Guardar e Ingresar</button>`;
+                        }
+                        else if (d.estado === 'detalle_pendiente') {
+                            UI = `<h3>Oficina y Placa</h3>
+                                <div class="placa-grid">
+                                    <input class="med-input" placeholder="Marca" value="${d.placa.marca||''}" onchange="window.data[${i}].placa.marca=this.value; window.save()">
+                                    <input class="med-input" placeholder="Potencia" value="${d.placa.pot||''}" onchange="window.data[${i}].placa.pot=this.value; window.save()">
+                                    <input class="med-input" placeholder="RPM" value="${d.placa.rpm||''}" onchange="window.data[${i}].placa.rpm=this.value; window.save()">
+                                    <input class="med-input" placeholder="Volt" value="${d.placa.volt||''}" onchange="window.data[${i}].placa.volt=this.value; window.save()">
+                                    <input class="med-input" placeholder="Amp" value="${d.placa.amp||''}" onchange="window.data[${i}].placa.amp=this.value; window.save()">
+                                    <input class="med-input" placeholder="Frame" value="${d.placa.frame||''}" onchange="window.data[${i}].placa.frame=this.value; window.save()">
+                                </div>
+                                ${obs('detalle')}
+                                <div style="background:#f0f7ff; padding:10px; border-radius:5px; margin-bottom:10px;">
+                                    <strong>Subir Archivos (Fotos/Docs):</strong><br>
+                                    <input type="file" id="file_input_${i}"> <button id="btn_file_${i}" onclick="window.subirArchivo(${i})">Subir</button>
+                                </div>
+                                <button onclick="window.updateFlujo(${i},'detalle_ok','espera_fecha')">Enviar a Taller</button>`;
+                        }
+                        else if (d.estado === 'pruebas_dinamicas') {
+                            UI = `<h3>Pruebas Dinámicas</h3>
+                                <div class="med-grid">
+                                    <div><strong>GRASA</strong>
+                                        <input class="med-input" placeholder="Alternativas" value="${d.mediciones.grasa_alt||''}" onchange="window.data[${i}].mediciones.grasa_alt=this.value; window.save()">
+                                        <input class="med-input" placeholder="Si (Texto)" value="${d.mediciones.grasa_si||''}" onchange="window.data[${i}].mediciones.grasa_si=this.value; window.save()">
+                                    </div>
+                                    <div><strong>VOLTAJE DE PRUEBA</strong>
+                                        <input class="med-input" placeholder="Voltaje" value="${d.mediciones.voltaje_prueba||''}" onchange="window.data[${i}].mediciones.voltaje_prueba=this.value; window.save()">
+                                    </div>
+                                </div>
+                                <h4>Mediciones de Salida</h4>
+                                <div class="med-grid">
+                                    <div><strong>RESISTENCIA (Ohm)</strong>
+                                        <input class="med-input" placeholder="1-2" value="${d.mediciones.res_salida12||''}" onchange="window.data[${i}].mediciones.res_salida12=this.value; window.save()">
+                                        <input class="med-input" placeholder="1-3" value="${d.mediciones.res_salida13||''}" onchange="window.data[${i}].mediciones.res_salida13=this.value; window.save()">
+                                        <input class="med-input" placeholder="2-3" value="${d.mediciones.res_salida23||''}" onchange="window.data[${i}].mediciones.res_salida23=this.value; window.save()">
+                                    </div>
+                                    <div><strong>INDUCTANCIA (mH)</strong>
+                                        <input class="med-input" placeholder="1-2" value="${d.mediciones.ind_salida12||''}" onchange="window.data[${i}].mediciones.ind_salida12=this.value; window.save()">
+                                        <input class="med-input" placeholder="1-3" value="${d.mediciones.ind_salida13||''}" onchange="window.data[${i}].mediciones.ind_salida13=this.value; window.save()">
+                                        <input class="med-input" placeholder="2-3" value="${d.mediciones.ind_salida23||''}" onchange="window.data[${i}].mediciones.ind_salida23=this.value; window.save()">
+                                    </div>
+                                    <div><strong>SURGE(ONDA DE CHOQUE) (%)</strong>
+                                        <input class="med-input" placeholder="1.-" value="${d.mediciones.surge_salida1||''}" onchange="window.data[${i}].mediciones.surge_salida1=this.value; window.save()">
+                                        <input class="med-input" placeholder="2.-" value="${d.mediciones.surge_salida2||''}" onchange="window.data[${i}].mediciones.surge_salida2=this.value; window.save()">
+                                        <input class="med-input" placeholder="3.-" value="${d.mediciones.surge_salida3||''}" onchange="window.data[${i}].mediciones.surge_salida3=this.value; window.save()">
+                                    </div>
+                                </div>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                                    <div><strong>AISLACIÓN (MOhm)</strong><input class="med-input" value="${d.mediciones.aisla_salida||''}" onchange="window.data[${i}].mediciones.aisla_salida=this.value; window.save()"></div>
+                                    <div><strong>IP/DAR</strong><input class="med-input" value="${d.mediciones.ipdar_salida||''}" onchange="window.data[${i}].mediciones.ipdar_salida=this.value; window.save()"></div>
+                                </div>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                                    <div><strong>VOLTAJE DE PRUEBA</strong><input class="med-input" value="${d.mediciones.voltaje_prueba_salida||''}" onchange="window.data[${i}].mediciones.voltaje_prueba_salida=this.value; window.save()"></div>
+                                    <div><strong>CONSUMO LINEAS</strong><br> R:<input class="med-input" placeholder="R" value="${d.mediciones.consumo_r||''}" onchange="window.data[${i}].mediciones.consumo_r=this.value; window.save()"> S:<input class="med-input" placeholder="S" value="${d.mediciones.consumo_s||''}" onchange="window.data[${i}].mediciones.consumo_s=this.value; window.save()"> T:<input class="med-input" placeholder="T" value="${d.mediciones.consumo_t||''}" onchange="window.data[${i}].mediciones.consumo_t=this.value; window.save()"></div>
+                                </div>
+                                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px;">
+                                    <div><strong>RPM</strong><input class="med-input" value="${d.mediciones.rpm_salida||''}" onchange="window.data[${i}].mediciones.rpm_salida=this.value; window.save()"></div>
+                                    <div><strong>VIBRACIONES 1_A</strong><input class="med-input" value="${d.mediciones.vib_1a||''}" onchange="window.data[${i}].mediciones.vib_1a=this.value; window.save()"></div>
+                                    <div><strong>VIBRACIONES 1_H</strong><input class="med-input" value="${d.mediciones.vib_1h||''}" onchange="window.data[${i}].mediciones.vib_1h=this.value; window.save()"></div>
+                                    <div><strong>VIBRACIONES 1_V</strong><input class="med-input" value="${d.mediciones.vib_1v||''}" onchange="window.data[${i}].mediciones.vib_1v=this.value; window.save()"></div>
+                                    <div><strong>VIBRACIONES 2_A</strong><input class="med-input" value="${d.mediciones.vib_2a||''}" onchange="window.data[${i}].mediciones.vib_2a=this.value; window.save()"></div>
+                                    <div><strong>VIBRACIONES 2_H</strong><input class="med-input" value="${d.mediciones.vib_2h||''}" onchange="window.data[${i}].mediciones.vib_2h=this.value; window.save()"></div>
+                                    <div><strong>VIBRACIONES 2_V</strong><input class="med-input" value="${d.mediciones.vib_2v||''}" onchange="window.data[${i}].mediciones.vib_2v=this.value; window.save()"></div>
+                                </div>
+                                ${obs('pruebas')}<button onclick="window.updateFlujo(${i},'pruebas_ok','check_salida')">Fin Pruebas</button>`;
+                        }
                         else if (d.estado === 'check_salida') UI = `<h3>Salida Final</h3>${obs('salida')}<button onclick="window.updateFlujo(${i},'salida_ok','despacho')">DAR CHECK SALIDA</button>`;
                     }
                     else if (window.vistaActual === 'mecanica') {
                         if (d.estado === 'ingresos_pendientes') {
                             UI = `<h3>Metrología e Ingreso</h3>
                             <div style="background:#f9f9f9; padding:10px; border-radius:5px; margin-bottom:10px;">
-                                <strong>Modelo Rodamientos (Dejar vacío si no lleva):</strong><br>
-                                <input type="text" style="width:100%; padding:8px; margin:5px 0;" placeholder="Rodamiento LC" value="${d.rod_lc||''}" onchange="window.data[${i}].rod_lc=this.value; window.save()">
-                                <input type="text" style="width:100%; padding:8px; margin:5px 0;" placeholder="Rodamiento LL" value="${d.rod_ll||''}" onchange="window.data[${i}].rod_ll=this.value; window.save()">
+                                <strong>Modelo Rodamientos:</strong><br>
+                                <input type="text" style="width:48%; padding:8px;" placeholder="Rodamiento LC" value="${d.rod_lc||''}" onchange="window.data[${i}].rod_lc=this.value; window.save()">
+                                <input type="text" style="width:48%; padding:8px;" placeholder="Rodamiento LL" value="${d.rod_ll||''}" onchange="window.data[${i}].rod_ll=this.value; window.save()">
                             </div>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"><label><input type="checkbox" ${d.enc_lc=='si'?'checked':''} onchange="window.data[${i}].enc_lc=this.checked?'si':'no'; window.save()"> Enc.LC</label><label><input type="checkbox" ${d.enc_ll=='si'?'checked':''} onchange="window.data[${i}].enc_ll=this.checked?'si':'no'; window.save()"> Enc.LL</label><label><input type="checkbox" ${d.met_lc=='si'?'checked':''} onchange="window.data[${i}].met_lc=this.checked?'si':'no'; window.save()"> Met.LC</label><label><input type="checkbox" ${d.met_ll=='si'?'checked':''} onchange="window.data[${i}].met_ll=this.checked?'si':'no'; window.save()"> Met.LL</label></div><br>${obs('metrologia')}<button onclick="window.updateFlujo(${i},'met_ok')">Guardar Metrología</button>`;
+                            <div style="background:#eee; padding:10px; border-radius:5px;">
+                                <strong>Metrología Inicial:</strong>
+                                <div class="row-met-ingreso"><input type="checkbox" ${d.enc_lc=='si'?'checked':''} onchange="window.data[${i}].enc_lc=this.checked?'si':'no'; window.save()"> EN.LC <input type="text" placeholder="Valor" style="width:100px" value="${d.met_val_lc||''}" onchange="window.data[${i}].met_val_lc=this.value; window.save()"></div>
+                                <div class="row-met-ingreso"><input type="checkbox" ${d.enc_ll=='si'?'checked':''} onchange="window.data[${i}].enc_ll=this.checked?'si':'no'; window.save()"> EN.LL <input type="text" placeholder="Valor" style="width:100px" value="${d.met_val_ll||''}" onchange="window.data[${i}].met_val_ll=this.value; window.save()"></div>
+                                <div class="row-met-ingreso"><input type="checkbox" ${d.met_lc=='si'?'checked':''} onchange="window.data[${i}].met_lc=this.checked?'si':'no'; window.save()"> ME.LC <input type="text" placeholder="Valor" style="width:100px" value="${d.met_val_mlc||''}" onchange="window.data[${i}].met_val_mlc=this.value; window.save()"></div>
+                                <div class="row-met-ingreso"><input type="checkbox" ${d.met_ll=='si'?'checked':''} onchange="window.data[${i}].met_ll=this.checked?'si':'no'; window.save()"> ME.LL <input type="text" placeholder="Valor" style="width:100px" value="${d.met_val_mll||''}" onchange="window.data[${i}].met_val_mll=this.value; window.save()"></div>
+                            </div><br>${obs('metrologia')}<button onclick="window.updateFlujo(${i},'met_ok')">Guardar Metrología</button>`;
                         }
                         else if (d.estado === 'ejecucion_trabajos') {
-                            UI = `<h3>Mecánica</h3>`;
-                            if(d.enc_lc=='si') UI += `<label><input type="checkbox" ${d.ejec_enc_lc?'checked':''} onchange="window.data[${i}].ejec_enc_lc=this.checked; window.save()"> E.LC OK</label><br>`;
-                            if(d.enc_ll=='si') UI += `<label><input type="checkbox" ${d.ejec_enc_ll?'checked':''} onchange="window.data[${i}].ejec_enc_ll=this.checked; window.save()"> E.LL OK</label><br>`;
-                            if(d.met_lc=='si') UI += `<label><input type="checkbox" ${d.ejec_met_lc?'checked':''} onchange="window.data[${i}].ejec_met_lc=this.checked; window.save()"> M.LC OK</label><br>`;
-                            if(d.met_ll=='si') UI += `<label><input type="checkbox" ${d.ejec_met_ll?'checked':''} onchange="window.data[${i}].ejec_met_ll=this.checked; window.save()"> M.LL OK</label><br>`;
+                            UI = `<h3>Trabajo Mecánico (Finales)</h3>`;
+                            if(d.enc_lc=='si') UI += `<div class="row-met-ingreso">EN.LC FINAL: <input type="text" value="${d.ejec_enc_lc||''}" onchange="window.data[${i}].ejec_enc_lc=this.value; window.save()"></div>`;
+                            if(d.enc_ll=='si') UI += `<div class="row-met-ingreso">EN.LL FINAL: <input type="text" value="${d.ejec_enc_ll||''}" onchange="window.data[${i}].ejec_enc_ll=this.value; window.save()"></div>`;
+                            if(d.met_lc=='si') UI += `<div class="row-met-ingreso">ME.LC FINAL: <input type="text" value="${d.ejec_met_lc||''}" onchange="window.data[${i}].ejec_met_lc=this.value; window.save()"></div>`;
+                            if(d.met_ll=='si') UI += `<div class="row-met-ingreso">ME.LL FINAL: <input type="text" value="${d.ejec_met_ll||''}" onchange="window.data[${i}].ejec_met_ll=this.value; window.save()"></div>`;
                             UI += `<br>${obs('mecanica')}<button onclick="window.updateFlujo(${i},'mec_fin')">Fin Mecánica</button>`;
                         }
                     }
                     else if (window.vistaActual === 'bobinado' && d.estado === 'ejecucion_trabajos' && d.tipoTrabajo === 'bobinado') {
-                        UI = `<h3>Bobinado</h3>${obs('bobinado')}<button onclick="window.updateFlujo(${i},'bobinado_fin')">Fin Bobinado</button>`;
+                        UI = `<h3>Bobinado</h3>
+                            <div class="card-ot">
+                                <h4>📦 Datos de Bobinado</h4>
+                                <div class="tab-tec-container">
+                                    <table class="tab-tec">
+                                        <tr>
+                                            <td>Técnico</td>
+                                            <td><input type="text" value="${d.bobinado?.tecnico || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, tecnico: this.value}; window.save()"></td>
+                                            <td>Hebras</td>
+                                            <td><input type="text" value="${d.bobinado?.hebras || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, hebras: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Conexión</td>
+                                            <td><input type="text" value="${d.bobinado?.conexion || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, conexion: this.value}; window.save()"></td>
+                                            <td>Sección Original</td>
+                                            <td><input type="text" value="${d.bobinado?.seccion_original || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, seccion_original: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Paso</td>
+                                            <td><input type="text" value="${d.bobinado?.paso || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, paso: this.value}; window.save()"></td>
+                                            <td>Sección Utilizada</td>
+                                            <td><input type="text" value="${d.bobinado?.seccion_utilizada || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, seccion_utilizada: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Diámetro Original</td>
+                                            <td><input type="text" value="${d.bobinado?.diametro_original || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, diametro_original: this.value}; window.save()"></td>
+                                            <td>Vueltas Original</td>
+                                            <td><input type="text" value="${d.bobinado?.vueltas_original || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, vueltas_original: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Diámetro Utilizado</td>
+                                            <td><input type="text" value="${d.bobinado?.diametro_utilizado || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, diametro_utilizado: this.value}; window.save()"></td>
+                                            <td>Vueltas Utilizadas</td>
+                                            <td><input type="text" value="${d.bobinado?.vueltas_utilizadas || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, vueltas_utilizadas: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Espiras</td>
+                                            <td><input type="text" value="${d.bobinado?.espiras || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, espiras: this.value}; window.save()"></td>
+                                            <td>Canal</td>
+                                            <td><select value="${d.bobinado?.canal || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, canal: this.value}; window.save()">
+                                                <option value="">Seleccione...</option>
+                                                <option value="alternativa" ${d.bobinado?.canal === 'alternativa' ? 'selected' : ''}>Alternativa</option>
+                                                <option value="media" ${d.bobinado?.canal === 'media' ? 'selected' : ''}>Media</option>
+                                                <option value="llena" ${d.bobinado?.canal === 'llena' ? 'selected' : ''}>Llena</option>
+                                            </select></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Grupos</td>
+                                            <td><input type="text" value="${d.bobinado?.grupos || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, grupos: this.value}; window.save()"></td>
+                                            <td>Ranuras</td>
+                                            <td><input type="text" value="${d.bobinado?.ranuras || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, ranuras: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Bobinas</td>
+                                            <td><input type="text" value="${d.bobinado?.bobinas || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, bobinas: this.value}; window.save()"></td>
+                                            <td>Tipo de Falla</td>
+                                            <td><input type="text" value="${d.bobinado?.tipo_falla || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, tipo_falla: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Cables</td>
+                                            <td><input type="text" value="${d.bobinado?.cables || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, cables: this.value}; window.save()"></td>
+                                            <td>Medida del Molde</td>
+                                            <td><input type="text" value="${d.bobinado?.medida_molde || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, medida_molde: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Al.Lado Conexión</td>
+                                            <td><input type="text" value="${d.bobinado?.al_lado_conexion || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, al_lado_conexion: this.value}; window.save()"></td>
+                                            <td>Coilera Utilizada</td>
+                                            <td><input type="text" value="${d.bobinado?.coilera_utilizada || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, coilera_utilizada: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Al.Lado Opuesto</td>
+                                            <td><input type="text" value="${d.bobinado?.al_lado_opuesto || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, al_lado_opuesto: this.value}; window.save()"></td>
+                                            <td>Peso Alambre</td>
+                                            <td><input type="text" value="${d.bobinado?.peso_alambre || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, peso_alambre: this.value}; window.save()"></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <h4>🔩 Datos del Fierro</h4>
+                                <div class="tab-tec-container">
+                                    <table class="tab-tec">
+                                        <tr>
+                                            <td>Diámetro Interior</td>
+                                            <td><input type="text" value="${d.bobinado?.diametro_interior || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, diametro_interior: this.value}; window.save()"></td>
+                                            <td>Culatas</td>
+                                            <td><input type="text" value="${d.bobinado?.culatas || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, culatas: this.value}; window.save()"></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Diámetro Exterior</td>
+                                            <td><input type="text" value="${d.bobinado?.diametro_exterior || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, diametro_exterior: this.value}; window.save()"></td>
+                                            <td>Lago</td>
+                                            <td><input type="text" value="${d.bobinado?.lago || ''}" onchange="window.data[${i}].bobinado={...window.data[${i}].bobinado, lago: this.value}; window.save()"></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <h4>⚡ Resistencias</h4>
+                                <div class="med-grid">
+                                    <div><input class="med-input" placeholder="1-2 (Ohm)" value="${d.mediciones.res12||''}" onchange="window.data[${i}].mediciones.res12=this.value; window.save()"></div>
+                                    <div><input class="med-input" placeholder="1-3 (Ohm)" value="${d.mediciones.res13||''}" onchange="window.data[${i}].mediciones.res13=this.value; window.save()"></div>
+                                    <div><input class="med-input" placeholder="2-3 (Ohm)" value="${d.mediciones.res23||''}" onchange="window.data[${i}].mediciones.res23=this.value; window.save()"></div>
+                                </div>
+                                <h4>⚡ Inductancias</h4>
+                                <div class="med-grid">
+                                    <div><input class="med-input" placeholder="1-2 (mH)" value="${d.mediciones.ind12||''}" onchange="window.data[${i}].mediciones.ind12=this.value; window.save()"></div>
+                                    <div><input class="med-input" placeholder="1-3 (mH)" value="${d.mediciones.ind13||''}" onchange="window.data[${i}].mediciones.ind13=this.value; window.save()"></div>
+                                    <div><input class="med-input" placeholder="2-3 (mH)" value="${d.mediciones.ind23||''}" onchange="window.data[${i}].mediciones.ind23=this.value; window.save()"></div>
+                                </div>
+                                <h4>⚡ Surge (Onda de Choque)</h4>
+                                <div class="med-grid">
+                                    <div><input class="med-input" placeholder="1.- (%)" value="${d.mediciones.sur1||''}" onchange="window.data[${i}].mediciones.sur1=this.value; window.save()"></div>
+                                    <div><input class="med-input" placeholder="2.- (%)" value="${d.mediciones.sur2||''}" onchange="window.data[${i}].mediciones.sur2=this.value; window.save()"></div>
+                                    <div><input class="med-input" placeholder="3.- (%)" value="${d.mediciones.sur3||''}" onchange="window.data[${i}].mediciones.sur3=this.value; window.save()"></div>
+                                </div>
+                                <h4>⚡ Aislación</h4>
+                                <div><input class="med-input" placeholder="MOhm" value="${d.mediciones.aisla||''}" onchange="window.data[${i}].mediciones.aisla=this.value; window.save()"></div>
+                            </div>
+                            ${obs('bobinado')}<button onclick="window.updateFlujo(${i},'bobinado_fin')">Fin Bobinado</button>`;
                     }
                     else if (window.vistaActual === 'armado_bal') {
                         if (d.estado === 'ejecucion_trabajos') {
@@ -277,7 +621,7 @@
                         }
                     }
                     else if (window.vistaActual === 'despacho' && d.estado === 'despacho') {
-                        UI = `<h3>Despacho</h3><button onclick="window.updateFlujo(${i},'salida_final','entregado')" style="background:green">MARCAR ENTREGADO</button>`;
+                        UI = `<h3>Despacho</h3><button onclick="window.updateFlujo(${i},'salida_final','entregado')">MARCAR ENTREGADO</button>`;
                     }
                     if (UI) { html += `<div class="card-ot"><h4>OT: ${d.ot} - ${d.empresa}</h4>${UI}</div>`; hay = true; }
                 });
