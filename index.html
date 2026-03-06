@@ -225,6 +225,13 @@
         p { margin-bottom: 8px; }
 
         /* ── MEDICIONES ORDENADAS ── */
+        /* ── Detalle checkboxes ── */
+        .det-seccion-titulo { background: var(--sidebar); color: white; font-weight: 700; font-size: 0.85em; padding: 7px 12px; border-radius: 5px; margin-bottom: 8px; letter-spacing: 0.5px; }
+        .det-chk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; margin-bottom: 4px; }
+        .det-chk-label { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.85em; background: white; transition: all 0.15s; user-select: none; }
+        .det-chk-label:hover { border-color: var(--accent); background: #f0f7ff; }
+        .det-chk-label.det-chk-on { border-color: var(--success); background: #f0fff4; color: #1a7a3a; font-weight: 600; }
+        .det-chk-label input[type="checkbox"] { accent-color: var(--success); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
         .seccion-med { background: #f8fbff; border: 1px solid #d0e8ff; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; }
         .med-titulo { font-size: 0.8em; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
         .med-fila3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
@@ -283,6 +290,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
 
         const firebaseConfig = {
             apiKey: "AIzaSyDfpmCbLoL679LhwYX28aeTXnD9ydAAfAA",
@@ -409,112 +417,278 @@
             setLabel('m-despacho', 'Área Despacho', counts.despacho);
         };
 
-       window.descargarInforme = (i) => {
-    const d = window.data[i];
-    const m = d.mediciones || {};
-    const p = d.placa || {};
-    const obs = d.observaciones || {};
-    const b = d.bobinado || {}; // Datos de bobinado
-    const f = d.fierro || {};   // Datos del fierro
-    const fecha = new Date().toLocaleDateString();
 
-    // Función auxiliar para valores vacíos
-    const v = (val, def = "-") => (val && typeof val === 'string' && val.trim() !== "") ? val : def;
-    const sm = (val) => (val && typeof val === 'string' && val.trim() !== "") ? val : "S/M";
-    const sr = (req) => (req === 'si') ? "REQUERIDO" : "S/R";
-    const ok = (hecho) => hecho ? "[INSTALADO]" : "(PENDIENTE)";
+        // ── Generador DOCX sin librerías externas (XML + JSZip lazy) ──
+        const loadJSZip = () => {
+            if (window.JSZip) return Promise.resolve(window.JSZip);
+            return new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                s.onload = () => res(window.JSZip);
+                s.onerror = rej;
+                document.head.appendChild(s);
+            });
+        };
 
-    let c = `============================================================\n`;
-    c += `                BYB NORTH - PROTOCOLO TÉCNICO                \n`;
-    c += `============================================================\n`;
-    c += `FECHA: ${fecha} | OT: ${d.ot} | CLIENTE: ${d.empresa}\n`;
-    c += `MARCA   : ${v(p.marca).padEnd(14)}   POTENCIA: ${v(p.pot)}\n`;
-    c += `RPM     : ${v(p.rpm).padEnd(14)}   VOLT    : ${v(p.volt)}\n`;
-    c += `AMP     : ${v(p.amp).padEnd(14)}   FRAME   : ${v(p.frame)}\n`;
-    c += `TIPO TRABAJO: ${d.tipoTrabajo ? d.tipoTrabajo.toUpperCase() : 'NO DEFINIDO'}\n`;
-    c += `------------------------------------------------------------\n`;
-    c += `============================================================\n`;
-    c += `1. DETALLE DEL REQUERIMIENTO (OFICINA):\n`;
-    c += `   ${v(obs.detalle, "Sin detalles registrados.")}\n`;
-    c += `============================================================\n`;
-    c += `2. MEDICIONES ELÉCTRICAS DE INGRESO:\n`;
-    c += `   RESISTENCIA  -> 1-2: ${v(m.res12)}  | 1-3: ${v(m.res13)}  | 2-3: ${v(m.res23)}\n`;
-    c += `   INDUCTANCIA  -> 1-2: ${v(m.ind12)}  | 1-3: ${v(m.ind13)}  | 2-3: ${v(m.ind23)}\n`;
-    c += `   SURGE TEST   -> 1:   ${v(m.sur1)}   | 2:   ${v(m.sur2)}   | 3: ${v(m.sur3)}\n`;
-    c += `   AISLACIÓN    -> ${v(m.aisla)} MΩ\n`;
-    c += `   IP/DAR       -> ${v(m.ipdar)}\n`;
-    c += `============================================================\n\n`;
+        // Colores corporativos
+        const C_AZUL = '2C3E50', C_AZUL2 = '3498DB', C_VERDE = '27AE60';
 
-    c += `3. DATOS TÉCNICOS DE BOBINADO Y FIERRO:\n`;
-    c += `   CONEXIÓN:  ${v(b.conexion).padEnd(15)}   HEBRAS: ${v(b.hebras)}\n`;
-    c += `   PASO:      ${v(b.paso).padEnd(19)}   CANAL: ${v(b.canal)}\n`;
-    c += `   GRUPOS:    ${v(b.grupos).padEnd(17)}   RANURAS: ${v(b.ranuras)}\n`;
-    c += `   BOBINAS:   ${v(b.bobinas).padEnd(16)}   ESPIRAS: ${v(b.espiras)}\n`;
-    c += `   --------------------------------------------------------\n`;
-    c += `   SECCIÓN ORIG:  ${v(b.sec_orig).padEnd(12)}   SECCIÓN UTIL: ${v(b.sec_util)}\n`;
-    c += `   DIÁMETRO ORIG: ${v(b.dia_orig).padEnd(11)}   DIÁMETRO UTIL: ${v(b.dia_util)}\n`;
-    c += `   VUELTAS ORIG:  ${v(b.vue_orig).padEnd(12)}   VUELTAS UTIL: ${v(b.vue_util)}\n`;
-    c += `   --------------------------------------------------------\n`;
-    c += `   MEDIDA MOLDE: ${v(b.molde).padEnd(12)}  COILERA: ${v(b.coilera)}\n`;
-    c += `   AL. CONEXIÓN: ${v(b.al_con).padEnd(12)}  AL. OPUESTO: ${v(b.al_op)}\n`;
-    c += `   PESO ALAMBRE: ${v(b.peso)} Kg   CABLES: ${v(b.cables)}\n`;
-    c += `   TIPO FALLA: ${v(b.falla)}\n`;
-    c += `   --------------------------------------------------------\n`;
-    c += `   RESIST. BOBINADO -> 1-2: ${v(b.res12)} | 1-3: ${v(b.res13)} | 2-3: ${v(b.res23)}\n`;
-    c += `   INDUCT. BOBINADO -> 1-2: ${v(b.ind12)} | 1-3: ${v(b.ind13)} | 2-3: ${v(b.ind23)}\n`;
-    c += `   --------------------------------------------------------\n`;
-    c += `   DIÁM. INTERIOR: ${v(f.diam_int).padEnd(10)} DIÁM. EXTERIOR: ${v(f.diam_ext)}\n`;
-    c += `   LARGO FIERRO: ${v(f.largo).padEnd(12)} CULATAS: ${v(f.culatas)}\n`;
-    c += `============================================================\n\n`;
+        const xEsc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-    c += `4. METROLOGÍA Y COMPONENTES:\n`;
-    c += `   ROD. LC: ${d.rod_lc || 'N/A'} ${ok(d.rod_lc_ok)}\n`;
-    c += `   ROD. LL: ${d.rod_ll || 'N/A'} ${ok(d.rod_ll_ok)}\n\n`;
-    c += `   INICIAL (INGRESO)\n`;
-    c += `   ENC. LC: ${sr(d.enc_lc)} | MEDIDA: ${sm(d.met_val_lc)}\n`;
-    c += `   ENC. LL: ${sr(d.enc_ll)} | MEDIDA: ${sm(d.met_val_ll)}\n`;
-    c += `   MET. LC: ${sr(d.met_lc)} | MEDIDA: ${sm(d.met_val_mlc)}\n`;
-    c += `   MET. LL: ${sr(d.met_ll)} | MEDIDA: ${sm(d.met_val_mll)}\n\n`;
-    c += `   FINAL (ENTREGA)\n`;
-    c += `   ENC. LC: ${d.enc_lc === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_enc_lc)}\n`;
-    c += `   ENC. LL: ${d.enc_ll === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_enc_ll)}\n`;
-    c += `   MET. LC: ${d.met_lc === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_met_lc)}\n`;
-    c += `   MET. LL: ${d.met_ll === 'si' ? 'OK' : 'N/A'} | MEDIDA: ${sm(d.ejec_met_ll)}\n\n`;
-    c += `============================================================\n\n`;
-    c += `5. PRUEBAS DINÁMICAS Y DE SALIDA:\n`;
-    c += `   GRASA ALTERNATIVA: ${sm(m.grasa_alt)}\n`;
-    c += `   GRASA (SI): ${sm(m.grasa_si)}\n`;
-    c += `============================================================\n\n`;
-    c += `   VOLTAJE PRUEBA: ${sm(m.voltaje_prueba)}V\n`;
-    c += `   RESISTENCIA SALIDA  -> 1-2: ${sm(m.res_salida12)}  | 1-3: ${sm(m.res_salida13)}  | 2-3: ${sm(m.res_salida23)}\n`;
-    c += `   INDUCTANCIA SALIDA  -> 1-2: ${sm(m.ind_salida12)}  | 1-3: ${sm(m.ind_salida13)}  | 2-3: ${sm(m.ind_salida23)}\n`;
-    c += `   SURGE TEST SALIDA   -> 1:   ${sm(m.surge_salida1)} | 2: ${sm(m.surge_salida2)}   | 3: ${sm(m.surge_salida3)}\n`;
-    c += `   AISLACIÓN SALIDA    ->      ${sm(m.aisla_salida)} MΩ\n`;
-    c += `   IP/DAR SALIDA       ->      ${sm(m.ipdar_salida)}\n`;
-    c += `============================================================\n\n`;
-    c += `   VOLTAJE PRUEBA SALIDA ->    ${sm(m.voltaje_prueba_salida)}V\n`;
-    c += `   CONSUMO (R/S/T)       ->    ${sm(m.consumo_r)} / ${sm(m.consumo_s)} / ${sm(m.consumo_t)}\n`;
-    c += `   RPM SALIDA            ->    ${sm(m.rpm_salida)}\n`;
-    c += `   VIBRACIONES 1 (A/H/V) ->    ${sm(m.vib_1a)} / ${sm(m.vib_1h)} / ${sm(m.vib_1v)}\n`;
-    c += `   VIBRACIONES 2 (A/H/V) ->    ${sm(m.vib_2a)} / ${sm(m.vib_2h)} / ${sm(m.vib_2v)}\n`;
-    c += `============================================================\n\n`;
-    c += `6. REGISTRO DE OBSERVACIONES POR ÁREA:\n`;
-    if (obs.desarme)    c += `   [DESARME] : ${obs.desarme}\n`;
-    if (obs.mecanica)   c += `   [MECÁNICA]: ${obs.mecanica}\n`;
-    if (obs.bobinado)   c += `   [BOBINADO]: ${obs.bobinado}\n`;
-    if (obs.armado)     c += `   [ARMADO]  : ${obs.armado}\n`;
-    if (obs.pruebas)    c += `   [PRUEBAS] : ${obs.pruebas}\n`;
-    if (obs.salida)     c += `   [SALIDA]  : ${obs.salida}\n`;
-    c += `\n============================================================\n`;
-    c += `                DOCUMENTO GENERADO POR SISTEMA BYB-NORTE                \n`;
-    c += `============================================================\n`;
+        // Celda de tabla
+        const cel = (txt, w, opts={}) => {
+            const fill = opts.h ? (opts.fill||C_AZUL) : (opts.fill||'FFFFFF');
+            const color = opts.h ? 'FFFFFF' : (opts.color||'2C3E50');
+            const bold = opts.h || opts.bold;
+            const align = opts.center ? 'center' : 'left';
+            const span = opts.span ? `<w:gridSpan w:val="${opts.span}"/>` : '';
+            return `<w:tc>
+                <w:tcPr>${span}<w:tcW w:w="${w}" w:type="dxa"/>
+                <w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>
+                <w:tcMar><w:top w:w="70" w:type="dxa"/><w:bottom w:w="70" w:type="dxa"/><w:left w:w="130" w:type="dxa"/><w:right w:w="130" w:type="dxa"/></w:tcMar>
+                </w:tcPr>
+                <w:p><w:pPr><w:jc w:val="${align}"/></w:pPr>
+                <w:r><w:rPr><w:color w:val="${color}"/>${bold?'<w:b/>':''}<w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr>
+                <w:t xml:space="preserve">${xEsc(txt)}</w:t></w:r></w:p></w:tc>`;
+        };
+        const th = (txt, w, fill) => cel(txt, w, {h:true, fill, center:true});
+        const tr = (...cells) => `<w:tr>${cells.join('')}</w:tr>`;
+        const tabla = (cols, rows) => `<w:tbl>
+            <w:tblPr><w:tblW w:w="${cols.reduce((a,b)=>a+b,0)}" w:type="dxa"/>
+            <w:tblBorders>
+                <w:top w:val="single" w:sz="1" w:color="DDE1E7"/>
+                <w:left w:val="single" w:sz="1" w:color="DDE1E7"/>
+                <w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/>
+                <w:right w:val="single" w:sz="1" w:color="DDE1E7"/>
+                <w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/>
+                <w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/>
+            </w:tblBorders></w:tblPr>
+            <w:tblGrid>${cols.map(c=>`<w:gridCol w:w="${c}"/>`).join('')}</w:tblGrid>
+            ${rows.join('')}</w:tbl>`;
 
-    const blob = new Blob([c], { type: "text/plain" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Protocolo_OT_${d.ot}_${d.empresa}.txt`;
-    link.click();
-};
+        const seccion = (txt) => `<w:p>
+            <w:pPr><w:spacing w:before="200" w:after="80"/>
+            <w:shd w:val="clear" w:color="auto" w:fill="${C_AZUL}"/>
+            <w:ind w:left="100" w:right="100"/></w:pPr>
+            <w:r><w:rPr><w:b/><w:color w:val="FFFFFF"/><w:sz w:val="21"/><w:szCs w:val="21"/></w:rPr>
+            <w:t xml:space="preserve">${xEsc(txt)}</w:t></w:r></w:p>`;
+
+        const parr = (txt, opts={}) => `<w:p>
+            <w:pPr><w:spacing w:before="${opts.before||60}" w:after="${opts.after||60}"/>
+            ${opts.center?'<w:jc w:val="center"/>':''}</w:pPr>
+            <w:r><w:rPr><w:color w:val="${opts.color||'2C3E50'}"/>${opts.bold?'<w:b/>':''}
+            <w:sz w:val="${opts.sz||18}"/><w:szCs w:val="${opts.sz||18}"/></w:rPr>
+            <w:t xml:space="preserve">${xEsc(txt)}</w:t></w:r></w:p>`;
+
+        const sp = (b=120) => `<w:p><w:pPr><w:spacing w:before="${b}" w:after="0"/></w:pPr></w:p>`;
+
+        const fila2 = (label, val, W=9026) => {
+            const w1=Math.round(W*0.36), w2=W-w1;
+            return tabla([w1,w2],[tr(cel(label,w1,{fill:'F5F6F7',bold:true,color:'555555'}),cel(val,w2))]);
+        };
+
+        const tabPlaca = (d, W=9026) => {
+            const p=d.placa||{};
+            const c=[1503,1503,1505,1505,1505,1505];
+            return tabla(c,[
+                tr(th('MARCA',c[0]),cel(p.marca,c[1]),th('POTENCIA',c[2]),cel(p.pot,c[3]),th('FRAME',c[4]),cel(p.frame,c[5])),
+                tr(th('RPM',c[0]),cel(p.rpm,c[1]),th('VOLTAJE',c[2]),cel(p.volt,c[3]),th('AMP',c[4]),cel(p.amp,c[5]))
+            ]);
+        };
+
+        const tabMedElec = (m={}, prefijo='', W=9026) => {
+            const c=[1805,1805,1805,1805,1806];
+            return tabla(c,[
+                tr(th('',c[0],'F5F6F7'),th('1-2',c[1],C_AZUL2),th('1-3',c[2],C_AZUL2),th('2-3',c[3],C_AZUL2),th('UNIDAD',c[4],C_AZUL2)),
+                tr(th('RESISTENCIA',c[0],'F5F6F7'),cel(m[prefijo+'res12'],c[1],{center:true}),cel(m[prefijo+'res13'],c[2],{center:true}),cel(m[prefijo+'res23'],c[3],{center:true}),cel('Ohm',c[4],{center:true,color:'888888'})),
+                tr(th('INDUCTANCIA',c[0],'F5F6F7'),cel(m[prefijo+'ind12'],c[1],{center:true}),cel(m[prefijo+'ind13'],c[2],{center:true}),cel(m[prefijo+'ind23'],c[3],{center:true}),cel('mH',c[4],{center:true,color:'888888'})),
+                tr(th('SURGE',c[0],'F5F6F7'),cel(m[prefijo+'sur1']||m[prefijo+'surge_salida1'],c[1],{center:true}),cel(m[prefijo+'sur2']||m[prefijo+'surge_salida2'],c[2],{center:true}),cel(m[prefijo+'sur3']||m[prefijo+'surge_salida3'],c[3],{center:true}),cel('%',c[4],{center:true,color:'888888'})),
+                tr(th('AISLACIÓN',c[0],'F5F6F7'),cel(m[prefijo+'aisla'],c[1],{span:2}),`<w:tc><w:tcPr><w:tcW w:w="${c[2]}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`,th('IP/DAR',c[3],'F5F6F7'),cel(m[prefijo+'ipdar'],c[4],{center:true})),
+            ]);
+        };
+
+        const tabMetro = (d, W=9026) => {
+            const c=[2256,2256,2257,2257];
+            return tabla(c,[
+                tr(th('LADO',c[0]),th('COMPONENTE',c[1]),th('ALOJAMIENTO',c[2]),th('ASENTAMIENTO',c[3])),
+                tr(th('LC',c[0],'F5F6F7'),cel(d.enc_lc==='si'?'Encaje LC':(d.met_lc==='si'?'Metrología LC':'-'),c[1]),cel(d.met_val_lc,c[2],{center:true}),cel(d.ejec_enc_lc,c[3],{center:true})),
+                tr(th('LL',c[0],'F5F6F7'),cel(d.enc_ll==='si'?'Encaje LL':(d.met_ll==='si'?'Metrología LL':'-'),c[1]),cel(d.met_val_ll,c[2],{center:true}),cel(d.ejec_enc_ll,c[3],{center:true})),
+            ]);
+        };
+
+        const TRABAJOS_LIST = [
+            {k:'fab_anillo',l:'Fab. anillo rectificado de anillos'},{k:'camb_carbones',l:'Cambio carbones / asentamiento'},
+            {k:'mant_porta_escobilla',l:'Mant. porta escobilla'},{k:'camb_prensas',l:'Cambio de prensas'},
+            {k:'camb_cable_salida',l:'Cambio cable de salida'},{k:'camb_ptc_rtd',l:'Cambio PTC / RTD'},
+            {k:'camb_pt100',l:'Cambio PT-100'},{k:'camb_flexible',l:'Cambio de flexible'},
+            {k:'camb_enchufe_3f',l:'Cambio enchufe 3F'},{k:'mant_calefactores',l:'Mant. calefactores bobinado'},
+            {k:'bob_campos_comp',l:'Bobinado campos de compensación'},{k:'bob_interpolos',l:'Bobinado interpolos'},
+            {k:'bob_inducido',l:'Bobinado inducido'},{k:'mant_campos',l:'Mant. campos'},
+            {k:'mant_campos_comp',l:'Mant. campos de compensación'},{k:'mant_interpolos',l:'Mant. interpolos'},
+            {k:'mant_inducido',l:'Mant. inducido'},{k:'rect_colector',l:'Rect. y desmicado de colector'},
+            {k:'vicelado_colector',l:'Vicelado colector'},{k:'mant_tacometro',l:'Mant. tacómetro'},
+            {k:'barn_camp_inter',l:'Barnizado y secado camp. inter.'},{k:'barn_inducido',l:'Barnizado y secado inducido'},
+            {k:'camb_grasera',l:'Cambio grasera'},{k:'camb_ducto_grasera',l:'Cambio ducto grasera'},
+            {k:'armado',l:'Armado'},{k:'pintura',l:'Pintura'},{k:'pruebas_electricas',l:'Pruebas eléctricas'},
+        ];
+        const FALLAS_LIST = [
+            {k:'falla_metalado_lc',l:'Metalado descanso lado conexión'},{k:'falla_metalado_ll',l:'Metalado descanso lado libre'},
+            {k:'falla_fab_descanso_lc',l:'Fabricación descanso lado conexión'},{k:'falla_fab_descanso_ll',l:'Fabricación descanso lado libre'},
+            {k:'falla_bob_campos',l:'Bobinado dos campos rueda polar'},{k:'falla_mant_correctivo',l:'Mant. correctivo / sumergido en agua'},
+        ];
+
+        const tabChecks = (items, marcados, W=9026) => {
+            const w=Math.round(W/2);
+            const rows=[];
+            for(let i=0;i<items.length;i+=2){
+                const a=items[i], b=items[i+1];
+                const mk=(it)=>it ? `<w:r><w:rPr><w:color w:val="${marcados[it.k]?C_VERDE:'888888'}"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${marcados[it.k]?'☑':'☐'} ${xEsc(it.l)}</w:t></w:r>` : '';
+                rows.push(tr(
+                    `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/></w:tcPr><w:p>${mk(a)}</w:p></w:tc>`,
+                    `<w:tc><w:tcPr><w:tcW w:w="${W-w}" w:type="dxa"/></w:tcPr><w:p>${mk(b)}</w:p></w:tc>`
+                ));
+            }
+            return tabla([w,W-w],rows);
+        };
+
+        const encabDoc = (d, subtitulo, W=9026) => {
+            const fecha = new Date().toLocaleDateString('es-CL');
+            const c=[2200,2313,2200,2313];
+            return [
+                parr('BORYBOR NORTE   |   '+subtitulo, {center:true, bold:true, sz:26, color:C_AZUL, before:0, after:140}),
+                tabla(c,[
+                    tr(th('OT',c[0]),cel(d.ot,c[1],{bold:true,center:true,color:C_AZUL2}),th('EMPRESA',c[2]),cel(d.empresa,c[3],{center:true})),
+                    tr(th('FECHA',c[0]),cel(fecha,c[1],{center:true}),th('TIPO TRABAJO',c[2]),cel((d.tipoTrabajo||'-').toUpperCase(),c[3],{center:true}))
+                ]),
+                sp(200)
+            ].join('');
+        };
+
+        const docxWrap = (bodyContent) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:cx="http://schemas.microsoft.com/office/drawing/2014/chartex"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+  xmlns:w10="urn:schemas-microsoft-com:office:word"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+  xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml"
+  xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex"
+  xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+  xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
+  xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml"
+  xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+  mc:Ignorable="w14 w15 w16se wp14">
+  <w:body>
+    ${bodyContent}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="900" w:right="1080" w:bottom="900" w:left="1080" w:header="708" w:footer="708" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+        const buildDocx = async (filename, xmlBody) => {
+            const JSZip = await loadJSZip();
+            const zip = new JSZip();
+            zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+</Types>`);
+            zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+            zip.file('word/_rels/document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`);
+            zip.file('word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:docDefaults><w:rPrDefault><w:rPr>
+    <w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
+    <w:sz w:val="18"/><w:szCs w:val="18"/>
+  </w:rPr></w:rPrDefault></w:docDefaults>
+</w:styles>`);
+            zip.file('word/document.xml', docxWrap(xmlBody));
+            const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        };
+
+        window.descargarDetalle = async (i) => {
+            const d = window.data[i];
+            const obs = d.observaciones||{};
+            const det = d.detalle||{};
+            const W = 9026;
+            const m = d.mediciones||{};
+            const body = [
+                encabDoc(d,'REGISTRO DE DETALLE',W),
+                seccion('📋  DATOS DE PLACA'), sp(80), tabPlaca(d,W), sp(200),
+                seccion('⚡  MEDICIONES ELÉCTRICAS DE INGRESO'), sp(80), tabMedElec(m,'',W), sp(200),
+                seccion('⚙️  METROLOGÍA MECÁNICA'), sp(80), tabMetro(d,W), sp(200),
+                seccion('🔧  PARTES / PIEZAS / COMPONENTES'), sp(80), tabChecks(TRABAJOS_LIST,det,W), sp(200),
+                seccion('⚠️  TIPO DE FALLA'), sp(80), tabChecks(FALLAS_LIST,det,W), sp(200),
+                seccion('📝  OBSERVACIONES'), sp(80),
+                fila2('Desarme', obs.desarme||'', W), fila2('Metrología', obs.metrologia||'', W), fila2('Detalle', obs.detalle||'', W),
+                parr('Documento generado: '+new Date().toLocaleDateString('es-CL')+' — BORYBOR NORTE',{center:true,color:'AAAAAA',sz:16,before:280}),
+            ].join('');
+            await buildDocx(`Detalle_OT_${d.ot}_${d.empresa}.docx`, body);
+        };
+
+        window.descargarInforme = async (i) => {
+            const d = window.data[i];
+            const m = d.mediciones||{};
+            const obs = d.observaciones||{};
+            const b = d.bobinado||{};
+            const W = 9026;
+            const cm=[2256,2256,2257,2257];
+            const cv=[1503,1503,1505,1505,1505,1505];
+            const tabBob = tabla(cm,[
+                tr(th('CONEXIÓN',cm[0]),cel(b.conexion,cm[1]),th('HEBRAS',cm[2]),cel(b.hebras,cm[3])),
+                tr(th('PASO',cm[0]),cel(b.paso,cm[1]),th('CANAL',cm[2]),cel(b.canal,cm[3])),
+                tr(th('GRUPOS',cm[0]),cel(b.grupos,cm[1]),th('RANURAS',cm[2]),cel(b.ranuras,cm[3])),
+                tr(th('BOBINAS',cm[0]),cel(b.bobinas,cm[1]),th('ESPIRAS',cm[2]),cel(b.espiras,cm[3])),
+                tr(th('DIÁM. ORIGINAL',cm[0]),cel(b.diametro_original,cm[1]),th('DIÁM. UTILIZADO',cm[2]),cel(b.diametro_utilizado,cm[3])),
+                tr(th('SECC. ORIGINAL',cm[0]),cel(b.seccion_original,cm[1]),th('SECC. UTILIZADA',cm[2]),cel(b.seccion_utilizada,cm[3])),
+                tr(th('VUELTAS ORIG.',cm[0]),cel(b.vueltas_original,cm[1]),th('VUELTAS UTIL.',cm[2]),cel(b.vueltas_utilizadas,cm[3])),
+                tr(th('PESO ALAMBRE',cm[0]),cel(b.peso_alambre,cm[1]),th('CABLES',cm[2]),cel(b.cables,cm[3])),
+                tr(th('AL. CONEXIÓN',cm[0]),cel(b.al_lado_conexion,cm[1]),th('AL. OPUESTO',cm[2]),cel(b.al_lado_opuesto,cm[3])),
+            ]);
+            const tabVibs = tabla(cv,[
+                tr(th('CONSUMO R',cv[0]),cel(m.consumo_r,cv[1],{center:true}),th('CONSUMO S',cv[2]),cel(m.consumo_s,cv[3],{center:true}),th('CONSUMO T',cv[4]),cel(m.consumo_t,cv[5],{center:true})),
+                tr(th('VIB 1 - A',cv[0]),cel(m.vib_1a,cv[1],{center:true}),th('VIB 1 - H',cv[2]),cel(m.vib_1h,cv[3],{center:true}),th('VIB 1 - V',cv[4]),cel(m.vib_1v,cv[5],{center:true})),
+                tr(th('VIB 2 - A',cv[0]),cel(m.vib_2a,cv[1],{center:true}),th('VIB 2 - H',cv[2]),cel(m.vib_2h,cv[3],{center:true}),th('VIB 2 - V',cv[4]),cel(m.vib_2v,cv[5],{center:true})),
+            ]);
+            const body = [
+                encabDoc(d,'PROTOCOLO TÉCNICO FINAL',W),
+                seccion('1.  DATOS DE PLACA'), sp(80), tabPlaca(d,W), sp(200),
+                seccion('2.  MEDICIONES ELÉCTRICAS DE INGRESO'), sp(80), tabMedElec(m,'',W), sp(200),
+                seccion('3.  METROLOGÍA MECÁNICA'), sp(80), tabMetro(d,W), sp(200),
+                seccion('4.  DATOS DE BOBINADO'), sp(80), tabBob, sp(200),
+                seccion('5.  MEDICIONES ELÉCTRICAS DE SALIDA'), sp(80),
+                tabMedElec({res12:m.res_salida12,res13:m.res_salida13,res23:m.res_salida23,ind12:m.ind_salida12,ind13:m.ind_salida13,ind23:m.ind_salida23,sur1:m.surge_salida1,sur2:m.surge_salida2,sur3:m.surge_salida3,aisla:m.aisla_salida,ipdar:m.ipdar_salida},'',W),
+                sp(100), fila2('Voltaje Prueba Salida',(m.voltaje_prueba_salida||'-')+' V',W),
+                fila2('RPM Salida',m.rpm_salida||'-',W), sp(100), tabVibs, sp(200),
+                seccion('6.  OBSERVACIONES POR ÁREA'), sp(80),
+                fila2('Desarme',obs.desarme||'',W), fila2('Mecánica',obs.mecanica||'',W),
+                fila2('Bobinado',obs.bobinado||'',W), fila2('Armado',obs.armado||'',W),
+                fila2('Pruebas',obs.pruebas||'',W), fila2('Salida',obs.salida||'',W),
+                parr('Documento generado: '+new Date().toLocaleDateString('es-CL')+' — BORYBOR NORTE',{center:true,color:'AAAAAA',sz:16,before:280}),
+            ].join('');
+            await buildDocx(`Informe_OT_${d.ot}_${d.empresa}.docx`, body);
+        };
+
         window.nuevaOT = () => {
             const ot = document.getElementById('not').value;
             const em = document.getElementById('nemp').value;
@@ -621,7 +795,8 @@
                         <td><span class="badge badge-blue">${estadoBadge}</span></td>
                         <td class="dash-actions">
                             <button class="btn-primary btn-sm" onclick="window.verDetalle(${d.indexOriginal})">🔍</button>
-                            <button class="btn-success btn-sm" onclick="window.descargarInforme(${d.indexOriginal})">📄</button>
+                            <button class="btn-sm" style="background:#8e44ad;color:white;" onclick="window.descargarDetalle(${d.indexOriginal})" title="Descargar Detalle Word">📋</button>
+                            <button class="btn-success btn-sm" onclick="window.descargarInforme(${d.indexOriginal})" title="Descargar Informe Final Word">📄</button>
                             <button class="btn-del btn-sm" onclick="if(confirm('¿Eliminar OT ${d.ot}?')){window.data.splice(${d.indexOriginal},1); window.save()}">✕</button>
                         </td></tr>`;
                 });
@@ -721,21 +896,79 @@
                                 <button class="btn-finish" onclick="window.updateFlujo(${i},'med_ok')">✅ Guardar e Ingresar</button>`;
                         }
                         else if (d.estado === 'detalle_pendiente') {
-                            UI = `<h3>Oficina y Placa</h3>
-                                <div class="placa-grid">
-                                    <input class="med-input" placeholder="Marca" value="${d.placa.marca||''}" onchange="window.data[${i}].placa.marca=this.value; window.save()">
-                                    <input class="med-input" placeholder="Potencia" value="${d.placa.pot||''}" onchange="window.data[${i}].placa.pot=this.value; window.save()">
-                                    <input class="med-input" placeholder="RPM" value="${d.placa.rpm||''}" onchange="window.data[${i}].placa.rpm=this.value; window.save()">
-                                    <input class="med-input" placeholder="Volt" value="${d.placa.volt||''}" onchange="window.data[${i}].placa.volt=this.value; window.save()">
-                                    <input class="med-input" placeholder="Amp" value="${d.placa.amp||''}" onchange="window.data[${i}].placa.amp=this.value; window.save()">
-                                    <input class="med-input" placeholder="Frame" value="${d.placa.frame||''}" onchange="window.data[${i}].placa.frame=this.value; window.save()">
+                            const det = d.detalle || {};
+                            const chk = (key, label) => `
+                                <label class="det-chk-label ${det[key]?'det-chk-on':''}">
+                                    <input type="checkbox" ${det[key]?'checked':''} onchange="
+                                        if(!window.data[${i}].detalle) window.data[${i}].detalle={};
+                                        window.data[${i}].detalle['${key}']=this.checked;
+                                        this.closest('label').classList.toggle('det-chk-on',this.checked);
+                                        window.save()">
+                                    <span>${label}</span>
+                                </label>`;
+                            UI = `
+                                <div class="det-seccion-titulo">📋 Datos de Placa</div>
+                                <div class="placa-grid" style="margin-bottom:14px;">
+                                    <div class="med-campo"><label>Marca</label><input class="med-input" value="${d.placa.marca||''}" onchange="window.data[${i}].placa.marca=this.value; window.save()"></div>
+                                    <div class="med-campo"><label>Potencia</label><input class="med-input" value="${d.placa.pot||''}" onchange="window.data[${i}].placa.pot=this.value; window.save()"></div>
+                                    <div class="med-campo"><label>RPM</label><input class="med-input" value="${d.placa.rpm||''}" onchange="window.data[${i}].placa.rpm=this.value; window.save()"></div>
+                                    <div class="med-campo"><label>Voltaje</label><input class="med-input" value="${d.placa.volt||''}" onchange="window.data[${i}].placa.volt=this.value; window.save()"></div>
+                                    <div class="med-campo"><label>Amp</label><input class="med-input" value="${d.placa.amp||''}" onchange="window.data[${i}].placa.amp=this.value; window.save()"></div>
+                                    <div class="med-campo"><label>Frame</label><input class="med-input" value="${d.placa.frame||''}" onchange="window.data[${i}].placa.frame=this.value; window.save()"></div>
                                 </div>
+
+                                <div class="det-seccion-titulo">🔧 Partes / Piezas / Componentes a Intervenir</div>
+                                <div class="det-chk-grid">
+                                    ${chk('fab_anillo','Fabricación de anillo rectificado de anillos')}
+                                    ${chk('camb_carbones','Cambio de carbones / asentamiento de carbones')}
+                                    ${chk('mant_porta_escobilla','Mant. porta escobilla')}
+                                    ${chk('camb_prensas','Cambio de prensas')}
+                                    ${chk('camb_cable_salida','Cambio cable de salida')}
+                                    ${chk('camb_ptc_rtd','Cambio de PTC / RTD')}
+                                    ${chk('camb_pt100','Cambio de PT-100')}
+                                    ${chk('camb_flexible','Cambio de flexible')}
+                                    ${chk('camb_enchufe_3f','Cambio enchufe 3F')}
+                                    ${chk('mant_calefactores','Mant. calefactores bobinado campos')}
+                                    ${chk('bob_campos_comp','Bobinado campos de compensación')}
+                                    ${chk('bob_interpolos','Bobinado interpolos')}
+                                    ${chk('bob_inducido','Bobinado inducido')}
+                                    ${chk('mant_campos','Mant. campos')}
+                                    ${chk('mant_campos_comp','Mant. campos de compensación')}
+                                    ${chk('mant_interpolos','Mant. interpolos')}
+                                    ${chk('mant_inducido','Mant. inducido')}
+                                    ${chk('rect_colector','Rect. y desmicado de colector')}
+                                    ${chk('vicelado_colector','Vicelado colector')}
+                                    ${chk('mant_tacometro','Mant. tacómetro')}
+                                    ${chk('barn_camp_inter','Barnizado y secado camp. inter.')}
+                                    ${chk('barn_inducido','Barnizado y secado inducido')}
+                                    ${chk('camb_grasera','Cambio grasera')}
+                                    ${chk('camb_ducto_grasera','Cambio ducto de grasera')}
+                                    ${chk('armado','Armado')}
+                                    ${chk('pintura','Pintura')}
+                                    ${chk('pruebas_electricas','Pruebas eléctricas')}
+                                </div>
+
+                                <div class="det-seccion-titulo" style="margin-top:14px;">⚠️ Tipo de Falla</div>
+                                <div class="det-chk-grid">
+                                    ${chk('falla_metalado_lc','Metalado descanso lado conexión')}
+                                    ${chk('falla_metalado_ll','Metalado descanso lado libre')}
+                                    ${chk('falla_fab_descanso_lc','Fabricación descanso lado conexión')}
+                                    ${chk('falla_fab_descanso_ll','Fabricación descanso lado libre')}
+                                    ${chk('falla_bob_campos','Bobinado dos campos rueda polar')}
+                                    ${chk('falla_mant_correctivo','Mantenimiento correctivo / sumergido en agua')}
+                                </div>
+
+                                <div class="det-seccion-titulo" style="margin-top:14px;">📝 Observaciones</div>
                                 ${obs('detalle')}
-                                <div style="background:#f0f7ff; padding:10px; border-radius:5px; margin-bottom:10px;">
-                                    <strong>Subir Archivos (Fotos/Docs):</strong><br>
+
+                                <div style="background:#f0f7ff; padding:10px; border-radius:5px; margin-bottom:12px;">
+                                    <strong>📎 Subir Archivos (Fotos/Docs):</strong><br>
                                     <input type="file" id="file_input_${i}"> <button id="btn_file_${i}" onclick="window.subirArchivo(${i})">Subir</button>
                                 </div>
-                                <button class="btn-finish" onclick="window.updateFlujo(${i},'detalle_ok','espera_fecha')">🏭 Enviar a Taller</button>`;
+                                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                                    <button class="btn-sm" style="background:#8e44ad;color:white;padding:10px 16px;font-weight:bold;border-radius:6px;border:none;cursor:pointer;" onclick="window.descargarDetalle(${i})">📋 Descargar Detalle Word</button>
+                                    <button class="btn-finish" onclick="window.updateFlujo(${i},'detalle_ok','espera_fecha')">🏭 Enviar a Taller</button>
+                                </div>`;
                         }
                         else if (d.estado === 'pruebas_dinamicas') {
                             UI = `<h3>Pruebas Dinámicas</h3>
