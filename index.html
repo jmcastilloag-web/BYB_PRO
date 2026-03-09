@@ -311,13 +311,73 @@
         window.filtroBusqueda = "";
         window.menuAbierto = false; // Estado del menú
 
+        let firebaseConectado = false;
+        const fbTimeout = setTimeout(() => {
+            if (!firebaseConectado) {
+                try { window.data = JSON.parse(localStorage.getItem('taller_byb_backup') || '[]'); } catch(e) { window.data = []; }
+                window.actualizarAlertas();
+                window.render();
+            }
+        }, 8000);
+
         onValue(dbRef, (snapshot) => {
+            firebaseConectado = true;
+            clearTimeout(fbTimeout);
             window.data = snapshot.val() || [];
+            try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
+            window.actualizarAlertas();
+            window.render();
+        }, (error) => {
+            firebaseConectado = true;
+            clearTimeout(fbTimeout);
+            console.error('Firebase error:', error.message);
+            try { window.data = JSON.parse(localStorage.getItem('taller_byb_backup') || '[]'); } catch(e) { window.data = []; }
             window.actualizarAlertas();
             window.render();
         });
 
-        window.save = () => set(dbRef, window.data);
+        
+        window.agregarTarea = (area, i) => {
+            const input = document.getElementById(`tarea_${area}_${i}`);
+            const txt = (input?.value || '').trim();
+            if (!txt) return;
+            const key = `tareas_${area}`;
+            if (!window.data[i][key]) window.data[i][key] = [];
+            window.data[i][key].push(txt);
+            input.value = '';
+            window.save();
+            const lista = document.getElementById(`tarea_${area}_lista_${i}`);
+            if (lista) {
+                lista.innerHTML = window.data[i][key].map((item, ti) => `
+                    <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                        <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                            <input type="checkbox" ${(window.data[i][key+'_checks']||{})[ti]?'checked':''}
+                                onchange="if(!window.data[${i}]['${key}_checks']) window.data[${i}]['${key}_checks']={};
+                                          window.data[${i}]['${key}_checks'][${ti}]=this.checked; window.save();">
+                            <span style="font-size:0.87em;">${item}</span>
+                        </label>
+                        <button onclick="window.quitarTarea('${area}',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                    </div>`).join('');
+                input.focus();
+            }
+        };
+
+        window.quitarTarea = (area, i, ti) => {
+            const key = `tareas_${area}`;
+            if (!window.data[i][key]) return;
+            window.data[i][key].splice(ti, 1);
+            const checks = window.data[i][key+'_checks'] || {};
+            const newChecks = {};
+            window.data[i][key].forEach((_, ni) => { if (checks[ni >= ti ? ni+1 : ni]) newChecks[ni] = true; });
+            window.data[i][key+'_checks'] = newChecks;
+            window.save();
+            window.render();
+        };
+
+        window.save = () => {
+            try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
+            return set(dbRef, window.data);
+        };
         window.mostrarVista = (v) => {
             window.vistaActual = v;
             window.render();
@@ -388,6 +448,64 @@
             modal.style.display = "block";
         };
 
+
+        // ── Calcular % avance por OT ──────────────────────────────
+        window.calcularAvance = (d) => {
+            if (!d) return 0;
+            const ETAPAS = [
+                'desarme_ok','med_ok','met_ok','detalle_ok',
+                'mant_ok','mec_fin','bobinado_fin',
+                'bal_ok','armado_ok','pruebas_ok','term_ok','salida_ok'
+            ];
+            const p = d.pasos || {};
+            // Etapas del flujo
+            const etapasTotal = ETAPAS.length;
+            const etapasDone  = ETAPAS.filter(e => p[e]).length;
+
+            // Tareas con check marcadas vs total
+            const areas = ['desarme','mantencion','calidad','mecanica_ing','mecanica','armado','pruebas'];
+            let tarTotal = 0, tarDone = 0;
+            areas.forEach(a => {
+                const lista = d[`tareas_${a}`] || [];
+                const chks  = d[`tareas_${a}_checks`] || {};
+                tarTotal += lista.length;
+                tarDone  += lista.filter((_,ti) => chks[ti]).length;
+            });
+
+            // Terminaciones
+            const tList   = d.terminaciones_lista || [];
+            const tChecks = d.terminaciones_checks || {};
+            tarTotal += tList.length;
+            tarDone  += tList.filter((_,ti) => tChecks[ti]).length;
+
+            // Peso: etapas 70%, tareas 30%
+            const pEtapas = etapasTotal ? (etapasDone / etapasTotal) * 70 : 0;
+            const pTareas = tarTotal     ? (tarDone    / tarTotal)    * 30 : (etapasDone > 0 ? 30 : 0);
+            const pct = Math.round(pEtapas + pTareas);
+
+            // Si estado es entregado → 100%
+            if (d.estado === 'entregado') return 100;
+            return Math.min(pct, 99); // nunca 100% hasta entregado
+        };
+
+        // Color según avance
+        window.colorAvance = (pct) => {
+            if (pct >= 80) return '#27ae60';
+            if (pct >= 50) return '#f39c12';
+            return '#e74c3c';
+        };
+
+        // Barra HTML de avance
+        window.barraAvance = (pct, mostrarNum=true) => {
+            const col = window.colorAvance(pct);
+            return `<div style="display:flex;align-items:center;gap:6px;min-width:120px;">
+                <div style="flex:1;background:#e0e0e0;border-radius:6px;height:8px;overflow:hidden;">
+                    <div style="width:${pct}%;background:${col};height:8px;border-radius:6px;transition:width 0.4s;"></div>
+                </div>
+                ${mostrarNum?`<span style="font-size:0.78em;font-weight:700;color:${col};min-width:32px;">${pct}%</span>`:''}
+            </div>`;
+        };
+
         window.actualizarAlertas = () => {
             const counts = { desarme: 0, calidad: 0, mecanica: 0, bobinado: 0, armado: 0, despacho: 0 };
             window.data.forEach(d => {
@@ -430,19 +548,19 @@
         // ─ XML primitivos ─
         const CAL = (sz,col,bold) => `<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${bold?'<w:b/>':''}<w:color w:val="${col||'2C3E50'}"/><w:sz w:val="${sz||16}"/><w:szCs w:val="${sz||16}"/>`;
         const R  = (t,sz,col,bold) => `<w:r><w:rPr>${CAL(sz,col,bold)}</w:rPr><w:t xml:space="preserve">${xE(t)}</w:t></w:r>`;
-        const SP = (b=120) => `<w:p><w:pPr><w:spacing w:before="${b}" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:p>`;
+        const SP = (b=60) => `<w:p><w:pPr><w:spacing w:before="${b}" w:after="0" w:line="240" w:lineRule="auto"/></w:pPr></w:p>`;
         const BORD = `<w:tblBorders><w:top w:val="single" w:sz="1" w:space="0" w:color="DDE1E7"/><w:left w:val="single" w:sz="1" w:space="0" w:color="DDE1E7"/><w:bottom w:val="single" w:sz="1" w:space="0" w:color="DDE1E7"/><w:right w:val="single" w:sz="1" w:space="0" w:color="DDE1E7"/><w:insideH w:val="single" w:sz="1" w:space="0" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:space="0" w:color="DDE1E7"/></w:tblBorders>`;
 
-        const TC = (w,fill,xml,center=false,span=0) => `<w:tc><w:tcPr>${span>1?`<w:gridSpan w:val="${span}"/>`:''}<w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${fill||'FFFFFF'}"/><w:tcMar><w:top w:w="70" w:type="dxa"/><w:left w:w="130" w:type="dxa"/><w:bottom w:w="70" w:type="dxa"/><w:right w:w="130" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/>${center?'<w:jc w:val="center"/>':''}</w:pPr>${xml}</w:p></w:tc>`;
-        const TH = (t,w,c=true) => TC(w,'004F88',R(t,16,'FFFFFF',true),c);
-        const TD = (t,w,c=false) => TC(w,'FFFFFF',R(v(t),16,'2C3E50',false),c);
-        const TR = (cells,h=115) => `<w:tr><w:trPr><w:trHeight w:val="${h}"/></w:trPr>${cells.join('')}</w:tr>`;
+        const TC = (w,fill,xml,center=false,span=0) => `<w:tc><w:tcPr>${span>1?`<w:gridSpan w:val="${span}"/>`:''}<w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${fill||'FFFFFF'}"/><w:tcMar><w:top w:w="40" w:type="dxa"/><w:left w:w="80" w:type="dxa"/><w:bottom w:w="40" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tcMar></w:tcPr><w:p><w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/>${center?'<w:jc w:val="center"/>':''}</w:pPr>${xml}</w:p></w:tc>`;
+        const TH = (t,w,c=true) => TC(w,'004F88',R(t,13,'FFFFFF',true),c);
+        const TD = (t,w,c=false) => TC(w,'FFFFFF',R(v(t),13,'2C3E50',false),c);
+        const TR = (cells,h=85) => `<w:tr><w:trPr><w:trHeight w:val="${h}"/></w:trPr>${cells.join('')}</w:tr>`;
         const TABLA = (cols,rows) => { const tot=cols.reduce((a,b)=>a+b,0); return `<w:tbl><w:tblPr><w:tblW w:w="${tot}" w:type="dxa"/><w:tblInd w:w="130" w:type="dxa"/>${BORD}<w:tblCellMar><w:left w:w="10" w:type="dxa"/><w:right w:w="10" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${cols.map(c=>`<w:gridCol w:w="${c}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`; };
-        const SECC = (t) => `<w:p><w:pPr><w:spacing w:before="80" w:after="40" w:line="240" w:lineRule="auto"/><w:shd w:val="clear" w:color="auto" w:fill="004F88"/><w:ind w:left="130" w:right="130"/></w:pPr>${R(t,16,'FFFFFF',true)}</w:p>`;
+        const SECC = (t) => `<w:p><w:pPr><w:spacing w:before="50" w:after="20" w:line="240" w:lineRule="auto"/><w:shd w:val="clear" w:color="auto" w:fill="004F88"/><w:ind w:left="80" w:right="80"/></w:pPr>${R(t,13,'FFFFFF',true)}</w:p>`;
         const F2  = (label,val,W=9026) => { const w1=Math.round(W*0.36),w2=W-w1; return TABLA([w1,w2],[TR([TH(label,w1,false),TD(val,w2)])]); };
-        const F2W = (label,val,W=9026) => { const w1=Math.round(W*0.36),w2=W-w1; return TABLA([w1,w2],[TR([TC(w1,'F5F6F7',R(label,16,'555555',true),false),TD(val,w2)])]); };  // obs style
+        const F2W = (label,val,W=9026) => { const w1=Math.round(W*0.36),w2=W-w1; return TABLA([w1,w2],[TR([TC(w1,'F5F6F7',R(label,13,'555555',true),false),TD(val,w2)])]); };  // obs style
         const PIE = () => `<w:p><w:pPr><w:spacing w:before="300" w:after="60" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr>${R('Documento generado: '+fmtFecha()+' — BORYBOR NORTE',14,'AAAAAA')}</w:p>`;
-        const CHKROW = (on,txt,w) => TC(w,on?'E8F8F0':'FFFFFF',`<w:r><w:rPr>${CAL(16,on?'27AE60':'888888',on)}</w:rPr><w:t xml:space="preserve">${on?'☑':'☐'} ${xE(txt)}</w:t></w:r>`,false);
+        const CHKROW = (on,txt,w) => TC(w,on?'E8F8F0':'FFFFFF',`<w:r><w:rPr>${CAL(13,on?'27AE60':'888888',on)}</w:rPr><w:t xml:space="preserve">${on?'☑':'☐'} ${xE(txt)}</w:t></w:r>`,false);
 
         // ─ Tablas reutilizables ─
         const tabEncab = (d,W=9026) => { const c=[2200,2313,2200,2313]; return TABLA(c,[TR([TH('OT',c[0]),TD(d.ot,c[1],true),TH('EMPRESA',c[2]),TD(d.empresa,c[3],true)]),TR([TH('FECHA',c[0]),TD(fmtFecha(),c[1],true),TH('TIPO TRABAJO',c[2]),TD((d.tipoTrabajo||'-').toUpperCase(),c[3],true)])]); };
@@ -459,6 +577,39 @@
 
         const tabMetro = (ini,sal,W=9026) => { const c=[1858,1858,1858]; return TABLA(c,[TR([TH('',c[0]),TH('INICIALES',c[1]),TH('SALIDA',c[2])]),TR([TH('EN.LC',c[0],false),TD(ini.enc_lc,c[1],true),TD(sal.enc_lc,c[2],true)]),TR([TH('EN.LL',c[0],false),TD(ini.enc_ll,c[1],true),TD(sal.enc_ll,c[2],true)]),TR([TH('ME.LC',c[0],false),TD(ini.me_lc,c[1],true),TD(sal.me_lc,c[2],true)]),TR([TH('ME.LL',c[0],false),TD(ini.me_ll,c[1],true),TD(sal.me_ll,c[2],true)])]); };
 
+        const tabBobCompleto = (d,W=9026) => {
+            const b=d.bobinado||{}, obs_b=(d.observaciones||{}).bobinado||'';
+            const c=[2256,2256,2257,2257];
+            const filas = [
+                TR([TH('TÉCNICO',c[0]),TD(b.tecnico,c[1]),TH('TIPO DE FALLA',c[2]),TD(b.tipo_falla,c[3])]),
+                TR([TH('CONEXIÓN',c[0]),TD(b.conexion,c[1]),TH('HEBRAS',c[2]),TD(b.hebras,c[3])]),
+                TR([TH('PASO',c[0]),TD(b.paso,c[1]),TH('CANAL',c[2]),TD(b.canal,c[3])]),
+                TR([TH('GRUPOS',c[0]),TD(b.grupos,c[1]),TH('RANURAS',c[2]),TD(b.ranuras,c[3])]),
+                TR([TH('BOBINAS',c[0]),TD(b.bobinas,c[1]),TH('ESPIRAS',c[2]),TD(b.espiras,c[3])]),
+                TR([TH('DIÁM. ORIGINAL',c[0]),TD(b.diametro_original,c[1]),TH('DIÁM. UTILIZADO',c[2]),TD(b.diametro_utilizado,c[3])]),
+                TR([TH('SECC. ORIGINAL',c[0]),TD(b.seccion_original,c[1]),TH('SECC. UTILIZADA',c[2]),TD(b.seccion_utilizada,c[3])]),
+                TR([TH('VUELTAS ORIG.',c[0]),TD(b.vueltas_original,c[1]),TH('VUELTAS UTIL.',c[2]),TD(b.vueltas_utilizadas,c[3])]),
+                TR([TH('PESO ALAMBRE',c[0]),TD(b.peso_alambre,c[1]),TH('CABLES',c[2]),TD(b.cables,c[3])]),
+                TR([TH('AL. LADO CONEXIÓN',c[0]),TD(b.al_lado_conexion,c[1]),TH('AL. LADO OPUESTO',c[2]),TD(b.al_lado_opuesto,c[3])]),
+                TR([TH('COILERA',c[0]),TD(b.coilera_utilizada,c[1]),TH('MEDIDA MOLDE',c[2]),TD(b.medida_molde,c[3])]),
+                // Datos del fierro
+                TR([TC(W,'E8F0FA',R('DATOS DEL FIERRO',13,'004F88',true),false,4)], 80),
+                TR([TH('DIÁM. INTERIOR',c[0]),TD(b.diametro_interior,c[1]),TH('CULATAS',c[2]),TD(b.culatas,c[3])]),
+                TR([TH('DIÁM. EXTERIOR',c[0]),TD(b.diametro_exterior,c[1]),TH('LAGO',c[2]),TD(b.lago,c[3])]),
+                // Mediciones eléctricas bobinado
+                TR([TC(W,'E8F0FA',R('MEDICIONES ELÉCTRICAS',13,'004F88',true),false,4)], 80),
+                TR([TH('R 1-2 (Ω)',c[0]),TD((d.mediciones||{}).res12,c[1]),TH('R 1-3 (Ω)',c[2]),TD((d.mediciones||{}).res13,c[3])]),
+                TR([TH('R 2-3 (Ω)',c[0]),TD((d.mediciones||{}).res23,c[1]),TH('AISLACIÓN (MΩ)',c[2]),TD((d.mediciones||{}).aisla,c[3])]),
+                TR([TH('IND 1-2 (mH)',c[0]),TD((d.mediciones||{}).ind12,c[1]),TH('IND 1-3 (mH)',c[2]),TD((d.mediciones||{}).ind13,c[3])]),
+                TR([TH('IND 2-3 (mH)',c[0]),TD((d.mediciones||{}).ind23,c[1]),TH('SURGE 1 (%)',c[2]),TD((d.mediciones||{}).sur1,c[3])]),
+                TR([TH('SURGE 2 (%)',c[0]),TD((d.mediciones||{}).sur2,c[1]),TH('SURGE 3 (%)',c[2]),TD((d.mediciones||{}).sur3,c[3])]),
+                // Observaciones
+                TR([TC(W,'E8F0FA',R('OBSERVACIONES BOBINADO',13,'004F88',true),false,4)], 80),
+                TR([TC(W,'FFFFFF',R(obs_b||'—',13,'555555'),false,4)], 160),
+            ];
+            return TABLA([c[0],c[1],c[2],c[3]], filas);
+        };
+
         const tabBob = (d,W=9026) => { const b=d.bobinado||{}; const c=[2256,2256,2257,2257]; return TABLA(c,[TR([TH('CONEXIÓN',c[0]),TD(b.conexion,c[1]),TH('HEBRAS',c[2]),TD(b.hebras,c[3])]),TR([TH('PASO',c[0]),TD(b.paso,c[1]),TH('CANAL',c[2]),TD(b.canal,c[3])]),TR([TH('GRUPOS',c[0]),TD(b.grupos,c[1]),TH('RANURAS',c[2]),TD(b.ranuras,c[3])]),TR([TH('BOBINAS',c[0]),TD(b.bobinas,c[1]),TH('ESPIRAS',c[2]),TD(b.espiras,c[3])]),TR([TH('DIÁM. ORIGINAL',c[0]),TD(b.diametro_original,c[1]),TH('DIÁM. UTILIZADO',c[2]),TD(b.diametro_utilizado,c[3])]),TR([TH('SECC. ORIGINAL',c[0]),TD(b.seccion_original,c[1]),TH('SECC. UTILIZADA',c[2]),TD(b.seccion_utilizada,c[3])]),TR([TH('VUELTAS ORIG.',c[0]),TD(b.vueltas_original,c[1]),TH('VUELTAS UTIL.',c[2]),TD(b.vueltas_utilizadas,c[3])]),TR([TH('PESO ALAMBRE',c[0]),TD(b.peso_alambre,c[1]),TH('CABLES',c[2]),TD(b.cables,c[3])]),TR([TH('AL. CONEXIÓN',c[0]),TD(b.al_lado_conexion,c[1]),TH('AL. OPUESTO',c[2]),TD(b.al_lado_opuesto,c[3])])]); };
 
         const tabBobFierro = (d,W=9026) => { const b=d.bobinado||{}; const c=[2256,2256,2257,2257]; return TABLA(c,[TR([TH('DIÁM. INTERIOR',c[0]),TD(b.diametro_interior,c[1]),TH('CULATAS',c[2]),TD(b.culatas,c[3])]),TR([TH('DIÁM. EXTERIOR',c[0]),TD(b.diametro_exterior,c[1]),TH('LAGO',c[2]),TD(b.lago,c[3])]),TR([TH('MEDIDA MOLDE',c[0]),TD(b.medida_molde,c[1]),TH('COILERA',c[2]),TD(b.coilera_utilizada,c[3])])]); };
@@ -472,11 +623,32 @@
             return tabVR+SP(0)+tabC+SP(0)+tabVib;
         };
 
-        const tabRodamientos = (d,W=9026) => { const c=[2256,2256,2257,2257]; return TABLA(c,[TR([TH('RODAMIENTO LC',c[0]),TD(d.rod_lc,c[1]),TH('RODAMIENTO LL',c[2]),TD(d.rod_ll,c[3])])]); };
+        const tabRodamientos = (d,W=9026) => {
+            const rods = d.rodamientos || [];
+            const rodChecks = d.rodamientos_ok || {};
+            // Compatibilidad: si no hay array pero hay rod_lc/rod_ll
+            const lista = rods.length > 0 ? rods : [
+                ...(d.rod_lc ? [{pos:'LC', mod:d.rod_lc, ok:d.rod_lc_ok}] : []),
+                ...(d.rod_ll ? [{pos:'LL', mod:d.rod_ll, ok:d.rod_ll_ok}] : []),
+            ];
+            if (!lista.length) return TABLA([W],[TR([TD('(Sin rodamientos registrados)',W)])]);
+            const c=[1500,5526,2000];
+            return TABLA(c,[
+                TR([TH('POSICIÓN',c[0]),TH('MODELO',c[1]),TH('ESTADO',c[2])]),
+                ...lista.map((r,ri)=>{
+                    const ok = r.ok !== undefined ? r.ok : !!rodChecks[ri];
+                    return TR([
+                        TC(c[0],'E8F0FA',R(r.pos||'—',13,'004F88',true),true),
+                        TC(c[1],'FFFFFF',R(r.mod||'—',13,'2C3E50'),false),
+                        TC(c[2],ok?'E8F8F0':'FFF5F5',R(ok?'✅ Instalado':'Pendiente',13,ok?'27AE60':'E74C3C',true),true),
+                    ]);
+                })
+            ]);
+        };
 
-        const tabChecks = (items,marcados,W=9026) => { const w=Math.round(W/2); const rows=[]; for(let i=0;i<items.length;i+=2){ const a=items[i],b=items[i+1]; rows.push(`<w:tr><w:trPr><w:trHeight w:val="115"/></w:trPr>${CHKROW(marcados[a.k],a.l,w)}${b?CHKROW(marcados[b.k],b.l,W-w):`<w:tc><w:tcPr><w:tcW w:w="${W-w}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`}</w:tr>`); } return TABLA([w,W-w],rows); };
+        const tabChecks = (items,marcados,W=9026) => { const w=Math.round(W/2); const rows=[]; for(let i=0;i<items.length;i+=2){ const a=items[i],b=items[i+1]; rows.push(`<w:tr><w:trPr><w:trHeight w:val="85"/></w:trPr>${CHKROW(marcados[a.k],a.l,w)}${b?CHKROW(marcados[b.k],b.l,W-w):`<w:tc><w:tcPr><w:tcW w:w="${W-w}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`}</w:tr>`); } return TABLA([w,W-w],rows); };
 
-        const tabObsAreas = (areas,W=9026) => { const c=[3249,5777]; return TABLA(c,areas.map(([l,vl])=>TR([TC(c[0],'F5F6F7',R(l,16,'555555',true),false),TD(vl,c[1])]))); };
+        const tabObsAreas = (areas,W=9026) => { const c=[3249,5777]; return TABLA(c,areas.map(([l,vl])=>TR([TC(c[0],'F5F6F7',R(l,13,'555555',true),false),TD(vl,c[1])]))); };
 
         // Tabla piezas recepción (SI/NO/MAL ESTADO + obs)
         const tabPiezasRecepcion = (piezas,W=9026) => {
@@ -487,12 +659,32 @@
             return TABLA(c,[
                 TR([TH('PIEZA',c[0],false),TH('SI',c[1]),TH('NO',c[2]),TH('MAL',c[3]),TH('OBSERVACIONES',c[4],false)]),
                 ...piezas.map((p,pi)=>TR([
-                    TC(c[0],pi%2===0?'F0F4FF':'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50',true)}</w:rPr><w:t>${xE(p.nombre)}</w:t></w:r>`,false),
-                    TC(c[1],p.estado==='si'?'E8F8F0':'FFFFFF',p.estado==='si'?`<w:r><w:rPr>${CAL(16,'27AE60',true)}</w:rPr><w:t>✓</w:t></w:r>`:'',true),
-                    TC(c[2],p.estado==='no'?'FFF0F0':'FFFFFF',p.estado==='no'?`<w:r><w:rPr>${CAL(16,'E74C3C',true)}</w:rPr><w:t>✗</w:t></w:r>`:'',true),
-                    TC(c[3],p.estado==='mal'?'FFF8E8':'FFFFFF',p.estado==='mal'?`<w:r><w:rPr>${CAL(16,'E67E22',true)}</w:rPr><w:t>!</w:t></w:r>`:'',true),
-                    TC(c[4],'FFFFFF',`<w:r><w:rPr>${CAL(16,'555555')}</w:rPr><w:t xml:space="preserve">${xE(p.obs||'')}</w:t></w:r>`,false),
+                    TC(c[0],pi%2===0?'F0F4FF':'FFFFFF',`<w:r><w:rPr>${CAL(13,'2C3E50',true)}</w:rPr><w:t>${xE(p.nombre)}</w:t></w:r>`,false),
+                    TC(c[1],p.estado==='si'?'E8F8F0':'FFFFFF',p.estado==='si'?`<w:r><w:rPr>${CAL(13,'27AE60',true)}</w:rPr><w:t>✓</w:t></w:r>`:'',true),
+                    TC(c[2],p.estado==='no'?'FFF0F0':'FFFFFF',p.estado==='no'?`<w:r><w:rPr>${CAL(13,'E74C3C',true)}</w:rPr><w:t>✗</w:t></w:r>`:'',true),
+                    TC(c[3],p.estado==='mal'?'FFF8E8':'FFFFFF',p.estado==='mal'?`<w:r><w:rPr>${CAL(13,'E67E22',true)}</w:rPr><w:t>!</w:t></w:r>`:'',true),
+                    TC(c[4],'FFFFFF',`<w:r><w:rPr>${CAL(13,'555555')}</w:rPr><w:t xml:space="preserve">${xE(p.obs||'')}</w:t></w:r>`,false),
                 ]))
+            ]);
+        };
+
+        // Tabla piezas de SALIDA (con estado SI/NO/NA definido en check salida)
+        const tabPiezasSalida = (piezas, pSalida, W=9026) => {
+            if(!piezas||piezas.length===0) return TABLA([W],[TR([TD('(Sin piezas registradas)',W)])]);
+            const c=[3000,800,800,800,W-3000-800-800-800];
+            return TABLA(c,[
+                TR([TH('PIEZA',c[0],false),TH('INGRESÓ',c[1]),TH('SALE',c[2]),TH('N/A',c[3]),TH('OBS.',c[4],false)]),
+                ...piezas.map((p,pi)=>{
+                    const ingE = p.estado==='si'?'SI':p.estado==='no'?'NO':p.estado==='mal'?'MAL':'-';
+                    const salE = (pSalida&&pSalida[pi]) || 'na';
+                    return TR([
+                        TC(c[0],pi%2===0?'F0F4FF':'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50',true)}</w:rPr><w:t>${xE(p.nombre)}</w:t></w:r>`,false),
+                        TC(c[1],'FFFFFF',`<w:r><w:rPr>${CAL(14,p.estado==='si'?'27AE60':p.estado==='no'?'E74C3C':'E67E22')}</w:rPr><w:t>${xE(ingE)}</w:t></w:r>`,true),
+                        TC(c[2],salE==='si'?'E8F8F0':'FFFFFF',salE==='si'?`<w:r><w:rPr>${CAL(16,'27AE60',true)}</w:rPr><w:t>✓</w:t></w:r>`:'',true),
+                        TC(c[3],salE==='no'?'FFF0F0':'FFFFFF',salE==='no'?`<w:r><w:rPr>${CAL(16,'E74C3C',true)}</w:rPr><w:t>✗</w:t></w:r>`:'',true),
+                        TC(c[4],salE==='na'?'F5F5F5':'FFFFFF',salE==='na'?`<w:r><w:rPr>${CAL(14,'888888',true)}</w:rPr><w:t>N/A</w:t></w:r>`:`<w:r><w:rPr>${CAL(14,'555555')}</w:rPr><w:t xml:space="preserve">${xE(p.obs||'')}</w:t></w:r>`,false),
+                    ]);
+                })
             ]);
         };
 
@@ -542,16 +734,24 @@
         };
 
         // ─ buildDocx ─
-        const buildDocx = async (fn,body,titulo) => {
+        const buildDocx = async (fn,body,titulo,extraFiles) => {
             const JSZip=await loadJSZip(); const zip=new JSZip();
             zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="jpeg" ContentType="image/jpeg"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/header1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/></Types>`);
             zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
-            zip.file('word/_rels/document.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/temp_chart.png"/></Relationships>`);
+            zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/></Relationships>');
             zip.file('word/_rels/header1.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/logo.jpeg"/></Relationships>`);
             zip.file('word/styles.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>`);
             zip.file('word/header1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><w:p><w:pPr><w:spacing w:before="60" w:after="140" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251657216" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:posOffset>-517830</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>-344323</wp:posOffset></wp:positionV><wp:extent cx="1053389" cy="599440"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="1" name="logo"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="logo"/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId1"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="1053389" cy="599440"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r><w:r><w:rPr><w:b/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:color w:val="2C3E50"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">                          BORYBOR NORTE   |   ${xE(titulo)}</w:t></w:r></w:p></w:hdr>`);
             zip.file('word/media/logo.jpeg', Uint8Array.from(atob(LOGO_B64),c=>c.charCodeAt(0)));
             zip.file('word/document.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><w:body>${body}<w:sectPr><w:headerReference w:type="default" r:id="rId6"/><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="900" w:right="1080" w:bottom="900" w:left="1080" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+            // Archivos extra (ej: gráfico de temperatura)
+            if (extraFiles) {
+                for (const [path, data] of Object.entries(extraFiles)) { zip.file(path, data); }
+                // Si hay imagen del gráfico, actualizar rels para incluir rId9
+                if (extraFiles['word/media/temp_chart.png']) {
+                    zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/temp_chart.png"/></Relationships>');
+                }
+            }
             const blob=await zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
             const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=fn; a.click();
         };
@@ -680,7 +880,31 @@
             const termChecks = d.terminaciones_checks || {};
             const tempRegs = d.temp_registros || [];
             const piezasRec = d.piezas_recepcion || [];
+            const piezasSalida = d.piezas_salida_estado || {};
             const rec = d.recepcion || {};
+            const tarDesarme   = d.tareas_desarme      || [];
+            const tarMant      = d.tareas_mantencion    || [];
+            const tarCalidad   = d.tareas_calidad       || [];
+            const tarMecIng    = d.tareas_mecanica_ing  || [];
+            const tarMec       = d.tareas_mecanica      || [];
+            const tarArmado    = d.tareas_armado        || [];
+            const tarPruebas   = d.tareas_pruebas       || [];
+
+            // ── Generar PNG del gráfico de temperatura ──
+            let tempChartPng = null;
+            if (tempRegs.length >= 2) {
+                try {
+                    const expCv = document.createElement('canvas');
+                    expCv.width = 800; expCv.height = 260;
+                    expCv.style.position = 'fixed';
+                    expCv.style.left = '-9999px';
+                    expCv.style.top = '-9999px';
+                    document.body.appendChild(expCv);
+                    window._dibujarGrafEnCanvas(expCv, tempRegs);
+                    tempChartPng = expCv.toDataURL('image/png').split(',')[1];
+                    document.body.removeChild(expCv);
+                } catch(e) { console.warn('Error generando gráfico:', e); }
+            }
 
             const body=[
                 SP(0),
@@ -700,33 +924,40 @@
                 SECC('2.  DATOS DE PLACA'), SP(0),
                 tabPlaca(d,W), SP(0),
 
-                // ── 3. PIEZAS RECIBIDAS ──
-                SECC('3.  IDENTIFICACIÓN DE PIEZAS RECIBIDAS'), SP(0),
-                tabPiezasRecepcion(piezasRec,W), SP(0),
+                // ── 3. PIEZAS RECIBIDAS / SALIDA ──
+                SECC('3.  IDENTIFICACIÓN DE PIEZAS'), SP(0),
+                tabPiezasSalida(piezasRec, piezasSalida, W), SP(0),
 
-                // ── 4. HALLAZGOS DEL DESARME ──
-                SECC('4.  HALLAZGOS DEL DESARME'), SP(0),
+                // ── 4. DESARME ──
+                SECC('4.  DESARME'), SP(0),
                 tabLista(hallazgos,W), SP(0),
-                F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
+                tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
+                tarDesarme.length>0 ? tabLista(tarDesarme,W) : '',
+                tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
+                tarMant.length>0 ? tabLista(tarMant,W) : '',
+                SP(0), F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
 
                 // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
                 SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), SP(0),
                 tabMedElec(medIng,W), SP(0),
+                tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
+                tarCalidad.length>0 ? tabLista(tarCalidad,W) : '',
                 F2W('OBSERVACIONES', obs.med_ingreso||'', W), SP(0),
 
                 // ── 6. METROLOGÍA MECÁNICA ──
                 SECC('6.  METROLOGÍA MECÁNICA'), SP(0),
                 tabMetro(metIni,metSal,W), SP(0),
-                F2W('OBSERVACIONES', obs.metrologia||'', W), SP(0),
+                tarMecIng.length>0 ? SECC('    TAREAS METROLOGÍA INGRESO') : '',
+                tarMecIng.length>0 ? tabLista(tarMecIng,W) : '',
+                tarMec.length>0 ? SECC('    TAREAS MECÁNICA FINAL') : '',
+                tarMec.length>0 ? tabLista(tarMec,W) : '',
+                SP(0), F2W('OBSERVACIONES', obs.metrologia||'', W), SP(0),
 
-                // ── 7. DATOS DE BOBINADO ──
+                // ── 7. DATOS DE BOBINADO (plana completa) ──
+                `<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>`,
                 SECC('7.  DATOS DE BOBINADO'), SP(0),
-                tabBob(d,W), SP(0),
-                SECC('    DATOS DEL FIERRO'), SP(0),
-                tabBobFierro(d,W), SP(0),
-                F2W('Técnico', b.tecnico||'', W), SP(0),
-                F2W('Tipo de Falla', b.tipo_falla||'', W), SP(0),
-                F2W('OBSERVACIONES', obs.bobinado||'', W), SP(0),
+                tabBobCompleto(d,W), SP(0),
+                `<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>`,
 
                 // ── 8. PARTES / PIEZAS / COMPONENTES ──
                 SECC('8.  PARTES / PIEZAS / COMPONENTES'), SP(0),
@@ -734,9 +965,12 @@
                 SECC('    TIPO DE FALLA'), SP(0),
                 tabChecks(FALLAS_LIST,det,W), SP(0),
 
-                // ── 9. RODAMIENTOS ──
-                SECC('9.  RODAMIENTOS'), SP(0),
+                // ── 9. RODAMIENTOS Y ARMADO ──
+                SECC('9.  RODAMIENTOS Y ARMADO'), SP(0),
                 tabRodamientos(d,W), SP(0),
+                tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
+                tarArmado.length>0 ? tabLista(tarArmado,W) : '',
+                F2W('OBSERVACIONES ARMADO', obs.armado||'', W), SP(0),
 
                 // ── 10. MEDICIONES ELÉCTRICAS DE SALIDA ──
                 SECC('10. MEDICIONES ELÉCTRICAS DE SALIDA'), SP(0),
@@ -745,54 +979,14 @@
                 // ── 11. PRUEBAS DINÁMICAS ──
                 SECC('11. PRUEBAS DINÁMICAS'), SP(0),
                 tabPruebas(d,W), SP(0),
+                tarPruebas.length>0 ? SECC('    TAREAS DE PRUEBAS DINÁMICAS') : '',
+                tarPruebas.length>0 ? tabLista(tarPruebas,W) : '',
                 F2W('OBSERVACIONES PRUEBAS', obs.pruebas||'', W), SP(0),
 
                 // ── 12. REGISTRO DE TEMPERATURAS ──
                 SECC('12. REGISTRO DE TEMPERATURAS'), SP(0),
                 tabTemperaturas(tempRegs,W), SP(0),
-                await (async () => {
-                    // Intentar exportar el gráfico canvas como imagen PNG incrustada
-                    const chartCanvas = document.getElementById(`temp_chart_${d.ot}_img`) ||
-                                        document.querySelector(`canvas[data-idx="${i}"]`);
-                    if(chartCanvas && tempRegs.length >= 2) {
-                        // Redibujar en canvas de alta resolución para el Word
-                        const exportCanvas = document.createElement('canvas');
-                        exportCanvas.width = 800; exportCanvas.height = 300;
-                        exportCanvas.style.display = 'none';
-                        document.body.appendChild(exportCanvas);
-                        // Reusar la función de dibujo con el canvas de export
-                        const datos = tempRegs;
-                        const ctx = exportCanvas.getContext('2d');
-                        const W2=800, H2=300, pad={t:35,r:25,b:40,l:55};
-                        const cW2=W2-pad.l-pad.r, cH2=H2-pad.t-pad.b;
-                        ctx.fillStyle='#f4f8ff'; ctx.fillRect(0,0,W2,H2);
-                        ctx.strokeStyle='#dde1e7'; ctx.lineWidth=0.5; ctx.strokeRect(pad.l,pad.t,cW2,cH2);
-                        const allV=datos.flatMap(r=>[+r.lc,+r.ll,+r.est]).filter(n=>!isNaN(n));
-                        const minV=Math.floor(Math.min(...allV)-3), maxV=Math.ceil(Math.max(...allV)+3);
-                        const xS=n=>pad.l+(n/(datos.length-1))*cW2;
-                        const yS=v=>pad.t+cH2-((v-minV)/(maxV-minV||1))*cH2;
-                        for(let g=0;g<=5;g++){const y=pad.t+(g/5)*cH2; ctx.beginPath();ctx.strokeStyle='#e0e8f0';ctx.lineWidth=1;ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cW2,y);ctx.stroke(); ctx.fillStyle='#555';ctx.font='12px Calibri';ctx.textAlign='right';ctx.fillText(Math.round(maxV-((maxV-minV)/5)*g)+'°',pad.l-5,y+4);}
-                        ctx.fillStyle='#555';ctx.font='12px Calibri';ctx.textAlign='center';
-                        const stepX=Math.ceil(datos.length/14);
-                        datos.forEach((r,n)=>{ if(n%stepX===0||n===datos.length-1) ctx.fillText(r.t+"'",xS(n),H2-8); });
-                        ctx.fillStyle='#888';ctx.font='11px Calibri';ctx.textAlign='center';
-                        ctx.fillText('Tiempo (minutos)',pad.l+cW2/2,H2-2);
-                        const series=[{k:'lc',c:'#e74c3c',l:'L. Carga'},{k:'ll',c:'#3498db',l:'L. Libre'},{k:'est',c:'#27ae60',l:'Estator'}];
-                        series.forEach(s=>{
-                            ctx.beginPath(); datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); }); ctx.lineTo(xS(datos.length-1),pad.t+cH2); ctx.lineTo(xS(0),pad.t+cH2); ctx.closePath(); ctx.fillStyle=s.c+'22';ctx.fill();
-                            ctx.beginPath();ctx.strokeStyle=s.c;ctx.lineWidth=2.5; datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); }); ctx.stroke();
-                            datos.forEach((r,n)=>{ ctx.beginPath();ctx.arc(xS(n),yS(+r[s.k]),4,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();ctx.strokeStyle=s.c;ctx.lineWidth=2;ctx.stroke(); });
-                        });
-                        series.forEach((s,si)=>{ const lx=pad.l+si*(cW2/3); ctx.fillStyle=s.c;ctx.fillRect(lx,8,16,12);ctx.fillStyle='#333';ctx.font='12px Calibri';ctx.textAlign='left';ctx.fillText(s.l,lx+22,19); });
-                        const pngB64 = exportCanvas.toDataURL('image/png').split(',')[1];
-                        document.body.removeChild(exportCanvas);
-                        zip.file('word/media/temp_chart.png', Uint8Array.from(atob(pngB64),c=>c.charCodeAt(0)));
-                        // Agregar relación de imagen al document.xml.rels
-                        const relsOld = zip.file('word/_rels/document.xml.rels').internalStream ? null : zip.files['word/_rels/document.xml.rels'];
-                        return IMG_WORD(W, 'Gráfico de Temperaturas');
-                    }
-                    return '';
-                })(),
+                tempChartPng ? IMG_WORD(W, 'Gráfico de Temperaturas') : '',
 
                 // ── 12. TERMINACIONES ──
                 SECC('13. TERMINACIONES'), SP(0),
@@ -814,7 +1008,9 @@
 
                 SP(0), PIE(),
             ].join('');
-            await buildDocx(`Informe_OT_${d.ot}_${d.empresa}.docx`,body,'PROTOCOLO TÉCNICO FINAL');
+            const extraFiles = {};
+            if (tempChartPng) extraFiles['word/media/temp_chart.png'] = Uint8Array.from(atob(tempChartPng), c2=>c2.charCodeAt(0));
+            await buildDocx(`Informe_OT_${d.ot}_${d.empresa}.docx`, body, 'PROTOCOLO TÉCNICO FINAL', extraFiles);
         };
 
                 window.nuevaOT = () => {
@@ -895,6 +1091,115 @@
             window.data[i].hallazgos_lista.splice(hi, 1);
             window.save(); window.render();
         };
+
+        // ── Gráfico de temperatura global ─────────────────────────
+        // Núcleo del dibujo — recibe canvas y datos directamente
+        window._dibujarGrafEnCanvas = function(canvas, datos) {
+            if (!canvas || datos.length < 2) return;
+            canvas.width  = canvas.offsetWidth  || 800;
+            canvas.height = canvas.height || 230;
+            const W=canvas.width, H=canvas.height;
+            const pad={t:32,r:24,b:36,l:46};
+            const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
+            const ctx=canvas.getContext('2d');
+            ctx.clearRect(0,0,W,H);
+            ctx.fillStyle='#f4f8ff'; ctx.fillRect(0,0,W,H);
+            ctx.strokeStyle='#dde1e7'; ctx.lineWidth=0.5;
+            ctx.strokeRect(pad.l,pad.t,cW,cH);
+            const allV=datos.flatMap(r=>[+r.lc,+r.ll,+r.est]).filter(n=>!isNaN(n));
+            if (!allV.length) return;
+            const minV=Math.floor(Math.min(...allV)-3), maxV=Math.ceil(Math.max(...allV)+3);
+            const xS=n2=>pad.l+(n2/(datos.length-1))*cW;
+            const yS=v=>pad.t+cH-((v-minV)/(maxV-minV||1))*cH;
+            for(let g=0;g<=5;g++){
+                const gy=pad.t+(g/5)*cH;
+                ctx.beginPath(); ctx.strokeStyle='#e0e8f0'; ctx.lineWidth=1;
+                ctx.moveTo(pad.l,gy); ctx.lineTo(pad.l+cW,gy); ctx.stroke();
+                ctx.fillStyle='#666'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+                ctx.fillText(Math.round(maxV-((maxV-minV)/5)*g)+'°', pad.l-4, gy+4);
+            }
+            const stepX=Math.ceil(datos.length/12);
+            ctx.fillStyle='#555'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+            datos.forEach((r,n)=>{ if(n%stepX===0||n===datos.length-1) ctx.fillText(r.t+"'", xS(n), H-6); });
+            ctx.fillStyle='#888'; ctx.font='9px sans-serif';
+            ctx.textAlign='left'; ctx.fillText('°C', 2, pad.t-10);
+            ctx.textAlign='center'; ctx.fillText('Tiempo (min)', pad.l+cW/2, H-0);
+            const series=[{k:'lc',c:'#e74c3c',l:'L. Carga'},{k:'ll',c:'#3498db',l:'L. Libre'},{k:'est',c:'#27ae60',l:'Estator'}];
+            series.forEach(s=>{
+                ctx.beginPath();
+                datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); });
+                ctx.lineTo(xS(datos.length-1),pad.t+cH); ctx.lineTo(xS(0),pad.t+cH); ctx.closePath();
+                ctx.fillStyle=s.c+'28'; ctx.fill();
+                ctx.beginPath(); ctx.strokeStyle=s.c; ctx.lineWidth=2.5;
+                datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); });
+                ctx.stroke();
+                datos.forEach((r,n)=>{
+                    const px=xS(n), py=yS(+r[s.k]);
+                    ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2);
+                    ctx.fillStyle='white'; ctx.fill();
+                    ctx.strokeStyle=s.c; ctx.lineWidth=2; ctx.stroke();
+                    if(n%2===0||n===datos.length-1){
+                        ctx.fillStyle=s.c; ctx.font='bold 9px sans-serif'; ctx.textAlign='center';
+                        ctx.fillText(r[s.k]+'°', px, py-8);
+                    }
+                });
+            });
+            series.forEach((s,si)=>{
+                const lx=pad.l+si*(cW/3);
+                ctx.fillStyle=s.c; ctx.fillRect(lx,6,14,10);
+                ctx.fillStyle='#333'; ctx.font='11px sans-serif'; ctx.textAlign='left';
+                ctx.fillText(s.l, lx+18, 15);
+            });
+        };
+
+        window.dibujarGraficoTemp = function(idx) {
+            const datos = window.data[idx]?.temp_registros || [];
+            const canvas = document.getElementById('temp_chart_'+idx);
+            const msg    = document.getElementById('temp_chart_msg_'+idx);
+            if (!canvas) return;
+            if (datos.length < 2) {
+                canvas.style.display='none';
+                if (msg) msg.style.display='block';
+                return;
+            }
+            canvas.style.display='block';
+            if (msg) msg.style.display='none';
+            window._dibujarGrafEnCanvas(canvas, datos);
+        };
+
+
+        window.agregarRodamiento = (i) => {
+            const pos = (document.getElementById('rod_pos_'+i)?.value || '').trim();
+            const mod = (document.getElementById('rod_mod_'+i)?.value || '').trim();
+            if (!mod) return;
+            if (!window.data[i].rodamientos) window.data[i].rodamientos = [];
+            window.data[i].rodamientos.push({ pos: pos || '—', mod });
+            document.getElementById('rod_pos_'+i).value = '';
+            document.getElementById('rod_mod_'+i).value = '';
+            window.save();
+            // Actualizar lista sin re-render completo
+            const lista = document.getElementById('rod_lista_'+i);
+            if (lista) {
+                lista.innerHTML = window.data[i].rodamientos.map((r,ri) => `
+                    <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #e0e0e0;">
+                        <span style="background:#004F88;color:white;border-radius:4px;padding:2px 8px;font-size:0.78em;font-weight:700;min-width:40px;text-align:center;">${r.pos}</span>
+                        <span style="flex:1;font-size:0.88em;">${r.mod}</span>
+                        <button onclick="window.quitarRodamiento(${i},${ri})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:1em;">✕</button>
+                    </div>`).join('');
+                document.getElementById('rod_mod_'+i)?.focus();
+            }
+        };
+
+        window.quitarRodamiento = (i, ri) => {
+            if (!window.data[i].rodamientos) return;
+            window.data[i].rodamientos.splice(ri, 1);
+            const checks = window.data[i].rodamientos_ok || {};
+            const newC = {};
+            window.data[i].rodamientos.forEach((_,ni) => { if (checks[ni >= ri ? ni+1 : ni]) newC[ni] = true; });
+            window.data[i].rodamientos_ok = newC;
+            window.save(); window.render();
+        };
+
         window.agregarTemp = (i) => {
             const t   = document.getElementById(`tmp_t_${i}`)?.value?.trim();
             const lc  = document.getElementById(`tmp_lc_${i}`)?.value?.trim();
@@ -930,7 +1235,7 @@
                 if (estInp) estInp.value = '';
             }, 30);
             // Redibujar gráfico en tiempo real
-            setTimeout(() => window.dibujarGraficoTemp && window.dibujarGraficoTemp(i), 50);
+            setTimeout(() => window.dibujarGraficoTemp(i), 80);
         };
         window.quitarTemp = (i, ri) => {
             if (!window.data[i].temp_registros) return;
@@ -947,7 +1252,7 @@
                         <td style="padding:3px 4px;text-align:center;"><button onclick="window.quitarTemp(${i},${ri2})" style="background:none;border:none;color:#e74c3c;cursor:pointer;">✕</button></td>
                     </tr>`).join('');
             }
-            setTimeout(() => window.dibujarGraficoTemp && window.dibujarGraficoTemp(i), 50);
+            setTimeout(() => window.dibujarGraficoTemp(i), 80);
         };
         window.agregarTerminacion = (i) => {
             const input = document.getElementById(`term_input_${i}`);
@@ -1022,7 +1327,7 @@
                 <div class="search-container">
                     <input type="text" class="search-input" id="buscado" placeholder="🔍 Buscar por OT o Empresa..." value="${window.filtroBusqueda}" oninput="window.filtroBusqueda=this.value; window.render()">
                 </div><div style="overflow-x:auto">
-                <table><thead><tr><th>⚑</th><th>OT</th><th>Empresa</th><th>Fecha Entrega</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>`;
+                <table><thead><tr><th>⚑</th><th>OT</th><th>Empresa</th><th>Fecha Entrega</th><th>Estado</th><th style='min-width:130px'>Avance</th><th>Acciones</th></tr></thead><tbody>`;
 
                 filtradas.forEach((d) => {
                     const estadoBadge = d.estado.replace(/_/g,' ').toUpperCase();
@@ -1037,6 +1342,7 @@
                     }
                     const [y,m,dd] = (d.fecha||'').split('-');
                     const fechaFmt = d.fecha ? `${dd}/${m}/${y}` : '';
+                    const pct = window.calcularAvance(d);
                     html += `<tr>
                         <td style="text-align:center"><button onclick="window.data[${d.indexOriginal}].pri=(window.data[${d.indexOriginal}].pri=='urgente'?'normal':'urgente'); window.save()" style="background:none;cursor:pointer;font-size:1.2em;padding:2px 4px;border:none;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
                         <td><b style="color:var(--accent);">${d.ot}</b></td>
@@ -1047,6 +1353,7 @@
                             ${diasHtml}
                         </td>
                         <td><span class="badge badge-blue">${estadoBadge}</span></td>
+                        <td>${window.barraAvance(pct)}</td>
                         <td class="dash-actions">
                             <button class="btn-primary btn-sm" onclick="window.verDetalle(${d.indexOriginal})">🔍</button>
                             <button class="btn-sm" style="background:#1a6b2e;color:white;" onclick="window.descargarGuiaRecepcion(${d.indexOriginal})" title="Descargar Guía de Recepción">📥</button>
@@ -1076,23 +1383,156 @@
                 let filtrados = window.data.filter(d => d.fecha && d.fecha.slice(0,7) === mesSel);
                 const st2 = (req, hecho) => (req === 'si') ? (hecho ? '<td style="color:var(--success-dark);text-align:center">✔</td>' : '<td style="color:var(--danger);text-align:center">✘</td>') : '<td style="text-align:center;color:var(--text-light)">—</td>';
                 const ck2 = (paso, d) => (d.pasos && d.pasos[paso]) ? '<td style="color:var(--success-dark);text-align:center">✔</td>' : '<td style="text-align:center;color:var(--text-light)">—</td>';
-                const rod2 = (modelo, hecho) => !modelo ? '<td style="text-align:center;color:var(--text-light)">—</td>' :
-                    `<td><span style="font-size:0.8em">${modelo} ${hecho ? '<b style="color:var(--success-dark)">✔</b>' : '<b style="color:var(--danger)">✘</b>'}</span></td>`;
+                const rod2 = (d2) => {
+                    const rods2 = d2.rodamientos || [];
+                    // Compatibilidad legacy
+                    const lista2 = rods2.length > 0 ? rods2 : [
+                        ...(d2.rod_lc ? [{pos:'LC',mod:d2.rod_lc,ok:d2.rod_lc_ok}] : []),
+                        ...(d2.rod_ll ? [{pos:'LL',mod:d2.rod_ll,ok:d2.rod_ll_ok}] : []),
+                    ];
+                    if (!lista2.length) return '<td style="text-align:center;color:#ccc">—</td>';
+                    const checks2 = d2.rodamientos_ok || {};
+                    const texto = lista2.map((r,ri)=>{
+                        const ok2 = r.ok !== undefined ? r.ok : !!checks2[ri];
+                        return `<span style="font-size:0.75em;display:block;">${r.pos}: ${r.mod} ${ok2?'<b style="color:var(--success-dark)">✔</b>':'<b style="color:var(--danger)">✘</b>'}</span>`;
+                    }).join('');
+                    return '<td style="padding:4px">'+texto+'</td>';
+                };
                 const fmtF = (f) => { if(!f) return '—'; const [y,m,d]=f.split('-'); return `${d}/${m}/${y}`; };
 
                 const filas = filtrados.map(d =>
-                    `<tr><td><b style="color:var(--accent)">${d.ot}</b></td><td>${d.empresa}</td><td style="font-size:0.85em;white-space:nowrap">${fmtF(d.fecha)}</td>${rod2(d.rod_lc,d.rod_lc_ok)}${rod2(d.rod_ll,d.rod_ll_ok)}${st2(d.enc_lc,d.ejec_enc_lc)}${st2(d.enc_ll,d.ejec_enc_ll)}${st2(d.met_lc,d.ejec_met_lc)}${st2(d.met_ll,d.ejec_met_ll)}${ck2('mant_ok',d)}<td><span class="badge badge-blue" style="font-size:0.7em">${d.estado.replace(/_/g,' ').toUpperCase()}</span></td></tr>`
+                    `<tr><td><b style="color:var(--accent)">${d.ot}</b></td><td>${d.empresa}</td><td style="font-size:0.85em;white-space:nowrap">${fmtF(d.fecha)}</td>${rod2(d)}${st2(d.enc_lc,d.ejec_enc_lc)}${st2(d.enc_ll,d.ejec_enc_ll)}${st2(d.met_lc,d.ejec_met_lc)}${st2(d.met_ll,d.ejec_met_ll)}${ck2('mant_ok',d)}<td><span class="badge badge-blue" style="font-size:0.7em">${d.estado.replace(/_/g,' ').toUpperCase()}</span></td></tr>`
                 ).join('');
+
+                // Calcular stats del mes
+                const totalMes = filtrados.length;
+                const entregados = filtrados.filter(d => d.estado === 'entregado').length;
+                const enProceso  = filtrados.filter(d => !['entregado','despacho'].includes(d.estado)).length;
+                const despacho   = filtrados.filter(d => d.estado === 'despacho').length;
+                const pctMes     = totalMes ? Math.round(filtrados.reduce((s,d) => s + window.calcularAvance(d), 0) / totalMes) : 0;
+                const colPctMes  = window.colorAvance(pctMes);
+
+                // Gráfico de barras de avance por OT
+                const grafId = 'graf_mensual_' + mesSel.replace('-','');
+                const grafHtml = filtrados.length === 0 ? '' : `
+                    <div style="margin-bottom:14px;">
+                        <div style="font-size:0.8em;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Avance por OT</div>
+                        <canvas id="${grafId}" style="width:100%;height:${Math.max(60, filtrados.length * 32)}px;display:block;"></canvas>
+                    </div>`;
+
+                const filasNuevas = filtrados.map(d => {
+                    const pct2 = window.calcularAvance(d);
+                    return `<tr>
+                        <td><b style="color:var(--accent)">${d.ot}</b></td>
+                        <td>${d.empresa}</td>
+                        <td style="font-size:0.85em;white-space:nowrap">${fmtF(d.fecha)}</td>
+                        <td>${window.barraAvance(pct2)}</td>
+                        ${rod2(d)}
+                        ${st2(d.enc_lc,d.ejec_enc_lc)}${st2(d.enc_ll,d.ejec_enc_ll)}
+                        ${ck2('mant_ok',d)}
+                        <td><span class="badge badge-blue" style="font-size:0.7em">${d.estado.replace(/_/g,' ').toUpperCase()}</span></td>
+                    </tr>`;
+                }).join('');
 
                 v.innerHTML = `<div class="card">
                     <h2>📅 Control Mensual</h2>
                     <div class="mes-selector">${botonesHtml}</div>
+
+                    <!-- KPIs del mes -->
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+                        <div style="background:#f0f4ff;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:1.6em;font-weight:800;color:var(--accent);">${totalMes}</div>
+                            <div style="font-size:0.75em;color:var(--text2);font-weight:600;">OTs del mes</div>
+                        </div>
+                        <div style="background:#f0faf4;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:1.6em;font-weight:800;color:#27ae60;">${entregados}</div>
+                            <div style="font-size:0.75em;color:var(--text2);font-weight:600;">Entregadas</div>
+                        </div>
+                        <div style="background:#fff8f0;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:1.6em;font-weight:800;color:#f39c12;">${enProceso}</div>
+                            <div style="font-size:0.75em;color:var(--text2);font-weight:600;">En proceso</div>
+                        </div>
+                        <div style="background:#f8f8f8;border-radius:8px;padding:12px;text-align:center;">
+                            <div style="font-size:1.6em;font-weight:800;color:${colPctMes};">${pctMes}%</div>
+                            <div style="font-size:0.75em;color:var(--text2);font-weight:600;">Avance promedio</div>
+                        </div>
+                    </div>
+
+                    <!-- Barra avance total del mes -->
+                    <div style="margin-bottom:16px;">
+                        <div style="display:flex;justify-content:space-between;font-size:0.8em;color:var(--text2);margin-bottom:4px;">
+                            <span style="font-weight:700;">Avance global del mes</span>
+                            <span style="font-weight:700;color:${colPctMes};">${pctMes}%</span>
+                        </div>
+                        <div style="background:#e0e0e0;border-radius:8px;height:12px;overflow:hidden;">
+                            <div style="width:${pctMes}%;background:${colPctMes};height:12px;border-radius:8px;transition:width 0.5s;"></div>
+                        </div>
+                    </div>
+
+                    ${grafHtml}
+
                     <div style="overflow-x:auto">
                     <table class="tab-tec" style="font-size:0.83em;">
-                        <thead><tr><th>OT</th><th>Empresa</th><th>Fecha</th><th>R.LC</th><th>R.LL</th><th>E.LC</th><th>E.LL</th><th>M.LC</th><th>M.LL</th><th>Mant</th><th>Estado</th></tr></thead>
-                        <tbody>${filas || '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text2);">Sin OTs para este mes</td></tr>'}</tbody>
+                        <thead><tr><th>OT</th><th>Empresa</th><th>Fecha</th><th style="min-width:130px">Avance</th><th>Rodamientos</th><th>E.LC</th><th>E.LL</th><th>Mant</th><th>Estado</th></tr></thead>
+                        <tbody>${filasNuevas || '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--text2);">Sin OTs para este mes</td></tr>'}</tbody>
                     </table></div>
                 </div>`;
+
+                // Dibujar gráfico de barras horizontales de avance
+                if (filtrados.length > 0) {
+                    setTimeout(() => {
+                        const canvas = document.getElementById(grafId);
+                        if (!canvas) return;
+                        const W = canvas.offsetWidth || 600;
+                        const rowH = 28, padL = 120, padR = 50, padT = 8, padB = 8;
+                        const H = padT + filtrados.length * rowH + padB;
+                        canvas.width = W; canvas.height = H;
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0,0,W,H);
+                        const barW = W - padL - padR;
+
+                        filtrados.forEach((d2, idx) => {
+                            const pct3 = window.calcularAvance(d2);
+                            const y = padT + idx * rowH;
+                            const col = window.colorAvance(pct3);
+
+                            // Fondo alternado
+                            ctx.fillStyle = idx%2===0 ? '#f8f9fa' : '#ffffff';
+                            ctx.fillRect(0, y, W, rowH);
+
+                            // Label OT
+                            ctx.fillStyle = '#2c3e50'; ctx.font = 'bold 11px Calibri';
+                            ctx.textAlign = 'right';
+                            ctx.fillText('OT ' + d2.ot, padL - 6, y + rowH/2 + 4);
+
+                            // Barra fondo
+                            ctx.fillStyle = '#e8e8e8';
+                            ctx.beginPath();
+                            ctx.roundRect(padL, y+6, barW, rowH-12, 4);
+                            ctx.fill();
+
+                            // Barra progreso
+                            const bw = Math.round(barW * pct3 / 100);
+                            if (bw > 0) {
+                                ctx.fillStyle = col;
+                                ctx.beginPath();
+                                ctx.roundRect(padL, y+6, bw, rowH-12, 4);
+                                ctx.fill();
+                            }
+
+                            // % texto
+                            ctx.fillStyle = pct3 > 15 ? 'white' : col;
+                            ctx.font = 'bold 10px Calibri';
+                            ctx.textAlign = 'left';
+                            ctx.fillText(pct3 + '%', padL + Math.max(bw - 28, 4), y + rowH/2 + 4);
+
+                            // Empresa
+                            ctx.fillStyle = '#888'; ctx.font = '10px Calibri';
+                            ctx.textAlign = 'left';
+                            ctx.fillText(d2.empresa.slice(0,20), padL + barW + 4, y + rowH/2 + 4);
+                        });
+                    }, 80);
+                }
             }
             else if (window.vistaActual === "crear") {
                 const PIEZAS_FIJAS = ['CARCASA','TAPA RODAMIENTO','TAPA VENTILADOR','JAULA DE ARDILLA','VENTILADOR','PLACA DE CONEXIÓN','CAJA DE CONEXIÓN','CÁNCAMOS','CHAVETA','RODAMIENTOS','POLEA','MACHÓN DE ACOPLE','PIÑÓN','CARBONES','CONTRA TAPA','INDUCIDO','COLECTOR','PORTA ESCOBILLA','RETÉN','PERNOS','INTERCAMBIADOR','CONEXIÓN A TIERRA','OTROS (ESPECIFICAR)'];
@@ -1239,9 +1679,55 @@
                                             </div>`).join('')}
                                     </div>
                                 </div>
+                                
+                                <div class="det-seccion-titulo" style="margin-top:10px;">🔧 Tareas Realizadas en Desarme</div>
+                                <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
+                                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                        <input id="tarea_desarme_${i}" class="med-input" style="flex:1;" placeholder="Ej: Extracción de rodamientos, Limpieza general..."
+                                            onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarTarea('desarme',${i});}" >
+                                        <button onclick="window.agregarTarea('desarme',${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                    </div>
+                                    <div id="tarea_desarme_lista_${i}">
+                                        ${(d.tareas_desarme||[]).map((item,ti) => `
+                                            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                                                <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                                    <input type="checkbox" ${(d.tareas_desarme_checks||{})[ti]?'checked':''}
+                                                        onchange="if(!window.data[${i}].tareas_desarme_checks) window.data[${i}].tareas_desarme_checks={};
+                                                                  window.data[${i}].tareas_desarme_checks[${ti}]=this.checked;
+                                                                  window.save();">
+                                                    <span style="font-size:0.87em;${(d.tareas_desarme_checks||{})[ti]?'text-decoration:line-through;color:#888;':''}">${item}</span>
+                                                </label>
+                                                <button onclick="window.quitarTarea('desarme',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                                            </div>`).join('')}
+                                    </div>
+                                </div>
                                 <button class="btn-finish" onclick="window.updateFlujo(${i},'desarme_ok','ingresos_pendientes')">✅ Fin Desarme</button>`;
                         }
-                        else if (d.estado === 'ejecucion_trabajos') UI = `<h3>Mantención</h3>${obs('mantencion')}<button class="btn-finish" onclick="window.updateFlujo(${i},'mant_ok')">✅ Fin Mantención</button>`;
+                        else if (d.estado === 'ejecucion_trabajos') UI = `<h3>Mantención</h3>${obs('mantencion')}
+                                <div class="det-seccion-titulo" style="margin-top:10px;">🔧 Tareas de Mantención</div>
+                                <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
+                                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                        <input id="tarea_mantencion_${i}" class="med-input" style="flex:1;" placeholder="Ej: Cambio de rodamientos, Limpieza de bobinado..."
+                                            onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarTarea('mantencion',${i});}" >
+                                        <button onclick="window.agregarTarea('mantencion',${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                    </div>
+                                    <div id="tarea_mantencion_lista_${i}">
+                                        ${(d.tareas_mantencion||[]).map((item,ti) => `
+                                            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                                                <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                                    <input type="checkbox" ${(d.tareas_mantencion_checks||{})[ti]?'checked':''}
+                                                        onchange="if(!window.data[${i}].tareas_mantencion_checks) window.data[${i}].tareas_mantencion_checks={};
+                                                                  window.data[${i}].tareas_mantencion_checks[${ti}]=this.checked;
+                                                                  window.save();">
+                                                    <span style="font-size:0.87em;${(d.tareas_mantencion_checks||{})[ti]?'text-decoration:line-through;color:#888;':''}">${item}</span>
+                                                </label>
+                                                <button onclick="window.quitarTarea('mantencion',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                                            </div>`).join('')}
+                                    </div>
+                                </div>
+                                <button class="btn-finish" onclick="window.updateFlujo(${i},'mant_ok')">✅ Fin Mantención</button>`;
                     }
                     else if (window.vistaActual === 'calidad') {
                         if (d.estado === 'ingresos_pendientes') {
@@ -1276,6 +1762,29 @@
                                 <div class="med-fila2">
                                     <div class="med-campo"><label>Aislación (MΩ)</label><input class="med-input" value="${d.mediciones.aisla||''}" onchange="window.data[${i}].mediciones.aisla=this.value; window.save()"></div>
                                     <div class="med-campo"><label>IP / DAR</label><input class="med-input" value="${d.mediciones.ipdar||''}" onchange="window.data[${i}].mediciones.ipdar=this.value; window.save()"></div>
+                                </div>
+                                
+                                <div class="det-seccion-titulo" style="margin-top:10px;">📋 Tareas de Calidad / Mediciones</div>
+                                <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
+                                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                        <input id="tarea_calidad_${i}" class="med-input" style="flex:1;" placeholder="Ej: Medición de aislación, Prueba surge..."
+                                            onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarTarea('calidad',${i});}" >
+                                        <button onclick="window.agregarTarea('calidad',${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                    </div>
+                                    <div id="tarea_calidad_lista_${i}">
+                                        ${(d.tareas_calidad||[]).map((item,ti) => `
+                                            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                                                <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                                    <input type="checkbox" ${(d.tareas_calidad_checks||{})[ti]?'checked':''}
+                                                        onchange="if(!window.data[${i}].tareas_calidad_checks) window.data[${i}].tareas_calidad_checks={};
+                                                                  window.data[${i}].tareas_calidad_checks[${ti}]=this.checked;
+                                                                  window.save();">
+                                                    <span style="font-size:0.87em;${(d.tareas_calidad_checks||{})[ti]?'text-decoration:line-through;color:#888;':''}">${item}</span>
+                                                </label>
+                                                <button onclick="window.quitarTarea('calidad',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                                            </div>`).join('')}
+                                    </div>
                                 </div>
                                 <button class="btn-finish" onclick="window.updateFlujo(${i},'med_ok')">✅ Guardar e Ingresar</button>`;
                         }
@@ -1537,81 +2046,6 @@
                                     </div>
                                     <canvas id="temp_chart_${i}" style="width:100%;height:220px;display:block;border-radius:5px;margin-top:8px;" data-idx="${i}"></canvas>
                                     <p id="temp_chart_msg_${i}" style="font-size:0.82em;color:#888;text-align:center;padding:6px 0;display:${(d.temp_registros||[]).length>=2?'none':'block'};">Agrega al menos 2 registros para ver el gráfico.</p>
-                                    <script>
-                                    (function(){
-                                        window.dibujarGraficoTemp = window.dibujarGraficoTemp || function(idx) {
-                                            const datos = window.data[idx]?.temp_registros || [];
-                                            const canvas = document.getElementById('temp_chart_'+idx);
-                                            const msg    = document.getElementById('temp_chart_msg_'+idx);
-                                            if(!canvas) return;
-                                            if(datos.length < 2){ canvas.style.display='none'; if(msg) msg.style.display='block'; return; }
-                                            canvas.style.display='block'; if(msg) msg.style.display='none';
-                                            canvas.width  = canvas.offsetWidth  || 560;
-                                            canvas.height = 220;
-                                            const W=canvas.width, H=canvas.height;
-                                            const pad={t:28,r:20,b:34,l:44};
-                                            const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
-                                            const ctx=canvas.getContext('2d');
-                                            ctx.clearRect(0,0,W,H);
-                                            // Fondo
-                                            ctx.fillStyle='#f4f8ff'; ctx.fillRect(0,0,W,H);
-                                            ctx.strokeStyle='#dde1e7'; ctx.lineWidth=0.5;
-                                            ctx.strokeRect(pad.l,pad.t,cW,cH);
-                                            const allV=datos.flatMap(r=>[+r.lc,+r.ll,+r.est]).filter(n=>!isNaN(n));
-                                            const minV=Math.floor(Math.min(...allV)-3), maxV=Math.ceil(Math.max(...allV)+3);
-                                            const xS=idx2=>pad.l+(idx2/(datos.length-1))*cW;
-                                            const yS=v=>pad.t+cH-((v-minV)/(maxV-minV||1))*cH;
-                                            // Grid horizontal
-                                            const steps=5;
-                                            for(let g=0;g<=steps;g++){
-                                                const y=pad.t+(g/steps)*cH;
-                                                ctx.beginPath(); ctx.strokeStyle='#e0e8f0'; ctx.lineWidth=1;
-                                                ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cW,y); ctx.stroke();
-                                                ctx.fillStyle='#666'; ctx.font='10px Calibri'; ctx.textAlign='right';
-                                                ctx.fillText(Math.round(maxV-((maxV-minV)/steps)*g)+'°', pad.l-4, y+4);
-                                            }
-                                            // Eje X labels (máx 12 para no solapar)
-                                            const step = Math.ceil(datos.length/12);
-                                            ctx.fillStyle='#555'; ctx.font='10px Calibri'; ctx.textAlign='center';
-                                            datos.forEach((r,n)=>{ if(n%step===0||n===datos.length-1) ctx.fillText(r.t+"'", xS(n), H-6); });
-                                            // Título ejes
-                                            ctx.fillStyle='#888'; ctx.font='9px Calibri'; ctx.textAlign='left';
-                                            ctx.fillText('°C', 2, pad.t-8);
-                                            ctx.textAlign='center';
-                                            ctx.fillText('Tiempo (min)', pad.l+cW/2, H-1);
-                                            // Series con área rellena semitransparente
-                                            const series=[{k:'lc',c:'#e74c3c',l:'L. Carga'},{k:'ll',c:'#3498db',l:'L. Libre'},{k:'est',c:'#27ae60',l:'Estator'}];
-                                            series.forEach(s=>{
-                                                // Área
-                                                ctx.beginPath();
-                                                datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); });
-                                                ctx.lineTo(xS(datos.length-1),pad.t+cH); ctx.lineTo(xS(0),pad.t+cH); ctx.closePath();
-                                                ctx.fillStyle=s.c+'22'; ctx.fill();
-                                                // Línea
-                                                ctx.beginPath(); ctx.strokeStyle=s.c; ctx.lineWidth=2;
-                                                datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); });
-                                                ctx.stroke();
-                                                // Puntos
-                                                datos.forEach((r,n)=>{
-                                                    ctx.beginPath(); ctx.arc(xS(n),yS(+r[s.k]),3.5,0,Math.PI*2);
-                                                    ctx.fillStyle='white'; ctx.fill();
-                                                    ctx.strokeStyle=s.c; ctx.lineWidth=2; ctx.stroke();
-                                                });
-                                            });
-                                            // Leyenda
-                                            series.forEach((s,si)=>{
-                                                const lx=pad.l+si*(cW/3);
-                                                ctx.fillStyle=s.c; ctx.fillRect(lx,6,14,10);
-                                                ctx.fillStyle='#333'; ctx.font='11px Calibri'; ctx.textAlign='left';
-                                                ctx.fillText(s.l, lx+18, 15);
-                                            });
-                                        };
-                                        // Guardar referencia para exportar al Word
-                                        window._tempChartIdx = window._tempChartIdx || new Set();
-                                        window._tempChartIdx.add(${i});
-                                        setTimeout(()=>window.dibujarGraficoTemp(${i}), 80);
-                                    })();
-                                    <\/script>
                                 </div>
 
                                 <div class="det-seccion-titulo" style="margin-top:14px;">📋 Pendientes para Terminaciones</div>
@@ -1630,49 +2064,94 @@
                                             </div>`).join('')}
                                     </div>
                                 </div>
-                                ${obs('pruebas')}<button class="btn-finish" onclick="window.updateFlujo(${i},'pruebas_ok','terminaciones')">✅ Fin Pruebas → Terminaciones</button>`;
+                                ${obs('pruebas')}
+                                <div class="det-seccion-titulo" style="margin-top:10px;">🔬 Tareas de Pruebas Dinámicas</div>
+                                <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
+                                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                        <input id="tarea_pruebas_${i}" class="med-input" style="flex:1;" placeholder="Ej: Prueba en vacío, Medición de corriente de arranque..."
+                                            onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarTarea('pruebas',${i});}" >
+                                        <button onclick="window.agregarTarea('pruebas',${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                    </div>
+                                    <div id="tarea_pruebas_lista_${i}">
+                                        ${(d.tareas_pruebas||[]).map((item,ti) => `
+                                            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                                                <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                                    <input type="checkbox" ${(d.tareas_pruebas_checks||{})[ti]?'checked':''}
+                                                        onchange="if(!window.data[${i}].tareas_pruebas_checks) window.data[${i}].tareas_pruebas_checks={};
+                                                                  window.data[${i}].tareas_pruebas_checks[${ti}]=this.checked;
+                                                                  window.save();">
+                                                    <span style="font-size:0.87em;${(d.tareas_pruebas_checks||{})[ti]?'text-decoration:line-through;color:#888;':''}">${item}</span>
+                                                </label>
+                                                <button onclick="window.quitarTarea('pruebas',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                                            </div>`).join('')}
+                                    </div>
+                                </div>
+                                <button class="btn-finish" onclick="window.updateFlujo(${i},'pruebas_ok','terminaciones')">✅ Fin Pruebas → Terminaciones</button>`;
                         }
                         else if (d.estado === 'check_salida') {
                             const pRec   = d.piezas_recepcion || [];
-                            const pChecks= d.piezas_recepcion_checks || {};
+                            // pSalida: estado de salida por pieza ('si','no','na') - editable
+                            if (!d.piezas_salida_estado) {
+                                // Inicializar: si no llegó (estado==='no' y sin obs) → N/A por defecto
+                                d.piezas_salida_estado = {};
+                                pRec.forEach((p,pi) => {
+                                    d.piezas_salida_estado[pi] = (p.estado === 'no' || p.estado === '') ? 'na' : 'si';
+                                });
+                                window.save();
+                            }
+                            const pSalida = d.piezas_salida_estado || {};
                             const tList  = d.terminaciones_lista || [];
                             const tChecks= d.terminaciones_checks || {};
-                            const todasPiezas = pRec.length === 0 || pRec.every((_,pi) => pChecks[pi]);
+                            // Todas las piezas deben tener estado de salida definido (si/no/na)
+                            const todasPiezas = pRec.length === 0 || pRec.every((_,pi) => pSalida[pi] && pSalida[pi] !== '');
                             const todasTerm   = tList.length === 0 || tList.every((_,ti) => tChecks[ti]);
                             const todoOk = todasPiezas && todasTerm;
                             UI = `<h3>✅ Check Salida — Control de Calidad Final</h3>
 
-                                <div class="det-seccion-titulo">🔩 Verificación de Piezas (Guía de Recepción)</div>
+                                <div class="det-seccion-titulo">🔩 Verificación de Piezas de Salida</div>
+                                <p style="font-size:0.8em;color:#666;padding:4px 0 8px 0;">Las piezas marcadas <b>N/A</b> no aplican en esta salida. Puedes cambiar el estado de cualquier pieza según corresponda.</p>
                                 ${pRec.length === 0
                                     ? `<p style="color:#888;font-size:0.85em;padding:8px;">No hay piezas registradas en la Guía de Recepción.</p>`
                                     : `<div style="background:#f8f9fa;border:1px solid #dde1e7;border-radius:6px;padding:10px;margin-bottom:12px;overflow-x:auto;">
                                         <table style="width:100%;border-collapse:collapse;font-size:0.82em;">
                                             <thead><tr style="background:#004F88;color:white;">
                                                 <th style="padding:5px 8px;text-align:left;">PIEZA</th>
-                                                <th style="padding:5px;text-align:center;width:70px;">RECIBIDA</th>
-                                                <th style="padding:5px;text-align:center;width:80px;">VERIFICADA ✓</th>
-                                                <th style="padding:5px 8px;text-align:left;">OBS. RECEPCIÓN</th>
+                                                <th style="padding:5px;text-align:center;width:65px;">INGRESÓ</th>
+                                                <th style="padding:5px;text-align:center;width:160px;">ESTADO SALIDA</th>
+                                                <th style="padding:5px 8px;text-align:left;">OBS.</th>
                                             </tr></thead>
                                             <tbody>
-                                            ${pRec.map((p,pi)=>`
-                                                <tr style="background:${pChecks[pi]?'#eafaf1':pi%2===0?'#f8f9fa':'white'};border-bottom:1px solid #dde1e7;">
-                                                    <td style="padding:5px 8px;font-weight:600;">${p.nombre}</td>
+                                            ${pRec.map((p,pi)=>{
+                                                const est = pSalida[pi] || 'na';
+                                                const bgRow = est==='si'?'#eafaf1': est==='no'?'#fff5f5': est==='na'?'#f5f5f5':'white';
+                                                const ingColor = p.estado==='si'?'#27ae60':p.estado==='no'?'#e74c3c':p.estado==='mal'?'#f39c12':'#aaa';
+                                                const ingLabel = p.estado==='si'?'SI':p.estado==='no'?'NO':p.estado==='mal'?'MAL':'—';
+                                                return `
+                                                <tr style="background:${bgRow};border-bottom:1px solid #dde1e7;">
+                                                    <td style="padding:5px 8px;font-weight:600;${est==='na'?'color:#aaa;':''}">${p.nombre}</td>
                                                     <td style="padding:5px;text-align:center;">
-                                                        <span style="font-weight:700;color:${p.estado==='si'?'#27ae60':p.estado==='no'?'#e74c3c':p.estado==='mal'?'#f39c12':'#888'};">
-                                                            ${p.estado==='si'?'SI':p.estado==='no'?'NO':p.estado==='mal'?'MAL':'-'}
-                                                        </span>
+                                                        <span style="font-weight:700;color:${ingColor};font-size:0.9em;">${ingLabel}</span>
                                                     </td>
-                                                    <td style="text-align:center;padding:5px;">
-                                                        <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
-                                                            <input type="checkbox" ${pChecks[pi]?'checked':''}
-                                                                onchange="if(!window.data[${i}].piezas_recepcion_checks) window.data[${i}].piezas_recepcion_checks={};
-                                                                          window.data[${i}].piezas_recepcion_checks[${pi}]=this.checked;
-                                                                          window.save(); window.render();">
-                                                            <span style="font-size:0.85em;color:${pChecks[pi]?'#27ae60':'#888'};">${pChecks[pi]?'OK':'—'}</span>
-                                                        </label>
+                                                    <td style="padding:4px 5px;text-align:center;">
+                                                        <div style="display:flex;gap:3px;justify-content:center;">
+                                                            <button onclick="if(!window.data[${i}].piezas_salida_estado)window.data[${i}].piezas_salida_estado={};
+                                                                window.data[${i}].piezas_salida_estado[${pi}]='si'; window.save(); window.render();"
+                                                                style="padding:3px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;
+                                                                background:${est==='si'?'#27ae60':'#e0e0e0'};color:${est==='si'?'white':'#555'};">✓ SI</button>
+                                                            <button onclick="if(!window.data[${i}].piezas_salida_estado)window.data[${i}].piezas_salida_estado={};
+                                                                window.data[${i}].piezas_salida_estado[${pi}]='no'; window.save(); window.render();"
+                                                                style="padding:3px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;
+                                                                background:${est==='no'?'#e74c3c':'#e0e0e0'};color:${est==='no'?'white':'#555'};">✗ NO</button>
+                                                            <button onclick="if(!window.data[${i}].piezas_salida_estado)window.data[${i}].piezas_salida_estado={};
+                                                                window.data[${i}].piezas_salida_estado[${pi}]='na'; window.save(); window.render();"
+                                                                style="padding:3px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;
+                                                                background:${est==='na'?'#95a5a6':'#e0e0e0'};color:${est==='na'?'white':'#555'};">N/A</button>
+                                                        </div>
                                                     </td>
                                                     <td style="padding:5px 8px;color:#666;font-size:0.85em;">${p.obs||''}</td>
-                                                </tr>`).join('')}
+                                                </tr>`;
+                                            }).join('')}
                                             </tbody>
                                         </table>
                                        </div>`
@@ -1705,9 +2184,23 @@
                         if (d.estado === 'ingresos_pendientes') {
                             UI = `<h3>Metrología e Ingreso</h3>
                             <div style="background:#f9f9f9; padding:10px; border-radius:5px; margin-bottom:10px;">
-                                <strong>Modelo Rodamientos:</strong><br>
-                                <input type="text" style="width:48%; padding:8px;" placeholder="Rodamiento LC" value="${d.rod_lc||''}" onchange="window.data[${i}].rod_lc=this.value; window.save()">
-                                <input type="text" style="width:48%; padding:8px;" placeholder="Rodamiento LL" value="${d.rod_ll||''}" onchange="window.data[${i}].rod_ll=this.value; window.save()">
+                                <strong>🔩 Rodamientos</strong>
+                                <p style="font-size:0.8em;color:#888;margin:4px 0 8px;">Agrega todos los rodamientos que requiere el motor.</p>
+                                <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                    <input id="rod_pos_${i}" class="med-input" style="width:100px;" placeholder="Posición" list="rod_pos_list">
+                                    <datalist id="rod_pos_list"><option value="LC"><option value="LL"><option value="LC/LL"><option value="Freno"><option value="Encoder"></datalist>
+                                    <input id="rod_mod_${i}" class="med-input" style="flex:1;" placeholder="Modelo rodamiento (Ej: 6205-2RS)"
+                                        onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarRodamiento(${i});}">
+                                    <button onclick="window.agregarRodamiento(${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                </div>
+                                <div id="rod_lista_${i}">
+                                    ${(d.rodamientos||[]).map((r,ri) => `
+                                        <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #e0e0e0;">
+                                            <span style="background:#004F88;color:white;border-radius:4px;padding:2px 8px;font-size:0.78em;font-weight:700;min-width:40px;text-align:center;">${r.pos}</span>
+                                            <span style="flex:1;font-size:0.88em;">${r.mod}</span>
+                                            <button onclick="window.quitarRodamiento(${i},${ri})" style="background:none;border:none;color:#e74c3c;cursor:pointer;font-size:1em;">✕</button>
+                                        </div>`).join('')}
+                                </div>
                             </div>
                             <div style="background:#eee; padding:10px; border-radius:5px;">
                                 <strong>Metrología Inicial:</strong>
@@ -1715,7 +2208,30 @@
                                 <div class="row-met-ingreso"><input type="checkbox" ${d.enc_ll=='si'?'checked':''} onchange="window.data[${i}].enc_ll=this.checked?'si':'no'; window.save()"> EN.LL <input type="text" placeholder="Valor" style="width:100px" value="${d.met_val_ll||''}" onchange="window.data[${i}].met_val_ll=this.value; window.save()"></div>
                                 <div class="row-met-ingreso"><input type="checkbox" ${d.met_lc=='si'?'checked':''} onchange="window.data[${i}].met_lc=this.checked?'si':'no'; window.save()"> ME.LC <input type="text" placeholder="Valor" style="width:100px" value="${d.met_val_mlc||''}" onchange="window.data[${i}].met_val_mlc=this.value; window.save()"></div>
                                 <div class="row-met-ingreso"><input type="checkbox" ${d.met_ll=='si'?'checked':''} onchange="window.data[${i}].met_ll=this.checked?'si':'no'; window.save()"> ME.LL <input type="text" placeholder="Valor" style="width:100px" value="${d.met_val_mll||''}" onchange="window.data[${i}].met_val_mll=this.value; window.save()"></div>
-                            </div><br>${obs('metrologia')}<button class="btn-finish" onclick="window.updateFlujo(${i},'met_ok')">✅ Guardar Metrología</button>`;
+                            </div><br>${obs('metrologia')}
+                                <div class="det-seccion-titulo" style="margin-top:10px;">🔩 Tareas Metrología Ingreso</div>
+                                <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
+                                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                        <input id="tarea_mecanica_ing_${i}" class="med-input" style="flex:1;" placeholder="Ej: Toma de medidas, Registro dimensional..."
+                                            onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarTarea('mecanica_ing',${i});}" >
+                                        <button onclick="window.agregarTarea('mecanica_ing',${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                    </div>
+                                    <div id="tarea_mecanica_ing_lista_${i}">
+                                        ${(d.tareas_mecanica_ing||[]).map((item,ti) => `
+                                            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                                                <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                                    <input type="checkbox" ${(d.tareas_mecanica_ing_checks||{})[ti]?'checked':''}
+                                                        onchange="if(!window.data[${i}].tareas_mecanica_ing_checks) window.data[${i}].tareas_mecanica_ing_checks={};
+                                                                  window.data[${i}].tareas_mecanica_ing_checks[${ti}]=this.checked;
+                                                                  window.save();">
+                                                    <span style="font-size:0.87em;${(d.tareas_mecanica_ing_checks||{})[ti]?'text-decoration:line-through;color:#888;':''}">${item}</span>
+                                                </label>
+                                                <button onclick="window.quitarTarea('mecanica_ing',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                                            </div>`).join('')}
+                                    </div>
+                                </div>
+                            <button class="btn-finish" onclick="window.updateFlujo(${i},'met_ok')">✅ Guardar Metrología</button>`;
                         }
                         else if (d.estado === 'ejecucion_trabajos') {
                             UI = `<h3>Trabajo Mecánico (Finales)</h3>`;
@@ -1723,7 +2239,30 @@
                             if(d.enc_ll=='si') UI += `<div class="row-met-ingreso">EN.LL FINAL: <input type="text" value="${d.ejec_enc_ll||''}" onchange="window.data[${i}].ejec_enc_ll=this.value; window.save()"></div>`;
                             if(d.met_lc=='si') UI += `<div class="row-met-ingreso">ME.LC FINAL: <input type="text" value="${d.ejec_met_lc||''}" onchange="window.data[${i}].ejec_met_lc=this.value; window.save()"></div>`;
                             if(d.met_ll=='si') UI += `<div class="row-met-ingreso">ME.LL FINAL: <input type="text" value="${d.ejec_met_ll||''}" onchange="window.data[${i}].ejec_met_ll=this.value; window.save()"></div>`;
-                            UI += `<br>${obs('mecanica')}<button class="btn-finish" onclick="window.updateFlujo(${i},'mec_fin')">✅ Fin Mecánica</button>`;
+                            UI += `<br>${obs('mecanica')}
+                                <div class="det-seccion-titulo" style="margin-top:10px;">🔩 Tareas Mecánica Final</div>
+                                <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
+                                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                        <input id="tarea_mecanica_${i}" class="med-input" style="flex:1;" placeholder="Ej: Rectificado de eje, Cambio de descansos..."
+                                            onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarTarea('mecanica',${i});}" >
+                                        <button onclick="window.agregarTarea('mecanica',${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                    </div>
+                                    <div id="tarea_mecanica_lista_${i}">
+                                        ${(d.tareas_mecanica||[]).map((item,ti) => `
+                                            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                                                <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                                    <input type="checkbox" ${(d.tareas_mecanica_checks||{})[ti]?'checked':''}
+                                                        onchange="if(!window.data[${i}].tareas_mecanica_checks) window.data[${i}].tareas_mecanica_checks={};
+                                                                  window.data[${i}].tareas_mecanica_checks[${ti}]=this.checked;
+                                                                  window.save();">
+                                                    <span style="font-size:0.87em;${(d.tareas_mecanica_checks||{})[ti]?'text-decoration:line-through;color:#888;':''}">${item}</span>
+                                                </label>
+                                                <button onclick="window.quitarTarea('mecanica',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                                            </div>`).join('')}
+                                    </div>
+                                </div>
+                            <button class="btn-finish" onclick="window.updateFlujo(${i},'mec_fin')">✅ Fin Mecánica</button>`;
                         }
                     }
                     else if (window.vistaActual === 'bobinado' && d.estado === 'ejecucion_trabajos' && d.tipoTrabajo === 'bobinado') {
@@ -1847,11 +2386,52 @@
                     }
                     else if (window.vistaActual === 'armado_bal') {
                         if (d.estado === 'ejecucion_trabajos') {
+                            const rods = d.rodamientos || [];
+                            const rodChecks = d.rodamientos_ok || {};
+                            const todosRodOk = rods.length === 0 || rods.every((_,ri2) => rodChecks[ri2]);
                             UI = `<h3>Balanceo</h3>${obs('balanceo')}<button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>`;
-                            if(d.rod_lc) UI += `<div class="rod-box"><div class="rod-item"><span><strong>LC:</strong> ${d.rod_lc}</span><label><input type="checkbox" ${d.rod_lc_ok?'checked':''} onchange="window.data[${i}].rod_lc_ok=this.checked; window.save()"> Instalado</label></div></div>`;
-                            if(d.rod_ll) UI += `<div class="rod-box"><div class="rod-item"><span><strong>LL:</strong> ${d.rod_ll}</span><label><input type="checkbox" ${d.rod_ll_ok?'checked':''} onchange="window.data[${i}].rod_ll_ok=this.checked; window.save()"> Instalado</label></div></div>`;
-                            UI += `${obs('armado')}`;
-                            const rodCheck = (!d.rod_lc || d.rod_lc_ok) && (!d.rod_ll || d.rod_ll_ok);
+                            if (rods.length > 0) {
+                                UI += `<div class="det-seccion-titulo">🔩 Instalación de Rodamientos</div>
+                                <div style="background:#f8f9fa;border:1px solid #dde1e7;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    ${rods.map((r,ri2) => `
+                                        <label style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #eee;cursor:pointer;">
+                                            <input type="checkbox" ${rodChecks[ri2]?'checked':''}
+                                                onchange="if(!window.data[${i}].rodamientos_ok)window.data[${i}].rodamientos_ok={};
+                                                          window.data[${i}].rodamientos_ok[${ri2}]=this.checked; window.save();">
+                                            <span style="background:#004F88;color:white;border-radius:4px;padding:2px 8px;font-size:0.78em;font-weight:700;">${r.pos}</span>
+                                            <span style="flex:1;font-size:0.88em;${rodChecks[ri2]?'text-decoration:line-through;color:#888;':''}">${r.mod}</span>
+                                            <span style="font-size:0.8em;font-weight:700;color:${rodChecks[ri2]?'#27ae60':'#aaa'};">
+                                                ${rodChecks[ri2]?'✅ Instalado':'Pendiente'}
+                                            </span>
+                                        </label>`).join('')}
+                                </div>`;
+                            } else {
+                                UI += `<p style="color:#aaa;font-size:0.85em;padding:6px 0;">Sin rodamientos registrados en Mecánica.</p>`;
+                            }
+                            UI += `${obs('armado')}
+                                <div class="det-seccion-titulo" style="margin-top:10px;">🏗️ Tareas de Armado</div>
+                                <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
+                                    <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
+                                    <div style="display:flex;gap:6px;margin-bottom:8px;">
+                                        <input id="tarea_armado_${i}" class="med-input" style="flex:1;" placeholder="Ej: Instalación de rodamientos, Cierre de tapas..."
+                                            onkeydown="if(event.key==='Enter'){event.preventDefault(); window.agregarTarea('armado',${i});}" >
+                                        <button onclick="window.agregarTarea('armado',${i})" style="background:#004F88;color:white;border:none;border-radius:5px;padding:6px 14px;cursor:pointer;font-weight:bold;font-size:1.1em;">+</button>
+                                    </div>
+                                    <div id="tarea_armado_lista_${i}">
+                                        ${(d.tareas_armado||[]).map((item,ti) => `
+                                            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #d0dcf8;">
+                                                <label style="flex:1;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                                    <input type="checkbox" ${(d.tareas_armado_checks||{})[ti]?'checked':''}
+                                                        onchange="if(!window.data[${i}].tareas_armado_checks) window.data[${i}].tareas_armado_checks={};
+                                                                  window.data[${i}].tareas_armado_checks[${ti}]=this.checked;
+                                                                  window.save();">
+                                                    <span style="font-size:0.87em;${(d.tareas_armado_checks||{})[ti]?'text-decoration:line-through;color:#888;':''}">${item}</span>
+                                                </label>
+                                                <button onclick="window.quitarTarea('armado',${i},${ti})" style="background:none;border:none;color:#e74c3c;cursor:pointer;padding:0 4px;">✕</button>
+                                            </div>`).join('')}
+                                    </div>
+                                </div>`;
+                            const rodCheck = todosRodOk;
                             if(p.bal_ok && rodCheck) UI += `<button class="btn-finish" onclick="window.updateFlujo(${i},'armado_ok','pruebas_dinamicas')">✅ Fin Armado</button>`;
                             else UI += `<p style="color:red; font-size:0.8em;">* Pendiente: Balanceo y/o Rodamientos.</p>`;
                         } else if (d.estado === 'terminaciones') {
@@ -1910,6 +2490,13 @@
                     }
                 });
                 v.innerHTML = hay ? html : html + "<p style='color:var(--text2); padding:20px;'>Sin tareas pendientes.</p>";
+                // Dibujar gráficos de temperatura pendientes
+                setTimeout(() => {
+                    document.querySelectorAll('canvas[data-idx]').forEach(cv => {
+                        const idx = parseInt(cv.getAttribute('data-idx'));
+                        if (!isNaN(idx)) window.dibujarGraficoTemp(idx);
+                    });
+                }, 120);
             }
         };
     </script>
