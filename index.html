@@ -644,6 +644,12 @@
             }
         };
 
+        window.togglePrioridad = (i) => {
+            if (!window.esSupervisor()) { alert('⛔ Solo supervisores y administradores pueden cambiar prioridad.'); return; }
+            window.data[i].pri = (window.data[i].pri === 'urgente' ? 'normal' : 'urgente');
+            window.save();
+        };
+
         window.save = () => {
             try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
             return set(dbRef, window.data);
@@ -1781,7 +1787,7 @@
                     const fechaFmt = d.fecha ? `${dd}/${m}/${y}` : '';
                     const pct = window.calcularAvance(d);
                     html += `<tr>
-                        <td style="text-align:center"><button onclick="${window.esSupervisor() ? `window.data[${d.indexOriginal}].pri=(window.data[${d.indexOriginal}].pri=='urgente'?'normal':'urgente'); window.save()` : `alert('Sin permisos')`}" style="background:none;cursor:pointer;font-size:1.2em;padding:2px 4px;border:none;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
+                        <td style="text-align:center"><button onclick="window.togglePrioridad(${d.indexOriginal})" style="background:none;cursor:pointer;font-size:1.2em;padding:2px 4px;border:none;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
                         <td><b style="color:var(--accent);">${d.ot}</b></td>
                         <td>${d.empresa}</td>
                         <td>
