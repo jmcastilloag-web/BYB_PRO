@@ -1697,7 +1697,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             // Vista gestión de usuarios (solo admin)
             if (window.vistaActual === "usuarios") {
                 if (!window.esAdmin()) { v.innerHTML = `<div class="card"><p>⛔ Sin permiso.</p></div>`; return; }
-                const AREAS_TALLER = [("desarme_mant", "🔧 Desarme / Mant."), ("calidad", "🔬 Control Calidad"), ("mecanica", "⚙️ Mecánica"), ("bobinado", "🌀 Bobinado"), ("armado_bal", "🔩 Balanceo / Armado"), ("despacho", "🚚 Despacho")];
+                const AREAS_TALLER = [["desarme_mant", "🔧 Desarme / Mant."], ["calidad", "🔬 Control Calidad"], ["mecanica", "⚙️ Mecánica"], ["bobinado", "🌀 Bobinado"], ["armado_bal", "🔩 Balanceo / Armado"], ["despacho", "🚚 Despacho"]];
                 const roles = { admin:'👑 Admin', encargado:'🔧 Encargado', tecnico:'🛠 Técnico' };
                 const otsList = [...window.data].map(d => d.ot).sort((a,b) => {
                     const na = parseInt(a), nb = parseInt(b);
@@ -1711,6 +1711,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                     return `<tr>
                         <td>${u.nombre}</td>
                         <td><code>${u.usuario}</code></td>
+                        <td><code>${u.password||'—'}</code></td>
                         <td>${roles[u.rol]||u.rol}</td>
                         <td style="font-size:0.78em;color:var(--text2);">${asigSummary}</td>
                         <td><span style="color:${u.activo!==false?'var(--success)':'var(--danger)'};">${u.activo!==false?'✅ Activo':'❌ Inactivo'}</span></td>
@@ -1726,7 +1727,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                     <button class="btn-primary btn-sm" style="margin-bottom:16px;" onclick="window.nuevoUsuarioForm()">➕ Nuevo Usuario</button>
                     <div style="overflow-x:auto;">
                     <table>
-                        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>OTs / Áreas Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>Nombre</th><th>Usuario</th><th>Contraseña</th><th>Rol</th><th>OTs / Áreas Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead>
                         <tbody>${rows}</tbody>
                     </table></div>
                     <div id="formUsuario" style="display:none;margin-top:20px;background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:18px;">
