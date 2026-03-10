@@ -4,13 +4,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 
 
         const firebaseConfig = {
-            apiKey: "AIzaSyDfpmCbLoL679LhwYX28aeTXnD9ydAAfAA",
-            authDomain: "byb-norte.firebaseapp.com",
+            apiKey: "AIzaSyCvHPNgceh6YlD1DJKPpMazeOuaUX2K_lE",
+            authDomain: "byb-norte-82e1a.firebaseapp.com",
             databaseURL: "https://byb-norte-82e1a-default-rtdb.firebaseio.com",
-            projectId: "byb-norte",
-            
-            appId: "1:345988575327:web:ee82e53fc079346189ebea",
-            storageBucket: "byb-norte.appspot.com"
+            projectId: "byb-norte-82e1a",
+            storageBucket: "byb-norte-82e1a.firebasestorage.app",
+            messagingSenderId: "192380195306",
+            appId: "1:192380195306:web:e5caf122d22a13ba812293"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -93,8 +93,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             const val = snap.val();
             if (val && typeof val === 'object') {
                 window.usuarios = Object.values(val).filter(u => u && u.usuario);
+            } else if (!val) {
+                // Base de datos vacía → crear admin por defecto
+                const adminDefault = { usuario:'admin', password:'bybnorte2024', nombre:'Administrador', rol:'admin', activo:true, asignaciones:[] };
+                window.usuarios = [adminDefault];
+                set(usersRef, { admin: adminDefault });
+                console.log('✅ Admin por defecto creado');
             }
-            // Si val es null, no hacer nada — nunca sobreescribir Firebase
             window.usuariosCargados = true;
             // Refrescar sesión activa con datos actualizados
             if (window.usuarioActual) {
