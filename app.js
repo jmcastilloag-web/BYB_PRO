@@ -1,5 +1,4 @@
-
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
@@ -91,14 +90,11 @@
 
         // Cargar usuarios desde Firebase
         onValue(usersRef, (snap) => {
-    const val = snap.val();
-    if (val && typeof val === 'object') {
-        window.usuarios = Object.values(val).filter(u => u && u.usuario);
-    } else if (!window.usuariosCargados) {
-        // Solo crea el admin si Firebase está genuinamente vacío (primera vez)
-        window.usuarios = [{ usuario:'admin', password:'bybnorte2024', nombre:'Administrador', rol:'admin', activo:true }];
-        set(usersRef, { admin: window.usuarios[0] });
-    }
+            const val = snap.val();
+            if (val && typeof val === 'object') {
+                window.usuarios = Object.values(val).filter(u => u && u.usuario);
+            }
+            // Si val es null, no hacer nada — nunca sobreescribir Firebase
             window.usuariosCargados = true;
             // Refrescar sesión activa con datos actualizados
             if (window.usuarioActual) {
