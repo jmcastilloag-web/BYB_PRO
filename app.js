@@ -122,6 +122,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         window.guardarUsuarios = () => {
             const obj = {};
             window.usuarios.forEach(u => { if(u && u.usuario) obj[u.usuario] = u; });
+            console.log('💾 Guardando usuarios en Firebase:', Object.keys(obj));
             return set(usersRef, obj);
         };
         window.vistaActual = "dashboard";
@@ -2553,10 +2554,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 window.usuarios[idx] = { ...window.usuarios[idx], ...nuevoU };
             }
             err.textContent = '⏳ Guardando...';
+            console.log('📤 Enviando a Firebase:', nuevoU, '| Total usuarios:', window.usuarios.length);
             window.guardarUsuarios().then(() => {
-                document.getElementById('formUsuario').style.display = 'none';
-                window.render();
+                console.log('✅ Guardado OK. Usuarios en Firebase:', window.usuarios.length);
+                err.textContent = '✅ Usuario guardado correctamente';
+                setTimeout(() => {
+                    document.getElementById('formUsuario').style.display = 'none';
+                    window.render();
+                }, 800);
             }).catch(e => {
+                console.error('❌ Error Firebase:', e);
                 err.textContent = '❌ Error al guardar: ' + e.message;
             });
         };
