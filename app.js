@@ -6,7 +6,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         const firebaseConfig = {
             apiKey: "AIzaSyDfpmCbLoL679LhwYX28aeTXnD9ydAAfAA",
             authDomain: "byb-norte.firebaseapp.com",
-            databaseURL: "https://byb-norte-default-rtdb.firebaseio.com",
+            databaseURL: "https://byb-norte-82e1a-default-rtdb.firebaseio.com",
             projectId: "byb-norte",
             
             appId: "1:345988575327:web:ee82e53fc079346189ebea",
