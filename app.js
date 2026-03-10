@@ -24,6 +24,7 @@
         window.data = [];
         window.usuarios = [];
         window.usuarioActual = null;
+        window.usuariosCargados = false;
 
         // Verificar si hay sesión guardada
         try {
@@ -36,9 +37,12 @@
         window.esEncargado = () => window.usuarioActual?.rol === 'encargado';
         window.esTecnico   = () => window.usuarioActual?.rol === 'tecnico';
         window.puedeEditar = () => window.esAdmin() || window.esEncargado();
-        window.puedeEditarOT = (ot) => {
+        window.puedeEditarOT = (ot, area) => {
             if (window.puedeEditar()) return true;
-            if (window.esTecnico()) return window.usuarioActual?.asignaciones?.includes(String(ot));
+            if (window.esTecnico()) {
+                const asig = window.usuarioActual?.asignaciones || [];
+                return asig.some(a => String(a.ot) === String(ot) && (!area || a.area === area));
+            }
             return false;
         };
 
@@ -57,6 +61,7 @@
             const usr = (document.getElementById('loginUser')?.value || '').trim().toLowerCase();
             const pwd = document.getElementById('loginPass')?.value || '';
             const err = document.getElementById('loginError');
+            if (!window.usuariosCargados) { if(err) err.textContent = '⏳ Conectando... intenta de nuevo'; return; }
             const u = window.usuarios.find(u => u.usuario.toLowerCase() === usr && u.password === pwd && u.activo !== false);
             if (!u) { if(err) err.textContent = '❌ Usuario o contraseña incorrectos'; return; }
             window.usuarioActual = u;
@@ -88,25 +93,33 @@
         onValue(usersRef, (snap) => {
             const val = snap.val();
             if (val && typeof val === 'object') {
-                window.usuarios = Object.values(val);
+                window.usuarios = Object.values(val).filter(u => u && u.usuario);
             } else {
-                // Crear admin por defecto si no existe ninguno
                 window.usuarios = [{ usuario:'admin', password:'bybnorte2024', nombre:'Administrador', rol:'admin', activo:true }];
                 set(usersRef, { admin: window.usuarios[0] });
             }
-            // Actualizar sesión activa con datos frescos
+            window.usuariosCargados = true;
+            // Refrescar sesión activa con datos actualizados
             if (window.usuarioActual) {
                 const u = window.usuarios.find(u => u.usuario === window.usuarioActual.usuario);
-                if (u) { window.usuarioActual = u; try { sessionStorage.setItem('byb_sesion', JSON.stringify(u)); } catch(e) {} }
-                else { window.logout(); return; }
+                if (u && u.activo !== false) {
+                    window.usuarioActual = u;
+                    try { sessionStorage.setItem('byb_sesion', JSON.stringify(u)); } catch(e) {}
+                    window.actualizarInfoUsuario();
+                } else if (!u || u.activo === false) {
+                    window.usuarioActual = null;
+                    try { sessionStorage.removeItem('byb_sesion'); } catch(e) {}
+                    window.mostrarLogin();
+                    return;
+                }
+            } else {
+                window.mostrarLogin();
             }
-            window.actualizarInfoUsuario();
-            if (!window.usuarioActual) window.mostrarLogin();
         });
 
         window.guardarUsuarios = () => {
             const obj = {};
-            window.usuarios.forEach(u => { obj[u.usuario] = u; });
+            window.usuarios.forEach(u => { if(u && u.usuario) obj[u.usuario] = u; });
             return set(usersRef, obj);
         };
         window.vistaActual = "dashboard";
@@ -933,7 +946,7 @@
 
         window.updateFlujo = (i, paso, sig) => {
             const ot = window.data[i]?.ot;
-            if (!window.puedeEditarOT(ot)) { alert('⛔ No tienes permiso para modificar esta OT.'); return; }
+            if (!window.puedeEditarOT(ot, window.vistaActual)) { alert('⛔ No tienes permiso para modificar esta OT en esta área.'); return; }
             if (!window.data[i].pasos) window.data[i].pasos = {};
             window.data[i].pasos[paso] = true;
             if (paso === 'med_ok' || paso === 'met_ok') {
@@ -1177,15 +1190,22 @@
             // Vista gestión de usuarios (solo admin)
             if (window.vistaActual === "usuarios") {
                 if (!window.esAdmin()) { v.innerHTML = `<div class="card"><p>⛔ Sin permiso.</p></div>`; return; }
+                const AREAS_TALLER = [("desarme_mant", "🔧 Desarme / Mant."), ("calidad", "🔬 Control Calidad"), ("mecanica", "⚙️ Mecánica"), ("bobinado", "🌀 Bobinado"), ("armado_bal", "🔩 Balanceo / Armado"), ("despacho", "🚚 Despacho")];
                 const roles = { admin:'👑 Admin', encargado:'🔧 Encargado', tecnico:'🛠 Técnico' };
-                const otsList = window.data.map(d => d.ot).sort();
+                const otsList = [...window.data].map(d => d.ot).sort((a,b) => {
+                    const na = parseInt(a), nb = parseInt(b);
+                    return isNaN(na)||isNaN(nb) ? String(a).localeCompare(String(b)) : na-nb;
+                });
                 let rows = window.usuarios.map((u, idx) => {
-                    const asig = (u.asignaciones||[]).join(', ') || '—';
+                    let asigSummary = '—';
+                    if (u.rol === 'tecnico' && u.asignaciones && u.asignaciones.length > 0) {
+                        asigSummary = u.asignaciones.map(a => `OT ${a.ot} / ${AREAS_TALLER.find(x=>x[0]===a.area)?.[1]||a.area}`).join('<br>');
+                    }
                     return `<tr>
                         <td>${u.nombre}</td>
                         <td><code>${u.usuario}</code></td>
                         <td>${roles[u.rol]||u.rol}</td>
-                        <td style="font-size:0.8em;color:var(--text2);">${u.rol==='tecnico'?asig:'—'}</td>
+                        <td style="font-size:0.78em;color:var(--text2);">${asigSummary}</td>
                         <td><span style="color:${u.activo!==false?'var(--success)':'var(--danger)'};">${u.activo!==false?'✅ Activo':'❌ Inactivo'}</span></td>
                         <td style="display:flex;gap:6px;flex-wrap:wrap;">
                             <button class="btn-primary btn-sm" onclick="window.editarUsuario(${idx})">✏️ Editar</button>
@@ -1199,7 +1219,7 @@
                     <button class="btn-primary btn-sm" style="margin-bottom:16px;" onclick="window.nuevoUsuarioForm()">➕ Nuevo Usuario</button>
                     <div style="overflow-x:auto;">
                     <table>
-                        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>OTs Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>OTs / Áreas Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead>
                         <tbody>${rows}</tbody>
                     </table></div>
                     <div id="formUsuario" style="display:none;margin-top:20px;background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:18px;">
@@ -1218,13 +1238,26 @@
                             </div>
                         </div>
                         <div id="secAsignaciones" style="display:none;margin-bottom:12px;">
-                            <label style="margin-bottom:8px;display:block;">OTs asignadas al técnico:</label>
-                            <div style="display:flex;flex-wrap:wrap;gap:8px;background:white;padding:10px;border-radius:6px;border:1px solid var(--border);">
-                                ${otsList.map(ot=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.85em;text-transform:none;font-weight:400;"><input type="checkbox" class="chkAsig" value="${ot}"> OT ${ot}</label>`).join('')}
-                                ${otsList.length===0?'<span style="color:var(--text2);font-size:0.85em;">No hay OTs registradas aún.</span>':''}
+                            <label style="margin-bottom:8px;display:block;font-weight:700;">Asignaciones (OT + Área):</label>
+                            <input id="buscadorOT" placeholder="🔍 Buscar OT..." style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;margin-bottom:10px;outline:none;box-sizing:border-box;" oninput="window.filtrarOTsForm()">
+                            <div id="listaOTsForm" style="max-height:320px;overflow-y:auto;background:white;border:1px solid var(--border);border-radius:6px;padding:8px;">
+                                ${otsList.length===0
+                                    ? '<span style="color:var(--text2);font-size:0.85em;">No hay OTs registradas aún.</span>'
+                                    : otsList.map(ot => {
+                                        const emp = window.data.find(d=>String(d.ot)===String(ot))?.empresa||'';
+                                        return `<div class="ot-asig-row" data-ot="${ot}" data-emp="${emp.toLowerCase()}" style="border-bottom:1px solid #eee;padding:8px 4px;">
+                                            <div style="font-weight:700;font-size:0.88em;color:var(--text);margin-bottom:6px;">OT ${ot} ${emp?'— '+emp:''}</div>
+                                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                                ${AREAS_TALLER.map(([aval,albl]) => `<label style="display:flex;align-items:center;gap:4px;font-size:0.82em;padding:3px 8px;border:1px solid var(--border);border-radius:12px;cursor:pointer;background:white;" class="chk-area-label">
+                                                    <input type="checkbox" class="chkAsigArea" data-ot="${ot}" data-area="${aval}"> ${albl}
+                                                </label>`).join('')}
+                                            </div>
+                                        </div>`;
+                                    }).join('')
+                                }
                             </div>
                         </div>
-                        <div style="display:flex;gap:8px;">
+                        <div style="display:flex;gap:8px;margin-top:14px;">
                             <button class="btn-success" onclick="window.guardarUsuarioForm()">💾 Guardar</button>
                             <button class="btn-del" onclick="document.getElementById('formUsuario').style.display='none'">Cancelar</button>
                         </div>
@@ -2441,6 +2474,15 @@
             if (sec) sec.style.display = rol === 'tecnico' ? 'block' : 'none';
         };
 
+        window.filtrarOTsForm = () => {
+            const q = (document.getElementById('buscadorOT')?.value || '').toLowerCase().trim();
+            document.querySelectorAll('.ot-asig-row').forEach(row => {
+                const ot = row.dataset.ot.toLowerCase();
+                const emp = row.dataset.emp || '';
+                row.style.display = (!q || ot.includes(q) || emp.includes(q)) ? 'block' : 'none';
+            });
+        };
+
         window.nuevoUsuarioForm = () => {
             const f = document.getElementById('formUsuario');
             if (!f) return;
@@ -2452,8 +2494,11 @@
             document.getElementById('fuPass').value = '';
             document.getElementById('fuRol').value = 'encargado';
             document.getElementById('formUsuError').textContent = '';
-            document.querySelectorAll('.chkAsig').forEach(c => c.checked = false);
+            if (document.getElementById('buscadorOT')) document.getElementById('buscadorOT').value = '';
+            document.querySelectorAll('.chkAsigArea').forEach(c => c.checked = false);
+            document.querySelectorAll('.ot-asig-row').forEach(r => r.style.display = 'block');
             window.toggleAsignaciones();
+            f.scrollIntoView({behavior:'smooth'});
         };
 
         window.editarUsuario = (idx) => {
@@ -2469,10 +2514,15 @@
             document.getElementById('fuPass').value = u.password || '';
             document.getElementById('fuRol').value = u.rol || 'encargado';
             document.getElementById('formUsuError').textContent = '';
-            document.querySelectorAll('.chkAsig').forEach(c => {
-                c.checked = (u.asignaciones||[]).includes(c.value);
+            if (document.getElementById('buscadorOT')) document.getElementById('buscadorOT').value = '';
+            // Marcar asignaciones existentes
+            document.querySelectorAll('.chkAsigArea').forEach(c => {
+                const asig = u.asignaciones || [];
+                c.checked = asig.some(a => String(a.ot) === String(c.dataset.ot) && a.area === c.dataset.area);
             });
+            document.querySelectorAll('.ot-asig-row').forEach(r => r.style.display = 'block');
             window.toggleAsignaciones();
+            f.scrollIntoView({behavior:'smooth'});
         };
 
         window.guardarUsuarioForm = () => {
@@ -2482,20 +2532,30 @@
             const usuario = document.getElementById('fuUsuario').value.trim().toLowerCase().replace(/\s/g,'');
             const pass = document.getElementById('fuPass').value;
             const rol = document.getElementById('fuRol').value;
-            const asignaciones = [...document.querySelectorAll('.chkAsig:checked')].map(c => c.value);
 
             if (!nombre || !usuario || !pass) { err.textContent = '⚠️ Completa todos los campos.'; return; }
             if (idx === -1 && window.usuarios.find(u => u.usuario === usuario)) { err.textContent = '⚠️ El nombre de usuario ya existe.'; return; }
 
-            const nuevoU = { nombre, usuario, password: pass, rol, activo: true, asignaciones: rol === 'tecnico' ? asignaciones : [] };
+            // Recoger asignaciones {ot, area}
+            const asignaciones = [];
+            if (rol === 'tecnico') {
+                document.querySelectorAll('.chkAsigArea:checked').forEach(c => {
+                    asignaciones.push({ ot: c.dataset.ot, area: c.dataset.area });
+                });
+            }
+
+            const nuevoU = { nombre, usuario, password: pass, rol, activo: true, asignaciones };
             if (idx === -1) {
                 window.usuarios.push(nuevoU);
             } else {
                 window.usuarios[idx] = { ...window.usuarios[idx], ...nuevoU };
             }
+            err.textContent = '⏳ Guardando...';
             window.guardarUsuarios().then(() => {
                 document.getElementById('formUsuario').style.display = 'none';
                 window.render();
+            }).catch(e => {
+                err.textContent = '❌ Error al guardar: ' + e.message;
             });
         };
 
