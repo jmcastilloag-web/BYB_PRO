@@ -1747,23 +1747,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                         </div>
                         <div id="secAsignaciones" style="display:none;margin-bottom:12px;">
                             <label style="margin-bottom:8px;display:block;font-weight:700;">Asignaciones (OT + Área):</label>
-                            <input id="buscadorOT" placeholder="🔍 Buscar OT..." style="width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;margin-bottom:10px;outline:none;box-sizing:border-box;" oninput="window.filtrarOTsForm()">
-                            <div id="listaOTsForm" style="max-height:320px;overflow-y:auto;background:white;border:1px solid var(--border);border-radius:6px;padding:8px;">
-                                ${otsList.length===0
-                                    ? '<span style="color:var(--text2);font-size:0.85em;">No hay OTs registradas aún.</span>'
-                                    : otsList.map(ot => {
-                                        const emp = window.data.find(d=>String(d.ot)===String(ot))?.empresa||'';
-                                        return `<div class="ot-asig-row" data-ot="${ot}" data-emp="${emp.toLowerCase()}" style="border-bottom:1px solid #eee;padding:8px 4px;">
-                                            <div style="font-weight:700;font-size:0.88em;color:var(--text);margin-bottom:6px;">OT ${ot} ${emp?'— '+emp:''}</div>
-                                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                                                ${AREAS_TALLER.map(([aval,albl]) => `<label style="display:flex;align-items:center;gap:4px;font-size:0.82em;padding:3px 8px;border:1px solid var(--border);border-radius:12px;cursor:pointer;background:white;" class="chk-area-label">
-                                                    <input type="checkbox" class="chkAsigArea" data-ot="${ot}" data-area="${aval}"> ${albl}
-                                                </label>`).join('')}
-                                            </div>
-                                        </div>`;
-                                    }).join('')
-                                }
+                            <div style="position:relative;">
+                                <input id="buscadorOT" placeholder="🔍 Escribe el número o nombre de OT..." autocomplete="off"
+                                    style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9em;outline:none;box-sizing:border-box;"
+                                    oninput="window.filtrarOTsForm()" onfocus="window.filtrarOTsForm()">
+                                <div id="dropdownOTs" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:white;border:1.5px solid var(--border);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.12);z-index:200;max-height:220px;overflow-y:auto;"></div>
                             </div>
+                            <div id="listaOTsForm" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
                         </div>
                         <div style="display:flex;gap:8px;margin-top:14px;">
                             <button class="btn-success" onclick="window.guardarUsuarioForm()">💾 Guardar</button>
@@ -2984,11 +2974,65 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 
         window.filtrarOTsForm = () => {
             const q = (document.getElementById('buscadorOT')?.value || '').toLowerCase().trim();
-            document.querySelectorAll('.ot-asig-row').forEach(row => {
-                const ot = row.dataset.ot.toLowerCase();
-                const emp = row.dataset.emp || '';
-                row.style.display = (!q || ot.includes(q) || emp.includes(q)) ? 'block' : 'none';
-            });
+            const dd = document.getElementById('dropdownOTs');
+            if (!dd) return;
+            // OTs ya agregadas como cards
+            const yaAgregadas = new Set([...document.querySelectorAll('#listaOTsForm .ot-card')].map(c => c.dataset.ot));
+            const resultados = window._otsList_cache.filter(ot => {
+                const emp = (window.data.find(d=>String(d.ot)===String(ot))?.empresa||'').toLowerCase();
+                return !yaAgregadas.has(String(ot)) && (!q || String(ot).includes(q) || emp.includes(q));
+            }).slice(0, 8);
+            if (resultados.length === 0 && !q) { dd.style.display = 'none'; return; }
+            if (resultados.length === 0) {
+                dd.innerHTML = `<div style="padding:10px 14px;color:var(--text2);font-size:0.88em;">Sin resultados para "${q}"</div>`;
+                dd.style.display = 'block'; return;
+            }
+            dd.innerHTML = resultados.map(ot => {
+                const emp = window.data.find(d=>String(d.ot)===String(ot))?.empresa||'';
+                return `<div onclick="window.agregarOTCard('${ot}'); document.getElementById('buscadorOT').value=''; document.getElementById('dropdownOTs').style.display='none';"
+                    style="padding:9px 14px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:0.9em;transition:background 0.15s;"
+                    onmouseover="this.style.background='#f4f7fb'" onmouseout="this.style.background='white'">
+                    <span style="font-weight:700;color:var(--text);">OT ${ot}</span>${emp?`<span style="color:var(--text2);margin-left:8px;">— ${emp}</span>`:''}
+                </div>`;
+            }).join('');
+            dd.style.display = 'block';
+        };
+
+        // Cerrar dropdown al hacer click fuera
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#buscadorOT') && !e.target.closest('#dropdownOTs')) {
+                const dd = document.getElementById('dropdownOTs');
+                if (dd) dd.style.display = 'none';
+            }
+        });
+
+        window.agregarOTCard = (ot, asignacionesPrevias = []) => {
+            const lista = document.getElementById('listaOTsForm');
+            if (!lista) return;
+            if (lista.querySelector(`.ot-card[data-ot="${ot}"]`)) return; // ya existe
+            const emp = window.data.find(d=>String(d.ot)===String(ot))?.empresa||'';
+            const AREAS = [["desarme_mant","🔧 Desarme / Mantención"],["calidad","🔬 Control Calidad"],["mecanica","⚙️ Mecánica"],["bobinado","🌀 Bobinado"],["armado_bal","🔩 Balanceo / Armado"],["despacho","🚚 Despacho"]];
+            const card = document.createElement('div');
+            card.className = 'ot-card';
+            card.dataset.ot = ot;
+            card.style.cssText = 'background:#f8f9fa;border:1.5px solid var(--border);border-radius:8px;padding:12px 14px;';
+            card.innerHTML = `
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                    <span style="font-weight:700;font-size:0.92em;">OT ${ot}${emp?' <span style="color:var(--text2);font-weight:400;">— '+emp+'</span>':''}</span>
+                    <button type="button" onclick="this.closest('.ot-card').remove()" style="background:none;border:none;cursor:pointer;color:#e74c3c;font-size:1.1em;line-height:1;" title="Quitar OT">✕</button>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                    ${AREAS.map(([aval,albl]) => {
+                        const checked = asignacionesPrevias.some(a => String(a.ot)===String(ot) && a.area===aval);
+                        return `<label style="display:flex;align-items:center;gap:5px;font-size:0.83em;padding:4px 10px;border:1.5px solid ${checked?'var(--primary, #1a2a3a)':'var(--border)'};border-radius:20px;cursor:pointer;background:${checked?'#e8eef5':'white'};transition:all 0.15s;user-select:none;">
+                            <input type="checkbox" class="chkAsigArea" data-ot="${ot}" data-area="${aval}" ${checked?'checked':''}
+                                style="accent-color:var(--primary,#1a2a3a);"
+                                onchange="const lbl=this.closest('label');lbl.style.background=this.checked?'#e8eef5':'white';lbl.style.borderColor=this.checked?'var(--primary,#1a2a3a)':'var(--border)';">
+                            ${albl}
+                        </label>`;
+                    }).join('')}
+                </div>`;
+            lista.appendChild(card);
         };
 
         window.nuevoUsuarioForm = () => {
@@ -3003,8 +3047,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             document.getElementById('fuRol').value = 'encargado';
             document.getElementById('formUsuError').textContent = '';
             if (document.getElementById('buscadorOT')) document.getElementById('buscadorOT').value = '';
-            document.querySelectorAll('.chkAsigArea').forEach(c => c.checked = false);
-            document.querySelectorAll('.ot-asig-row').forEach(r => r.style.display = 'block');
+            const lista = document.getElementById('listaOTsForm');
+            if (lista) lista.innerHTML = '';
+            // Cachear lista de OTs disponibles para el dropdown
+            window._otsList_cache = [...window.data].map(d => d.ot).sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return isNaN(na)||isNaN(nb)?String(a).localeCompare(String(b)):na-nb;});
             window.toggleAsignaciones();
             f.scrollIntoView({behavior:'smooth'});
         };
@@ -3023,12 +3069,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             document.getElementById('fuRol').value = u.rol || 'encargado';
             document.getElementById('formUsuError').textContent = '';
             if (document.getElementById('buscadorOT')) document.getElementById('buscadorOT').value = '';
-            // Marcar asignaciones existentes
-            document.querySelectorAll('.chkAsigArea').forEach(c => {
-                const asig = u.asignaciones || [];
-                c.checked = asig.some(a => String(a.ot) === String(c.dataset.ot) && a.area === c.dataset.area);
-            });
-            document.querySelectorAll('.ot-asig-row').forEach(r => r.style.display = 'block');
+            // Limpiar y recargar cards de OT con asignaciones previas
+            const lista = document.getElementById('listaOTsForm');
+            if (lista) lista.innerHTML = '';
+            window._otsList_cache = [...window.data].map(d => d.ot).sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return isNaN(na)||isNaN(nb)?String(a).localeCompare(String(b)):na-nb;});
+            const asig = u.asignaciones || [];
+            const otsUnicas = [...new Set(asig.map(a => String(a.ot)).filter(Boolean))];
+            otsUnicas.forEach(ot => window.agregarOTCard(ot, asig));
             window.toggleAsignaciones();
             f.scrollIntoView({behavior:'smooth'});
         };
