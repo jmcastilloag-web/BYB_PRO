@@ -645,6 +645,14 @@
             }
         };
 
+        window.confirmarEliminar = (i) => {
+            const ot = window.data[i]?.ot;
+            if (confirm('¿Eliminar OT ' + ot + '?')) {
+                window.data.splice(i, 1);
+                window.save();
+            }
+        };
+
         window.togglePrioridad = (i) => {
             if (!window.esSupervisor()) { alert('⛔ Solo supervisores y administradores pueden cambiar prioridad.'); return; }
             window.data[i].pri = (window.data[i].pri === 'urgente' ? 'normal' : 'urgente');
@@ -1751,6 +1759,8 @@
                 });
                 return;
             }
+
+            if (window.vistaActual === "dashboard") {
                 const dataOrdenada = [...window.data]
                     .map((d, indexOriginal) => ({ ...d, indexOriginal }))
                     .sort((a, b) => {
@@ -1803,8 +1813,8 @@
                             <button class="btn-sm" style="background:#1a6b2e;color:white;" onclick="window.descargarGuiaRecepcion(${d.indexOriginal})" title="Descargar Guía de Recepción">📥</button>
                             <button class="btn-sm" style="background:#8e44ad;color:white;" onclick="window.descargarDetalle(${d.indexOriginal})" title="Descargar Detalle Word">📋</button>
                             <button class="btn-success btn-sm" onclick="window.descargarInforme(${d.indexOriginal})" title="Descargar Informe Final Word">📄</button>
-                            ${window.esSupervisor() ? `<button class="btn-sm" style="background:#e67e22;color:white;" onclick="window.mostrarModalAsignar('${d.ot}')" title="Asignar OT a técnico">👤</button>` : ''}
-                            ${window.esAdmin() ? `<button class="btn-del btn-sm" onclick="if(confirm('¿Eliminar OT ${d.ot}?')){window.data.splice(${d.indexOriginal},1); window.save()}">✕</button>` : ''}
+                            ${window.esSupervisor() ? '<button class="btn-sm" style="background:#e67e22;color:white;" onclick="window.mostrarModalAsignar(\'' + d.ot + '\')" title="Asignar OT a técnico">👤</button>' : ''}
+                            ${window.esAdmin() ? '<button class="btn-del btn-sm" onclick="window.confirmarEliminar(' + d.indexOriginal + ')">✕</button>' : ''}
                         </td></tr>`;
                 });
                 v.innerHTML = html + "</tbody></table></div></div>";
