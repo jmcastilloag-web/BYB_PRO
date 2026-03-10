@@ -45,6 +45,47 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             return false;
         };
 
+        // ── ÁREA GENERAL ── obtiene las áreas generales del usuario
+        window.getAreasGenerales = (u) => {
+            const usr = u || window.usuarioActual;
+            if (!usr) return [];
+            if (usr.areaGeneral && usr.areaGeneral.length > 0) return usr.areaGeneral;
+            // compatibilidad: asignaciones con ot vacío = área general
+            return (usr.asignaciones || []).filter(a => !a.ot).map(a => a.area).filter(Boolean);
+        };
+        window.tieneAreaGeneral = () => window.getAreasGenerales().length > 0;
+
+        // OTs pendientes por área
+        window.getOTsPendientesPorArea = (areaId) => {
+            return window.data.filter(d => {
+                const p = d.pasos || {};
+                if (d.estado === 'entregado') return false;
+                switch(areaId) {
+                    case 'desarme_mant':
+                        return (d.estado === 'desarme' && !p.desarme_ok) ||
+                               (d.estado === 'ejecucion_trabajos' && !p.mant_ok);
+                    case 'calidad':
+                        return (d.estado === 'ingresos_pendientes' && !p.med_ok) ||
+                               (d.estado === 'detalle_pendiente' && !p.detalle_ok) ||
+                               (d.estado === 'pruebas_dinamicas' && !p.pruebas_ok) ||
+                               (d.estado === 'check_salida' && !p.salida_ok) ||
+                               (d.estado === 'terminaciones' && !p.term_ok);
+                    case 'mecanica':
+                        return (d.estado === 'ingresos_pendientes' && !p.met_ok) ||
+                               (d.estado === 'ejecucion_trabajos' && !p.mec_fin);
+                    case 'bobinado':
+                        return d.estado === 'ejecucion_trabajos' &&
+                               d.tipoTrabajo === 'bobinado' && !p.bobinado_fin;
+                    case 'armado_bal':
+                        return (d.estado === 'ejecucion_trabajos' && !p.armado_ok) ||
+                               (d.estado === 'terminaciones' && !p.bal_ok);
+                    case 'despacho':
+                        return d.estado === 'despacho';
+                }
+                return false;
+            });
+        };
+
         // Mostrar/ocultar login
         window.mostrarLogin = () => {
             document.getElementById('loginOverlay').style.display = 'flex';
@@ -86,6 +127,33 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             el.innerHTML = `<div style="font-size:0.82em;color:rgba(255,255,255,0.9);font-weight:600;">${window.usuarioActual.nombre}</div><div style="font-size:0.7em;color:rgba(255,255,255,0.5);">${roles[window.usuarioActual.rol]||''}</div>`;
             const menuUsu = document.getElementById('menuUsuarios');
             if (menuUsu) menuUsu.style.display = window.esAdmin() ? 'flex' : 'none';
+            // Botón dinámico "Trabajos Pendientes" para usuarios con área general
+            let btnPend = document.getElementById('menuPendientes');
+            if (!btnPend) {
+                const nav = el.closest('nav') || el.parentElement;
+                if (nav) {
+                    btnPend = document.createElement('button');
+                    btnPend.id = 'menuPendientes';
+                    btnPend.className = 'nav-btn';
+                    btnPend.onclick = () => window.mostrarVista('trabajosPendientes');
+                    btnPend.style.cssText = 'display:none;width:100%;text-align:left;padding:10px 16px;border:none;background:rgba(255,140,0,0.18);color:#ffa726;cursor:pointer;font-weight:700;font-size:0.88em;border-radius:6px;margin:4px 0;transition:background 0.2s;';
+                    btnPend.onmouseover = () => btnPend.style.background = 'rgba(255,140,0,0.32)';
+                    btnPend.onmouseout  = () => btnPend.style.background = 'rgba(255,140,0,0.18)';
+                    // Insertar antes del menuUsuarios o al principio del nav
+                    const ref = menuUsu || nav.firstChild;
+                    nav.insertBefore(btnPend, ref);
+                }
+            }
+            if (btnPend) {
+                const areas = window.getAreasGenerales();
+                if (areas.length > 0) {
+                    const totalPend = areas.reduce((acc, a) => acc + window.getOTsPendientesPorArea(a).length, 0);
+                    btnPend.style.display = 'flex';
+                    btnPend.innerHTML = `🔔 Trabajos Pendientes${totalPend > 0 ? ` <span style="background:#e74c3c;color:#fff;border-radius:50%;padding:1px 7px;font-size:0.8em;margin-left:auto;">${totalPend}</span>` : ''}`;
+                } else {
+                    btnPend.style.display = 'none';
+                }
+            }
         };
 
         // Cargar usuarios desde Firebase
@@ -648,6 +716,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             window.data = snapshot.val() || [];
             try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
             window.actualizarAlertas();
+            window.actualizarInfoUsuario();
             window.render();
         }, (error) => {
             firebaseConectado = true;
@@ -1694,6 +1763,74 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             if (!v) return;
             if (!window.usuarioActual) { window.mostrarLogin(); return; }
 
+            // ── Vista Trabajos Pendientes ──
+            if (window.vistaActual === 'trabajosPendientes') {
+                const AREAS_INFO = {
+                    'desarme_mant': { label: '🔧 Desarme / Mantención', color: '#e67e22', bg: '#fef5e7' },
+                    'calidad':      { label: '🔬 Control Calidad',       color: '#8e44ad', bg: '#f5eef8' },
+                    'mecanica':     { label: '⚙️ Mecánica',              color: '#2980b9', bg: '#eaf4fb' },
+                    'bobinado':     { label: '🌀 Bobinado',              color: '#16a085', bg: '#e8f8f5' },
+                    'armado_bal':   { label: '🔩 Balanceo / Armado',     color: '#27ae60', bg: '#eafaf1' },
+                    'despacho':     { label: '🚚 Despacho',              color: '#c0392b', bg: '#fdedec' },
+                };
+                const areasUsuario = window.getAreasGenerales();
+                if (areasUsuario.length === 0) {
+                    v.innerHTML = `<div class="card"><h2>🔔 Trabajos Pendientes</h2><p style="color:var(--text2);">No tienes un área general asignada. Pide al administrador que configure tu perfil.</p></div>`;
+                    return;
+                }
+                let html = `<div class="card"><h2>🔔 Trabajos Pendientes</h2><p style="color:var(--text2);font-size:0.9em;margin-bottom:20px;">Mostrando OTs pendientes para tu área de trabajo</p>`;
+                let hayAlgo = false;
+                areasUsuario.forEach(areaId => {
+                    const info = AREAS_INFO[areaId] || { label: areaId, color: '#555', bg: '#f5f5f5' };
+                    const ots = window.getOTsPendientesPorArea(areaId);
+                    hayAlgo = hayAlgo || ots.length > 0;
+                    html += `<div style="margin-bottom:24px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                            <h3 style="margin:0;color:${info.color};">${info.label}</h3>
+                            <span style="background:${ots.length>0?info.color:'#bdc3c7'};color:#fff;border-radius:12px;padding:2px 12px;font-size:0.8em;font-weight:700;">${ots.length} pendiente${ots.length!==1?'s':''}</span>
+                        </div>`;
+                    if (ots.length === 0) {
+                        html += `<div style="background:#f8f9fa;border-radius:8px;padding:14px;color:var(--text2);font-size:0.9em;">✅ No hay trabajos pendientes en este momento</div>`;
+                    } else {
+                        html += `<div style="overflow-x:auto;"><table><thead><tr>
+                            <th>OT</th><th>Empresa</th><th>Estado</th><th>Tipo</th><th>Fecha Entrega</th><th style="min-width:120px">Avance</th><th>Acción</th>
+                        </tr></thead><tbody>`;
+                        ots.forEach(d => {
+                            const idx = window.data.findIndex(x => String(x.ot) === String(d.ot));
+                            const avance = window.calcularAvance(d);
+                            const estadoBadge = (d.estado || '').replace(/_/g,' ').toUpperCase();
+                            const hoy = new Date(); hoy.setHours(0,0,0,0);
+                            const fechaOT = d.fecha ? new Date(d.fecha) : null;
+                            const dias = fechaOT ? Math.ceil((fechaOT - hoy) / 86400000) : null;
+                            let fechaHtml = fechaOT ? fechaOT.toLocaleDateString('es-CL') : '—';
+                            if (dias !== null) {
+                                const colF = dias < 0 ? 'var(--danger)' : dias <= 3 ? 'var(--warning)' : 'var(--success-dark)';
+                                fechaHtml += `<div style="font-size:0.72em;color:${colF};font-weight:700;">${dias<0?`⚠ Vencida (${Math.abs(dias)}d)`:dias===0?'Hoy':`${dias}d`}</div>`;
+                            }
+                            // Determinar vista destino según área
+                            const vistaDestino = { desarme_mant:'desarme', calidad:'calidad', mecanica:'mecanica', bobinado:'bobinado', armado_bal:'armado', despacho:'despacho' }[areaId] || 'dashboard';
+                            html += `<tr style="background:${info.bg};">
+                                <td><strong>OT ${d.ot}</strong>${d.pri==='urgente'?` <span style="color:var(--danger);font-size:0.75em;">🔴 URGENTE</span>`:''}</td>
+                                <td>${d.empresa||'—'}</td>
+                                <td><span style="background:${info.color};color:#fff;padding:2px 8px;border-radius:10px;font-size:0.75em;font-weight:700;">${estadoBadge}</span></td>
+                                <td style="font-size:0.85em;">${(d.tipoTrabajo||'—').toUpperCase()}</td>
+                                <td>${fechaHtml}</td>
+                                <td>${window.barraAvance(avance)}</td>
+                                <td><button class="btn-primary btn-sm" onclick="window.mostrarVista('${vistaDestino}')">🔧 Ir al área</button></td>
+                            </tr>`;
+                        });
+                        html += `</tbody></table></div>`;
+                    }
+                    html += `</div>`;
+                });
+                if (!hayAlgo) {
+                    html += `<div style="text-align:center;padding:30px;background:#eafaf1;border-radius:10px;"><div style="font-size:2.5em;">✅</div><h3 style="color:#27ae60;margin:8px 0;">¡Sin trabajos pendientes!</h3><p style="color:var(--text2);">Todas las órdenes de trabajo de tu área están al día.</p></div>`;
+                }
+                html += `</div>`;
+                v.innerHTML = html;
+                return;
+            }
+
             // Vista gestión de usuarios (solo admin)
             if (window.vistaActual === "usuarios") {
                 if (!window.esAdmin()) { v.innerHTML = `<div class="card"><p>⛔ Sin permiso.</p></div>`; return; }
@@ -1704,15 +1841,20 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                     return isNaN(na)||isNaN(nb) ? String(a).localeCompare(String(b)) : na-nb;
                 });
                 let rows = window.usuarios.map((u, idx) => {
-                    let asigSummary = '—';
-                    if (u.rol === 'tecnico' && u.asignaciones && u.asignaciones.length > 0) {
-                        asigSummary = u.asignaciones.map(a => `OT ${a.ot} / ${AREAS_TALLER.find(x=>x[0]===a.area)?.[1]||a.area}`).join('<br>');
-                    }
+                    const asigEsp = (u.asignaciones||[]).filter(a => a.ot);
+                    let asigSummary = asigEsp.length > 0 && u.rol === 'tecnico'
+                        ? asigEsp.map(a => `OT ${a.ot} / ${AREAS_TALLER.find(x=>x[0]===a.area)?.[1]||a.area}`).join('<br>')
+                        : '—';
+                    const areasGen = window.getAreasGenerales(u);
+                    const areasGenLabel = areasGen.length > 0
+                        ? areasGen.map(a => `<span style="background:#e8eef5;color:#1a2a3a;padding:1px 7px;border-radius:10px;font-size:0.82em;font-weight:600;">${AREAS_TALLER.find(x=>x[0]===a)?.[1]||a}</span>`).join(' ')
+                        : '—';
                     return `<tr>
                         <td>${u.nombre}</td>
                         <td><code>${u.usuario}</code></td>
                         <td><code>${u.password||'—'}</code></td>
                         <td>${roles[u.rol]||u.rol}</td>
+                        <td>${areasGenLabel}</td>
                         <td style="font-size:0.78em;color:var(--text2);">${asigSummary}</td>
                         <td><span style="color:${u.activo!==false?'var(--success)':'var(--danger)'};">${u.activo!==false?'✅ Activo':'❌ Inactivo'}</span></td>
                         <td style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -1727,7 +1869,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                     <button class="btn-primary btn-sm" style="margin-bottom:16px;" onclick="window.nuevoUsuarioForm()">➕ Nuevo Usuario</button>
                     <div style="overflow-x:auto;">
                     <table>
-                        <thead><tr><th>Nombre</th><th>Usuario</th><th>Contraseña</th><th>Rol</th><th>OTs / Áreas Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <thead><tr><th>Nombre</th><th>Usuario</th><th>Contraseña</th><th>Rol</th><th>🏭 Área General</th><th>OTs Específicas</th><th>Estado</th><th>Acciones</th></tr></thead>
                         <tbody>${rows}</tbody>
                     </table></div>
                     <div id="formUsuario" style="display:none;margin-top:20px;background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:18px;">
@@ -1743,6 +1885,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                                     <option value="tecnico">🛠 Técnico</option>
                                     <option value="admin">👑 Admin</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div id="secAreaGeneral" style="display:none;margin-bottom:12px;">
+                            <label style="margin-bottom:8px;display:block;font-weight:700;color:#1a2a3a;">🏭 Área General del Taller:</label>
+                            <p style="font-size:0.8em;color:var(--text2);margin:0 0 10px 0;">Selecciona el/los área(s) donde trabaja este usuario. Verá los trabajos pendientes de esas áreas.</p>
+                            <div id="areaGenCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;">
+                            <label style="display:flex;align-items:center;gap:5px;font-size:0.85em;padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:white;transition:all 0.15s;user-select:none;"><input type="checkbox" class="chkAreaGen" data-area="desarme_mant" style="accent-color:var(--primary,#1a2a3a);" onchange="const lbl=this.closest('label');lbl.style.background=this.checked?'#e8eef5':'white';lbl.style.borderColor=this.checked?'var(--primary,#1a2a3a)':'var(--border)';"> 🔧 Desarme / Mantención</label>
+                            <label style="display:flex;align-items:center;gap:5px;font-size:0.85em;padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:white;transition:all 0.15s;user-select:none;"><input type="checkbox" class="chkAreaGen" data-area="calidad" style="accent-color:var(--primary,#1a2a3a);" onchange="const lbl=this.closest('label');lbl.style.background=this.checked?'#e8eef5':'white';lbl.style.borderColor=this.checked?'var(--primary,#1a2a3a)':'var(--border)';"> 🔬 Control Calidad</label>
+                            <label style="display:flex;align-items:center;gap:5px;font-size:0.85em;padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:white;transition:all 0.15s;user-select:none;"><input type="checkbox" class="chkAreaGen" data-area="mecanica" style="accent-color:var(--primary,#1a2a3a);" onchange="const lbl=this.closest('label');lbl.style.background=this.checked?'#e8eef5':'white';lbl.style.borderColor=this.checked?'var(--primary,#1a2a3a)':'var(--border)';"> ⚙️ Mecánica</label>
+                            <label style="display:flex;align-items:center;gap:5px;font-size:0.85em;padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:white;transition:all 0.15s;user-select:none;"><input type="checkbox" class="chkAreaGen" data-area="bobinado" style="accent-color:var(--primary,#1a2a3a);" onchange="const lbl=this.closest('label');lbl.style.background=this.checked?'#e8eef5':'white';lbl.style.borderColor=this.checked?'var(--primary,#1a2a3a)':'var(--border)';"> 🌀 Bobinado</label>
+                            <label style="display:flex;align-items:center;gap:5px;font-size:0.85em;padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:white;transition:all 0.15s;user-select:none;"><input type="checkbox" class="chkAreaGen" data-area="armado_bal" style="accent-color:var(--primary,#1a2a3a);" onchange="const lbl=this.closest('label');lbl.style.background=this.checked?'#e8eef5':'white';lbl.style.borderColor=this.checked?'var(--primary,#1a2a3a)':'var(--border)';"> 🔩 Balanceo / Armado</label>
+                            <label style="display:flex;align-items:center;gap:5px;font-size:0.85em;padding:5px 12px;border:1.5px solid var(--border);border-radius:20px;cursor:pointer;background:white;transition:all 0.15s;user-select:none;"><input type="checkbox" class="chkAreaGen" data-area="despacho" style="accent-color:var(--primary,#1a2a3a);" onchange="const lbl=this.closest('label');lbl.style.background=this.checked?'#e8eef5':'white';lbl.style.borderColor=this.checked?'var(--primary,#1a2a3a)':'var(--border)';"> 🚚 Despacho</label>
                             </div>
                         </div>
                         <div id="secAsignaciones" style="display:none;margin-bottom:12px;">
@@ -2970,6 +3124,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             const rol = document.getElementById('fuRol')?.value;
             const sec = document.getElementById('secAsignaciones');
             if (sec) sec.style.display = rol === 'tecnico' ? 'block' : 'none';
+            const secAG = document.getElementById('secAreaGeneral');
+            if (secAG) secAG.style.display = rol === 'tecnico' ? 'block' : 'none';
         };
 
         window.filtrarOTsForm = () => {
@@ -3049,6 +3205,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             if (document.getElementById('buscadorOT')) document.getElementById('buscadorOT').value = '';
             const lista = document.getElementById('listaOTsForm');
             if (lista) lista.innerHTML = '';
+            // Resetear checkboxes de área general
+            document.querySelectorAll('.chkAreaGen').forEach(c => {
+                c.checked = false;
+                const lbl = c.closest('label');
+                if (lbl) { lbl.style.background = 'white'; lbl.style.borderColor = 'var(--border)'; }
+            });
             // Cachear lista de OTs disponibles para el dropdown
             window._otsList_cache = [...window.data].map(d => d.ot).sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return isNaN(na)||isNaN(nb)?String(a).localeCompare(String(b)):na-nb;});
             window.toggleAsignaciones();
@@ -3074,8 +3236,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             if (lista) lista.innerHTML = '';
             window._otsList_cache = [...window.data].map(d => d.ot).sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);return isNaN(na)||isNaN(nb)?String(a).localeCompare(String(b)):na-nb;});
             const asig = u.asignaciones || [];
-            const otsUnicas = [...new Set(asig.map(a => String(a.ot)).filter(Boolean))];
+            const otsUnicas = [...new Set(asig.filter(a=>a.ot).map(a => String(a.ot)).filter(Boolean))];
             otsUnicas.forEach(ot => window.agregarOTCard(ot, asig));
+            // Cargar área general
+            const areasGen = window.getAreasGenerales(u);
+            document.querySelectorAll('.chkAreaGen').forEach(c => {
+                const checked = areasGen.includes(c.dataset.area);
+                c.checked = checked;
+                const lbl = c.closest('label');
+                if (lbl) { lbl.style.background = checked ? '#e8eef5' : 'white'; lbl.style.borderColor = checked ? 'var(--primary,#1a2a3a)' : 'var(--border)'; }
+            });
             window.toggleAsignaciones();
             f.scrollIntoView({behavior:'smooth'});
         };
@@ -3099,7 +3269,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 });
             }
 
-            const nuevoU = { nombre, usuario, password: pass, rol, activo: true, asignaciones };
+            // Recoger área general
+            const areaGeneral = [];
+            if (rol === 'tecnico') {
+                document.querySelectorAll('.chkAreaGen:checked').forEach(c => {
+                    areaGeneral.push(c.dataset.area);
+                });
+            }
+
+            const nuevoU = { nombre, usuario, password: pass, rol, activo: true, asignaciones, areaGeneral };
             if (idx === -1) {
                 window.usuarios.push(nuevoU);
             } else {
