@@ -91,13 +91,14 @@
 
         // Cargar usuarios desde Firebase
         onValue(usersRef, (snap) => {
-            const val = snap.val();
-            if (val && typeof val === 'object') {
-                window.usuarios = Object.values(val).filter(u => u && u.usuario);
-            } else {
-                window.usuarios = [{ usuario:'admin', password:'bybnorte2024', nombre:'Administrador', rol:'admin', activo:true }];
-                set(usersRef, { admin: window.usuarios[0] });
-            }
+    const val = snap.val();
+    if (val && typeof val === 'object') {
+        window.usuarios = Object.values(val).filter(u => u && u.usuario);
+    } else if (!window.usuariosCargados) {
+        // Solo crea el admin si Firebase está genuinamente vacío (primera vez)
+        window.usuarios = [{ usuario:'admin', password:'bybnorte2024', nombre:'Administrador', rol:'admin', activo:true }];
+        set(usersRef, { admin: window.usuarios[0] });
+    }
             window.usuariosCargados = true;
             // Refrescar sesión activa con datos actualizados
             if (window.usuarioActual) {
