@@ -18,11 +18,100 @@
         const db = getDatabase(app);
         const storage = getStorage(app);
         const dbRef = ref(db, 'taller_byb');
+        const usersRef = ref(db, 'usuarios_byb');
 
+        // ── SISTEMA DE USUARIOS ──
         window.data = [];
+        window.usuarios = [];
+        window.usuarioActual = null;
+
+        // Verificar si hay sesión guardada
+        try {
+            const sesion = sessionStorage.getItem('byb_sesion');
+            if (sesion) window.usuarioActual = JSON.parse(sesion);
+        } catch(e) {}
+
+        // Helpers de rol
+        window.esAdmin     = () => window.usuarioActual?.rol === 'admin';
+        window.esEncargado = () => window.usuarioActual?.rol === 'encargado';
+        window.esTecnico   = () => window.usuarioActual?.rol === 'tecnico';
+        window.puedeEditar = () => window.esAdmin() || window.esEncargado();
+        window.puedeEditarOT = (ot) => {
+            if (window.puedeEditar()) return true;
+            if (window.esTecnico()) return window.usuarioActual?.asignaciones?.includes(String(ot));
+            return false;
+        };
+
+        // Mostrar/ocultar login
+        window.mostrarLogin = () => {
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.querySelector('.layout').style.display = 'none';
+        };
+        window.ocultarLogin = () => {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.querySelector('.layout').style.display = 'flex';
+        };
+
+        // Login
+        window.hacerLogin = () => {
+            const usr = (document.getElementById('loginUser')?.value || '').trim().toLowerCase();
+            const pwd = document.getElementById('loginPass')?.value || '';
+            const err = document.getElementById('loginError');
+            const u = window.usuarios.find(u => u.usuario.toLowerCase() === usr && u.password === pwd && u.activo !== false);
+            if (!u) { if(err) err.textContent = '❌ Usuario o contraseña incorrectos'; return; }
+            window.usuarioActual = u;
+            try { sessionStorage.setItem('byb_sesion', JSON.stringify(u)); } catch(e) {}
+            window.ocultarLogin();
+            window.actualizarInfoUsuario();
+            window.render();
+        };
+
+        // Logout
+        window.logout = () => {
+            if (!confirm('¿Cerrar sesión?')) return;
+            window.usuarioActual = null;
+            try { sessionStorage.removeItem('byb_sesion'); } catch(e) {}
+            window.mostrarLogin();
+        };
+
+        // Actualizar nombre en sidebar
+        window.actualizarInfoUsuario = () => {
+            const el = document.getElementById('sidebarUser');
+            if (!el || !window.usuarioActual) return;
+            const roles = { admin: '👑 Admin', encargado: '🔧 Encargado', tecnico: '🛠 Técnico' };
+            el.innerHTML = `<div style="font-size:0.82em;color:rgba(255,255,255,0.9);font-weight:600;">${window.usuarioActual.nombre}</div><div style="font-size:0.7em;color:rgba(255,255,255,0.5);">${roles[window.usuarioActual.rol]||''}</div>`;
+            const menuUsu = document.getElementById('menuUsuarios');
+            if (menuUsu) menuUsu.style.display = window.esAdmin() ? 'flex' : 'none';
+        };
+
+        // Cargar usuarios desde Firebase
+        onValue(usersRef, (snap) => {
+            const val = snap.val();
+            if (val && typeof val === 'object') {
+                window.usuarios = Object.values(val);
+            } else {
+                // Crear admin por defecto si no existe ninguno
+                window.usuarios = [{ usuario:'admin', password:'bybnorte2024', nombre:'Administrador', rol:'admin', activo:true }];
+                set(usersRef, { admin: window.usuarios[0] });
+            }
+            // Actualizar sesión activa con datos frescos
+            if (window.usuarioActual) {
+                const u = window.usuarios.find(u => u.usuario === window.usuarioActual.usuario);
+                if (u) { window.usuarioActual = u; try { sessionStorage.setItem('byb_sesion', JSON.stringify(u)); } catch(e) {} }
+                else { window.logout(); return; }
+            }
+            window.actualizarInfoUsuario();
+            if (!window.usuarioActual) window.mostrarLogin();
+        });
+
+        window.guardarUsuarios = () => {
+            const obj = {};
+            window.usuarios.forEach(u => { obj[u.usuario] = u; });
+            return set(usersRef, obj);
+        };
         window.vistaActual = "dashboard";
         window.filtroBusqueda = "";
-        window.menuAbierto = false; // Estado del menú
+        window.menuAbierto = false;
 
         let firebaseConectado = false;
         const fbTimeout = setTimeout(() => {
@@ -88,6 +177,7 @@
         };
 
         window.save = () => {
+            if (!window.usuarioActual) return Promise.resolve();
             try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
             return set(dbRef, window.data);
         };
@@ -842,6 +932,8 @@
         };
 
         window.updateFlujo = (i, paso, sig) => {
+            const ot = window.data[i]?.ot;
+            if (!window.puedeEditarOT(ot)) { alert('⛔ No tienes permiso para modificar esta OT.'); return; }
             if (!window.data[i].pasos) window.data[i].pasos = {};
             window.data[i].pasos[paso] = true;
             if (paso === 'med_ok' || paso === 'met_ok') {
@@ -1080,6 +1172,67 @@
         window.render = () => {
             const v = document.getElementById("vista");
             if (!v) return;
+            if (!window.usuarioActual) { window.mostrarLogin(); return; }
+
+            // Vista gestión de usuarios (solo admin)
+            if (window.vistaActual === "usuarios") {
+                if (!window.esAdmin()) { v.innerHTML = `<div class="card"><p>⛔ Sin permiso.</p></div>`; return; }
+                const roles = { admin:'👑 Admin', encargado:'🔧 Encargado', tecnico:'🛠 Técnico' };
+                const otsList = window.data.map(d => d.ot).sort();
+                let rows = window.usuarios.map((u, idx) => {
+                    const asig = (u.asignaciones||[]).join(', ') || '—';
+                    return `<tr>
+                        <td>${u.nombre}</td>
+                        <td><code>${u.usuario}</code></td>
+                        <td>${roles[u.rol]||u.rol}</td>
+                        <td style="font-size:0.8em;color:var(--text2);">${u.rol==='tecnico'?asig:'—'}</td>
+                        <td><span style="color:${u.activo!==false?'var(--success)':'var(--danger)'};">${u.activo!==false?'✅ Activo':'❌ Inactivo'}</span></td>
+                        <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                            <button class="btn-primary btn-sm" onclick="window.editarUsuario(${idx})">✏️ Editar</button>
+                            ${u.usuario!=='admin'?`<button class="btn-del btn-sm" onclick="window.toggleActivoUsuario(${idx})">${u.activo!==false?'Desactivar':'Activar'}</button>`:''}
+                        </td>
+                    </tr>`;
+                }).join('');
+                v.innerHTML = `
+                <div class="card">
+                    <h2>👥 Gestión de Usuarios</h2>
+                    <button class="btn-primary btn-sm" style="margin-bottom:16px;" onclick="window.nuevoUsuarioForm()">➕ Nuevo Usuario</button>
+                    <div style="overflow-x:auto;">
+                    <table>
+                        <thead><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>OTs Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table></div>
+                    <div id="formUsuario" style="display:none;margin-top:20px;background:#f8f9fa;border:1px solid var(--border);border-radius:8px;padding:18px;">
+                        <h3 id="formUsuTitulo">Nuevo Usuario</h3>
+                        <input type="hidden" id="fuIdx" value="-1">
+                        <div class="med-grid">
+                            <div class="med-campo"><label>Nombre completo</label><input id="fuNombre" placeholder="Ej: Juan Pérez"></div>
+                            <div class="med-campo"><label>Usuario (sin espacios)</label><input id="fuUsuario" placeholder="Ej: jperez"></div>
+                            <div class="med-campo"><label>Contraseña</label><input id="fuPass" type="password" placeholder="Contraseña"></div>
+                            <div class="med-campo"><label>Rol</label>
+                                <select id="fuRol" onchange="window.toggleAsignaciones()">
+                                    <option value="encargado">🔧 Encargado</option>
+                                    <option value="tecnico">🛠 Técnico</option>
+                                    <option value="admin">👑 Admin</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="secAsignaciones" style="display:none;margin-bottom:12px;">
+                            <label style="margin-bottom:8px;display:block;">OTs asignadas al técnico:</label>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;background:white;padding:10px;border-radius:6px;border:1px solid var(--border);">
+                                ${otsList.map(ot=>`<label style="display:flex;align-items:center;gap:4px;font-size:0.85em;text-transform:none;font-weight:400;"><input type="checkbox" class="chkAsig" value="${ot}"> OT ${ot}</label>`).join('')}
+                                ${otsList.length===0?'<span style="color:var(--text2);font-size:0.85em;">No hay OTs registradas aún.</span>':''}
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn-success" onclick="window.guardarUsuarioForm()">💾 Guardar</button>
+                            <button class="btn-del" onclick="document.getElementById('formUsuario').style.display='none'">Cancelar</button>
+                        </div>
+                        <p id="formUsuError" style="color:var(--danger);margin-top:8px;"></p>
+                    </div>
+                </div>`;
+                return;
+            }
 
             if (window.vistaActual === "dashboard") {
                 const dataOrdenada = [...window.data]
@@ -1134,7 +1287,7 @@
                             <button class="btn-sm" style="background:#1a6b2e;color:white;" onclick="window.descargarGuiaRecepcion(${d.indexOriginal})" title="Descargar Guía de Recepción">📥</button>
                             <button class="btn-sm" style="background:#8e44ad;color:white;" onclick="window.descargarDetalle(${d.indexOriginal})" title="Descargar Detalle Word">📋</button>
                             <button class="btn-success btn-sm" onclick="window.descargarInforme(${d.indexOriginal})" title="Descargar Informe Final Word">📄</button>
-                            <button class="btn-del btn-sm" onclick="if(confirm('¿Eliminar OT ${d.ot}?')){window.data.splice(${d.indexOriginal},1); window.save()}">✕</button>
+                            ${window.puedeEditar() ? `<button class="btn-del btn-sm" onclick="if(confirm('¿Eliminar OT ${d.ot}?')){window.data.splice(${d.indexOriginal},1); window.save()}">✕</button>` : ''}
                         </td></tr>`;
                 });
                 v.innerHTML = html + "</tbody></table></div></div>";
@@ -1310,6 +1463,7 @@
                 }
             }
             else if (window.vistaActual === "crear") {
+                if (window.esTecnico()) { v.innerHTML = `<div class="card"><p>⛔ Los técnicos no pueden crear OTs.</p></div>`; return; }
                 const PIEZAS_FIJAS = ['CARCASA','TAPA RODAMIENTO','TAPA VENTILADOR','JAULA DE ARDILLA','VENTILADOR','PLACA DE CONEXIÓN','CAJA DE CONEXIÓN','CÁNCAMOS','CHAVETA','RODAMIENTOS','POLEA','MACHÓN DE ACOPLE','PIÑÓN','CARBONES','CONTRA TAPA','INDUCIDO','COLECTOR','PORTA ESCOBILLA','RETÉN','PERNOS','INTERCAMBIADOR','CONEXIÓN A TIERRA','OTROS (ESPECIFICAR)'];
                 v.innerHTML = `
                 <div class="card" style="max-width:820px;">
@@ -2280,3 +2434,74 @@
             }
         };
 
+        // ── FUNCIONES GESTIÓN USUARIOS ──
+        window.toggleAsignaciones = () => {
+            const rol = document.getElementById('fuRol')?.value;
+            const sec = document.getElementById('secAsignaciones');
+            if (sec) sec.style.display = rol === 'tecnico' ? 'block' : 'none';
+        };
+
+        window.nuevoUsuarioForm = () => {
+            const f = document.getElementById('formUsuario');
+            if (!f) return;
+            f.style.display = 'block';
+            document.getElementById('formUsuTitulo').textContent = 'Nuevo Usuario';
+            document.getElementById('fuIdx').value = '-1';
+            document.getElementById('fuNombre').value = '';
+            document.getElementById('fuUsuario').value = '';
+            document.getElementById('fuPass').value = '';
+            document.getElementById('fuRol').value = 'encargado';
+            document.getElementById('formUsuError').textContent = '';
+            document.querySelectorAll('.chkAsig').forEach(c => c.checked = false);
+            window.toggleAsignaciones();
+        };
+
+        window.editarUsuario = (idx) => {
+            const u = window.usuarios[idx];
+            if (!u) return;
+            const f = document.getElementById('formUsuario');
+            if (!f) return;
+            f.style.display = 'block';
+            document.getElementById('formUsuTitulo').textContent = 'Editar Usuario';
+            document.getElementById('fuIdx').value = idx;
+            document.getElementById('fuNombre').value = u.nombre || '';
+            document.getElementById('fuUsuario').value = u.usuario || '';
+            document.getElementById('fuPass').value = u.password || '';
+            document.getElementById('fuRol').value = u.rol || 'encargado';
+            document.getElementById('formUsuError').textContent = '';
+            document.querySelectorAll('.chkAsig').forEach(c => {
+                c.checked = (u.asignaciones||[]).includes(c.value);
+            });
+            window.toggleAsignaciones();
+        };
+
+        window.guardarUsuarioForm = () => {
+            const err = document.getElementById('formUsuError');
+            const idx = parseInt(document.getElementById('fuIdx').value);
+            const nombre = document.getElementById('fuNombre').value.trim();
+            const usuario = document.getElementById('fuUsuario').value.trim().toLowerCase().replace(/\s/g,'');
+            const pass = document.getElementById('fuPass').value;
+            const rol = document.getElementById('fuRol').value;
+            const asignaciones = [...document.querySelectorAll('.chkAsig:checked')].map(c => c.value);
+
+            if (!nombre || !usuario || !pass) { err.textContent = '⚠️ Completa todos los campos.'; return; }
+            if (idx === -1 && window.usuarios.find(u => u.usuario === usuario)) { err.textContent = '⚠️ El nombre de usuario ya existe.'; return; }
+
+            const nuevoU = { nombre, usuario, password: pass, rol, activo: true, asignaciones: rol === 'tecnico' ? asignaciones : [] };
+            if (idx === -1) {
+                window.usuarios.push(nuevoU);
+            } else {
+                window.usuarios[idx] = { ...window.usuarios[idx], ...nuevoU };
+            }
+            window.guardarUsuarios().then(() => {
+                document.getElementById('formUsuario').style.display = 'none';
+                window.render();
+            });
+        };
+
+        window.toggleActivoUsuario = (idx) => {
+            const u = window.usuarios[idx];
+            if (!u || u.usuario === 'admin') return;
+            u.activo = u.activo === false ? true : false;
+            window.guardarUsuarios().then(() => window.render());
+        };
