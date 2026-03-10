@@ -94,11 +94,515 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             if (val && typeof val === 'object') {
                 window.usuarios = Object.values(val).filter(u => u && u.usuario);
             } else if (!val) {
-                // Base de datos vacía → crear admin por defecto
-                const adminDefault = { usuario:'admin', password:'bybnorte2024', nombre:'Administrador', rol:'admin', activo:true, asignaciones:[] };
-                window.usuarios = [adminDefault];
-                set(usersRef, { admin: adminDefault });
-                console.log('✅ Admin por defecto creado');
+                // Base de datos vacía → cargar todos los usuarios del sistema
+                const usuariosIniciales = [
+        {
+                "usuario": "anibal.aguilar",
+                "password": "anibal7618",
+                "nombre": "Anibal Aguilar",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        }
+                ]
+        },
+        {
+                "usuario": "alan.araya",
+                "password": "alan7238",
+                "nombre": "Alan Araya",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "mecanica"
+                        }
+                ]
+        },
+        {
+                "usuario": "eduardo.avellaneda",
+                "password": "eduardo4278",
+                "nombre": "Eduardo Avellaneda",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        }
+                ]
+        },
+        {
+                "usuario": "gary.barbery",
+                "password": "gary3929",
+                "nombre": "Gary Barbery",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        }
+                ]
+        },
+        {
+                "usuario": "cristian.carvajal",
+                "password": "cristian4772",
+                "nombre": "Cristian Carvajal",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        },
+                        {
+                                "ot": "",
+                                "area": "bobinado"
+                        }
+                ]
+        },
+        {
+                "usuario": "jose.castillo",
+                "password": "jose5070",
+                "nombre": "Jose Castillo",
+                "rol": "admin",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "sebastian.contreras",
+                "password": "sebastian3183",
+                "nombre": "Sebastian Contreras",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        },
+                        {
+                                "ot": "",
+                                "area": "bobinado"
+                        }
+                ]
+        },
+        {
+                "usuario": "alejandro.delgado",
+                "password": "alejandro2418",
+                "nombre": "Alejandro Delgado",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "calidad"
+                        }
+                ]
+        },
+        {
+                "usuario": "martin.choque",
+                "password": "martin5114",
+                "nombre": "Martin Choque",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        }
+                ]
+        },
+        {
+                "usuario": "ronal.choque",
+                "password": "ronal7276",
+                "nombre": "Ronal Choque",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        }
+                ]
+        },
+        {
+                "usuario": "martirian.choque",
+                "password": "martirian9696",
+                "nombre": "Martirian Choque",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        }
+                ]
+        },
+        {
+                "usuario": "alejandro.cordero",
+                "password": "alejandro9824",
+                "nombre": "Alejandro Cordero",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        }
+                ]
+        },
+        {
+                "usuario": "carlos.delacruz",
+                "password": "carlos2471",
+                "nombre": "Carlos De la cruz",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        }
+                ]
+        },
+        {
+                "usuario": "luis.dias",
+                "password": "luis9016",
+                "nombre": "Luis Dias",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "bobinado"
+                        }
+                ]
+        },
+        {
+                "usuario": "fernando.duran",
+                "password": "fernando4268",
+                "nombre": "Fernando Duran",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        }
+                ]
+        },
+        {
+                "usuario": "martin.gomez",
+                "password": "martin7908",
+                "nombre": "Martin Gomez",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "calidad"
+                        }
+                ]
+        },
+        {
+                "usuario": "pedro.gutierrez",
+                "password": "pedro4550",
+                "nombre": "Pedro Gutierrez",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        }
+                ]
+        },
+        {
+                "usuario": "samir.guerrero",
+                "password": "samir7127",
+                "nombre": "Samir Guerrero",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        }
+                ]
+        },
+        {
+                "usuario": "claudio.hernandez",
+                "password": "claudio7358",
+                "nombre": "Claudio Hernandez",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "bobinado"
+                        }
+                ]
+        },
+        {
+                "usuario": "franz.mamani",
+                "password": "franz4483",
+                "nombre": "Franz Mamani",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "mecanica"
+                        }
+                ]
+        },
+        {
+                "usuario": "matias.maturana",
+                "password": "matias3494",
+                "nombre": "Matias Maturana",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        }
+                ]
+        },
+        {
+                "usuario": "esteban.mondaca",
+                "password": "esteban8560",
+                "nombre": "Esteban Mondaca",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "mecanica"
+                        }
+                ]
+        },
+        {
+                "usuario": "edwin.montero",
+                "password": "edwin3932",
+                "nombre": "Edwin Montero",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "bobinado"
+                        }
+                ]
+        },
+        {
+                "usuario": "william.montero",
+                "password": "william6551",
+                "nombre": "William Montero",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "bobinado"
+                        }
+                ]
+        },
+        {
+                "usuario": "nicolas.montero",
+                "password": "nicolas2359",
+                "nombre": "Nicolas Montero",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "desarme_mant"
+                        }
+                ]
+        },
+        {
+                "usuario": "fernando.perez",
+                "password": "fernando9662",
+                "nombre": "Fernando Perez",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        },
+                        {
+                                "ot": "",
+                                "area": "bobinado"
+                        }
+                ]
+        },
+        {
+                "usuario": "gualberto.perez",
+                "password": "gualberto2438",
+                "nombre": "Gualberto Perez",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "mecanica"
+                        }
+                ]
+        },
+        {
+                "usuario": "fidel.rios",
+                "password": "fidel8684",
+                "nombre": "Fidel Rios",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "mecanica"
+                        }
+                ]
+        },
+        {
+                "usuario": "nicolas.soloaga",
+                "password": "nicolas6183",
+                "nombre": "Nicolas Soloaga",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "armado_bal"
+                        }
+                ]
+        },
+        {
+                "usuario": "jorge.tapia",
+                "password": "jorge7596",
+                "nombre": "Jorge Tapia",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": [
+                        {
+                                "ot": "",
+                                "area": "calidad"
+                        }
+                ]
+        },
+        {
+                "usuario": "manuel.vazquez",
+                "password": "manuel1698",
+                "nombre": "Manuel Vazquez",
+                "rol": "encargado",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "elizabeth.gomez",
+                "password": "elizabeth5413",
+                "nombre": "Elizabeth Gomez",
+                "rol": "admin",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "ricardo.gomez",
+                "password": "ricardo1124",
+                "nombre": "Ricardo Gomez",
+                "rol": "admin",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario01",
+                "password": "clave7966",
+                "nombre": "Usuario 01",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario02",
+                "password": "clave4338",
+                "nombre": "Usuario 02",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario03",
+                "password": "clave6939",
+                "nombre": "Usuario 03",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario04",
+                "password": "clave9754",
+                "nombre": "Usuario 04",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario05",
+                "password": "clave2324",
+                "nombre": "Usuario 05",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario06",
+                "password": "clave8570",
+                "nombre": "Usuario 06",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario07",
+                "password": "clave9497",
+                "nombre": "Usuario 07",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario08",
+                "password": "clave4245",
+                "nombre": "Usuario 08",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario09",
+                "password": "clave8580",
+                "nombre": "Usuario 09",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        },
+        {
+                "usuario": "usuario10",
+                "password": "clave1840",
+                "nombre": "Usuario 10",
+                "rol": "tecnico",
+                "activo": true,
+                "asignaciones": []
+        }
+];
+                window.usuarios = usuariosIniciales;
+                const obj = {};
+                usuariosIniciales.forEach(u => { obj[u.usuario] = u; });
+                set(usersRef, obj);
+                console.log('✅ Usuarios iniciales cargados:', usuariosIniciales.length);
             }
             window.usuariosCargados = true;
             // Refrescar sesión activa con datos actualizados
