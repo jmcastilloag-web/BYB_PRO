@@ -254,32 +254,7 @@
     </style>
 </head>
 <body>
-    <!-- ── PANTALLA DE LOGIN ── -->
-    <div id="login-screen" style="display:flex;position:fixed;inset:0;background:linear-gradient(135deg,#2c3e50,#1a252f);z-index:9999;align-items:center;justify-content:center;">
-        <div style="background:white;border-radius:16px;padding:40px 36px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-            <div style="text-align:center;margin-bottom:28px;">
-                <div style="font-size:1.6em;font-weight:800;color:#2c3e50;letter-spacing:1px;">BYB NORTH</div>
-                <div style="font-size:0.8em;color:#7f8c8d;letter-spacing:0.5px;margin-top:4px;">SISTEMA DE TALLER</div>
-                <div style="margin-top:16px;font-size:2em;">🔐</div>
-            </div>
-            <div style="margin-bottom:14px;">
-                <label style="font-size:0.8em;font-weight:700;color:#2c3e50;display:block;margin-bottom:5px;">EMAIL</label>
-                <input id="login-email" type="email" placeholder="correo@empresa.cl"
-                    style="width:100%;padding:10px 14px;border:1.5px solid #dde1e7;border-radius:8px;font-size:0.95em;outline:none;">
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="font-size:0.8em;font-weight:700;color:#2c3e50;display:block;margin-bottom:5px;">CONTRASEÑA</label>
-                <input id="login-pass" type="password" placeholder="••••••••"
-                    style="width:100%;padding:10px 14px;border:1.5px solid #dde1e7;border-radius:8px;font-size:0.95em;outline:none;">
-            </div>
-            <p id="login-error" style="color:#e74c3c;font-size:0.85em;text-align:center;min-height:18px;margin-bottom:10px;"></p>
-            <button id="btn-login" style="width:100%;padding:12px;background:#3498db;color:white;border:none;border-radius:8px;font-size:1em;font-weight:700;cursor:pointer;">
-                Ingresar al Sistema
-            </button>
-        </div>
-    </div>
-
-    <div class="layout" id="layout" style="display:none;">
+    <div class="layout">
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <!-- Botón hamburguesa DENTRO del sidebar (visible en mobile en la barra) -->
@@ -290,8 +265,7 @@
             <div class="menu-group">Administración</div>
             <div class="menuItem" onclick="window.mostrarVista('dashboard')">📋 Listado General</div>
             <div class="menuItem" onclick="window.mostrarVista('mensual')">📅 Control Mensual</div>
-            <div id="menu-crear" class="menuItem" onclick="window.mostrarVista('crear')" style="display:none;">➕ Nueva OT</div>
-            <div id="menu-usuarios" class="menuItem" onclick="window.mostrarVista('usuarios')" style="display:none;">👥 Usuarios</div>
+            <div class="menuItem" onclick="window.mostrarVista('crear')">➕ Nueva OT</div>
             <div class="menu-group">Taller</div>
             <div id="m-desarme" class="menuItem" onclick="window.mostrarVista('desarme_mant')">🔧 Desarme y Mant.</div>
             <div id="m-calidad" class="menuItem" onclick="window.mostrarVista('calidad')">🔬 Control Calidad</div>
@@ -299,7 +273,6 @@
             <div id="m-bobinado" class="menuItem" onclick="window.mostrarVista('bobinado')">🌀 Área Bobinado</div>
             <div id="m-armado" class="menuItem" onclick="window.mostrarVista('armado_bal')">🔩 Balanceo y Armado</div>
             <div id="m-despacho" class="menuItem" style="color:#d29922;" onclick="window.mostrarVista('despacho')">🚚 Área Despacho</div>
-            <div id="user-info"></div>
         </aside>
         <main class="main" id="main-content">
             <div id="vista">Cargando sistema...</div>
@@ -315,171 +288,24 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 
         const firebaseConfig = {
-            apiKey: "AIzaSyBdM5Ie4nmLzgf70FGI1BawJKe-CzR8efY",
-            authDomain: "byb-north-produccion.firebaseapp.com",
-            databaseURL: "https://byb-north-produccion-default-rtdb.firebaseio.com",
-            projectId: "byb-north-produccion",
-            storageBucket: "byb-north-produccion.firebasestorage.app",
-            messagingSenderId: "588849282912",
-            appId: "1:588849282912:web:683d19d46042885dd7e805"
+            apiKey: "AIzaSyCvHPNgceh6YlD1DJKPpMazeOuaUX2K_lE",
+            authDomain: "byb-norte-82e1a.firebaseapp.com",
+            databaseURL: "https://byb-norte-82e1a-default-rtdb.firebaseio.com",
+            projectId: "byb-norte-82e1a",
+            messagingSenderId: "192380195306",
+            appId: "1:192380195306:web:e5caf122d22a13ba812293",
+            storageBucket: "byb-norte-82e1a.firebasestorage.app"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
         const storage = getStorage(app);
-        const auth = getAuth(app);
         const dbRef = ref(db, 'taller_byb');
-
-        // ── SESIÓN Y ROLES ──────────────────────────────────────
-        window.sesion = null; // { uid, email, nombre, rol, area, activo }
-
-        // Roles permitidos
-        const ROLES = {
-            admin: 'Admin',
-            supervisor: 'Supervisor',
-            tecnico_area: 'Técnico Área Fija',
-            tecnico: 'Técnico General'
-        };
-        const AREAS = ['desarme_mant','calidad','mecanica','bobinado','armado_bal','despacho'];
-        const AREA_LABELS = {
-            'desarme_mant': 'Desarme y Mant.',
-            'calidad': 'Control Calidad',
-            'mecanica': 'Área Mecánica',
-            'bobinado': 'Área Bobinado',
-            'armado_bal': 'Balanceo y Armado',
-            'despacho': 'Área Despacho'
-        };
-
-        // Puede ver panel de usuarios
-        window.puedeVerUsuarios = () => ['admin','supervisor'].includes(window.sesion?.rol);
-        // Puede gestionar usuarios (crear/editar/eliminar)
-        window.puedeGestionarUsuarios = () => window.sesion?.rol === 'admin';
-        // Puede crear/eliminar OTs y romper flujo
-        window.esAdmin = () => window.sesion?.rol === 'admin';
-        // Puede asignar OTs y marcar realizado en cualquier OT
-        window.esSupervisor = () => ['admin','supervisor'].includes(window.sesion?.rol);
-        // Puede intervenir en su área fija siempre
-        window.tieneAreaFija = (area) => window.sesion?.rol === 'tecnico_area' && window.sesion?.area === area;
-        // Puede marcar realizado en una OT específica (le fue asignada)
-        window.tieneOTAsignada = (ot) => {
-            const uid = window.sesion?.uid;
-            if (!uid) return false;
-            return (window.sesion?.ots_asignadas || []).includes(String(ot));
-        };
-        // Puede intervenir en vista de área
-        window.puedeIntervenirEnArea = (area, ot) => {
-            if (window.esSupervisor()) return true;
-            if (window.tieneAreaFija(area)) return true;
-            if (window.tieneOTAsignada(ot)) return true;
-            return false;
-        };
-
-        // Renderizar pantalla de login
-        window.mostrarLogin = () => {
-            document.getElementById('layout').style.display = 'none';
-            document.getElementById('login-screen').style.display = 'flex';
-        };
-        window.ocultarLogin = () => {
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('layout').style.display = 'flex';
-        };
-
-        window.hacerLogin = async () => {
-            const email = document.getElementById('login-email').value.trim();
-            const pass  = document.getElementById('login-pass').value.trim();
-            const err   = document.getElementById('login-error');
-            const btn   = document.getElementById('btn-login');
-            err.textContent = '';
-            if (!email || !pass) { err.textContent = 'Completa email y contraseña.'; return; }
-            btn.textContent = 'Ingresando...';
-            btn.disabled = true;
-            try {
-                await signInWithEmailAndPassword(auth, email, pass);
-            } catch(e) {
-                console.error('Login error:', e.code, e.message);
-                const msgs = {
-                    'auth/invalid-credential': 'Email o contraseña incorrectos.',
-                    'auth/user-not-found': 'Usuario no encontrado.',
-                    'auth/wrong-password': 'Contraseña incorrecta.',
-                    'auth/invalid-email': 'Email inválido.',
-                    'auth/too-many-requests': 'Demasiados intentos. Espera unos minutos.'
-                };
-                err.textContent = msgs[e.code] || ('Error: ' + e.code);
-                btn.textContent = 'Ingresar al Sistema';
-                btn.disabled = false;
-            }
-        };
-
-        // Event listeners del login (dentro del módulo, tienen acceso a las funciones)
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('btn-login')?.addEventListener('click', window.hacerLogin);
-            document.getElementById('login-email')?.addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('login-pass').focus(); });
-            document.getElementById('login-pass')?.addEventListener('keydown', e => { if(e.key==='Enter') window.hacerLogin(); });
-        });
-
-        window.cerrarSesion = async () => {
-            await signOut(auth);
-        };
-
-        // Cargar datos del usuario desde DB
-        const cargarSesion = async (user) => {
-            const snap = await get(ref(db, 'usuarios/' + user.uid));
-            const datos = snap.val() || {};
-            if (datos.activo === false) {
-                await signOut(auth);
-                alert('Tu cuenta está desactivada. Contacta al administrador.');
-                return;
-            }
-            // Cargar OTs asignadas al usuario
-            const snapOTs = await get(ref(db, 'asignaciones/' + user.uid));
-            const otsAsig = snapOTs.val() ? Object.keys(snapOTs.val()) : [];
-            window.sesion = {
-                uid: user.uid,
-                email: user.email,
-                nombre: datos.nombre || user.email,
-                rol: datos.rol || 'tecnico',
-                area: datos.area || '',
-                activo: datos.activo !== false,
-                ots_asignadas: otsAsig
-            };
-            window.actualizarMenuPorRol();
-            window.ocultarLogin();
-        };
-
-        // Actualizar menú según rol
-        window.actualizarMenuPorRol = () => {
-            const s = window.sesion;
-            if (!s) return;
-            // Mostrar nombre y rol en sidebar
-            document.getElementById('user-info').innerHTML = `
-                <div style="padding:10px 16px 6px;border-top:1px solid rgba(255,255,255,0.1);margin-top:auto;">
-                    <div style="font-size:0.8em;color:rgba(255,255,255,0.5);letter-spacing:0.5px;">Conectado como</div>
-                    <div style="font-weight:700;color:white;font-size:0.9em;margin-top:2px;">${s.nombre}</div>
-                    <div style="font-size:0.72em;color:#f39c12;font-weight:600;">${ROLES[s.rol]||s.rol}${s.area ? ' · '+AREA_LABELS[s.area] : ''}</div>
-                    <button id="btn-cerrar-sesion" style="margin-top:8px;width:100%;padding:6px;background:rgba(255,255,255,0.1);border:none;border-radius:5px;color:white;cursor:pointer;font-size:0.8em;">🚪 Cerrar Sesión</button>
-                </div>`;
-            document.getElementById('btn-cerrar-sesion')?.addEventListener('click', window.cerrarSesion);
-            // Mostrar/ocultar menú usuarios
-            const menuUsuarios = document.getElementById('menu-usuarios');
-            if (menuUsuarios) menuUsuarios.style.display = window.puedeVerUsuarios() ? 'flex' : 'none';
-            // Mostrar/ocultar menú crear OT y acciones admin
-            const menuCrear = document.getElementById('menu-crear');
-            if (menuCrear) menuCrear.style.display = window.esSupervisor() ? 'flex' : 'none';
-            // Sidebar de áreas: limitar si es técnico con área fija
-            if (s.rol === 'tecnico_area' && s.area) {
-                AREAS.forEach(a => {
-                    const el = document.getElementById('m-' + a.replace('_','-').replace('_','-'));
-                    // Solo mostrar su área
-                    if (el) el.style.opacity = (a === s.area) ? '1' : '0.4';
-                });
-            }
-        };
 
         window.data = [];
         window.vistaActual = "dashboard";
@@ -487,38 +313,28 @@
         window.menuAbierto = false; // Estado del menú
 
         let firebaseConectado = false;
-        // fbTimeout solo para detectar problemas de red, no bypasea el login
         const fbTimeout = setTimeout(() => {
-            if (!firebaseConectado && !window.sesion) {
-                // Si Firebase tarda mucho, al menos mostramos el login
-                window.mostrarLogin();
+            if (!firebaseConectado) {
+                try { window.data = JSON.parse(localStorage.getItem('taller_byb_backup') || '[]'); } catch(e) { window.data = []; }
+                window.actualizarAlertas();
+                window.render();
             }
         }, 8000);
 
-        // Auth state observer — controla todo el flujo
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                await cargarSesion(user);
-                // Iniciar listener de datos solo tras login
-                onValue(dbRef, (snapshot) => {
-                    firebaseConectado = true;
-                    clearTimeout(fbTimeout);
-                    window.data = snapshot.val() || [];
-                    try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
-                    window.actualizarAlertas();
-                    window.render();
-                }, (error) => {
-                    firebaseConectado = true;
-                    clearTimeout(fbTimeout);
-                    console.error('Firebase error:', error.message);
-                    try { window.data = JSON.parse(localStorage.getItem('taller_byb_backup') || '[]'); } catch(e) { window.data = []; }
-                    window.actualizarAlertas();
-                    window.render();
-                });
-            } else {
-                window.sesion = null;
-                window.mostrarLogin();
-            }
+        onValue(dbRef, (snapshot) => {
+            firebaseConectado = true;
+            clearTimeout(fbTimeout);
+            window.data = snapshot.val() || [];
+            try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
+            window.actualizarAlertas();
+            window.render();
+        }, (error) => {
+            firebaseConectado = true;
+            clearTimeout(fbTimeout);
+            console.error('Firebase error:', error.message);
+            try { window.data = JSON.parse(localStorage.getItem('taller_byb_backup') || '[]'); } catch(e) { window.data = []; }
+            window.actualizarAlertas();
+            window.render();
         });
 
         
@@ -557,106 +373,6 @@
             window.data[i][key+'_checks'] = newChecks;
             window.save();
             window.render();
-        };
-
-        // ── FUNCIONES GESTIÓN USUARIOS ───────────────────────
-        window.toggleAreaSelect = (wrapId, rol) => {
-            const el = document.getElementById(wrapId);
-            if (el) el.style.display = (rol === 'tecnico_area') ? 'block' : 'none';
-        };
-        window.mostrarFormNuevoUsuario = () => {
-            document.getElementById('form-nuevo-usuario').style.display = 'block';
-        };
-        window.crearUsuario = async () => {
-            const nombre = document.getElementById('nu-nombre').value.trim();
-            const email  = document.getElementById('nu-email').value.trim();
-            const pass   = document.getElementById('nu-pass').value.trim();
-            const rol    = document.getElementById('nu-rol').value;
-            const area   = document.getElementById('nu-area')?.value || '';
-            const errEl  = document.getElementById('nu-error');
-            errEl.textContent = '';
-            if (!nombre || !email || !pass) { errEl.textContent = 'Completa todos los campos.'; return; }
-            if (pass.length < 6) { errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
-            try {
-                // Crear en Auth con segunda instancia para no cerrar sesión admin
-                const secondApp = initializeApp(firebaseConfig, 'secondary_' + Date.now());
-                const secondAuth = getAuth(secondApp);
-                const cred = await createUserWithEmailAndPassword(secondAuth, email, pass);
-                const uid = cred.user.uid;
-                await signOut(secondAuth);
-                // Guardar en DB
-                await set(ref(db, 'usuarios/' + uid), { nombre, email, rol, area, activo: true });
-                document.getElementById('form-nuevo-usuario').style.display = 'none';
-                alert('✅ Usuario creado correctamente.');
-                window.render();
-            } catch(e) {
-                const msgs = { 'auth/email-already-in-use': 'El email ya está registrado.', 'auth/invalid-email': 'Email inválido.' };
-                errEl.textContent = msgs[e.code] || 'Error: ' + e.message;
-            }
-        };
-        window.editarRolUsuario = async (uid, nuevoRol) => {
-            await set(ref(db, 'usuarios/' + uid + '/rol'), nuevoRol);
-            if (nuevoRol !== 'tecnico_area') await set(ref(db, 'usuarios/' + uid + '/area'), '');
-            window.render();
-        };
-        window.editarAreaUsuario = async (uid, nuevaArea) => {
-            await set(ref(db, 'usuarios/' + uid + '/area'), nuevaArea);
-        };
-        window.toggleActivoUsuario = async (uid, estaActivo) => {
-            await set(ref(db, 'usuarios/' + uid + '/activo'), !estaActivo);
-            window.render();
-        };
-        window.eliminarUsuario = async (uid) => {
-            await set(ref(db, 'usuarios/' + uid), null);
-            window.render();
-        };
-
-        // ── ASIGNACIÓN DE OTs A USUARIOS ─────────────────────
-        window.mostrarModalAsignar = async (otNum) => {
-            const snap = await get(ref(db, 'usuarios'));
-            const todos = snap.val() || {};
-            const tecnicos = Object.entries(todos).filter(([uid, u]) => u.activo !== false && ['tecnico','tecnico_area'].includes(u.rol));
-            // Cargar asignaciones actuales
-            const snapA = await get(ref(db, 'asignaciones'));
-            const todasAsig = snapA.val() || {};
-            let html = `<div style="padding:16px;">
-                <h3 style="margin-bottom:12px;">📋 Asignar OT ${otNum} a técnicos</h3>
-                ${tecnicos.length === 0 ? '<p style="color:var(--text2)">No hay técnicos disponibles.</p>' : ''}
-                ${tecnicos.map(([uid, u]) => {
-                    const tieneAsig = todasAsig[uid] && todasAsig[uid][otNum];
-                    return `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer;">
-                        <input type="checkbox" ${tieneAsig?'checked':''} onchange="window.toggleAsignacion('${uid}','${otNum}',this.checked)">
-                        <span style="flex:1;font-weight:600;">${u.nombre||u.email}</span>
-                        <span style="font-size:0.78em;color:var(--text2);">${ROLES[u.rol]||u.rol}${u.area?' · '+AREA_LABELS[u.area]:''}</span>
-                    </label>`;
-                }).join('')}
-                <button class="btn-primary btn-sm" style="margin-top:12px;" onclick="document.getElementById('modalDetalle').style.display='none'">Listo</button>
-            </div>`;
-            document.getElementById('contenidoDetalle').innerHTML = html;
-            document.getElementById('modalDetalle').style.display = 'flex';
-        };
-        window.toggleAsignacion = async (uid, ot, asignar) => {
-            const path = 'asignaciones/' + uid + '/' + ot;
-            await set(ref(db, path), asignar ? true : null);
-            // Actualizar sesion local si es el usuario actual
-            if (uid === window.sesion?.uid) {
-                if (asignar) { window.sesion.ots_asignadas.push(String(ot)); }
-                else { window.sesion.ots_asignadas = window.sesion.ots_asignadas.filter(o => o !== String(ot)); }
-            }
-        };
-
-        window.confirmarEliminar = (i) => {
-            const ot = window.data[i]?.ot;
-            if (confirm('¿Eliminar OT ' + ot + '?')) {
-                window.data.splice(i, 1);
-                window.save();
-            }
-        };
-
-        window.togglePrioridad = (i) => {
-            if (!window.esSupervisor()) { alert('⛔ Solo supervisores y administradores pueden cambiar prioridad.'); return; }
-            window.data[i].pri = (window.data[i].pri === 'urgente' ? 'normal' : 'urgente');
-            window.save();
         };
 
         window.save = () => {
@@ -888,8 +604,8 @@
             const concS   = d[prefijo_sal+'_conc'] || concI;
             const concTxt = (conc) => conc==='dentro' ? '✓ Dentro de tolerancia' : conc==='fuera' ? '✗ Fuera de tolerancia' : '—';
             const concClr = (conc) => conc==='dentro' ? '27AE60' : conc==='fuera' ? 'E74C3C' : '888888';
-            return TABLA([tot],[
-                TR([TC(tot,'1A3A5C', R(titulo,12,'FFFFFF',true), false)]),
+            return TABLA([c1,c2,c3,c4],[
+                TR([TC(tot,'1A3A5C', R(titulo,12,'FFFFFF',true), false, 4)]),
                 TR([
                     TC(c1,'D5E3F0', R('Parámetro',11,'003366',true),false),
                     TC(c2,'D5E3F0', R('Valores de Entrada',11,'003366',true),false),
@@ -906,7 +622,7 @@
                 TR([
                     TC(c1,'EBEBEB', R('Conclusión',11,'333333',true),false),
                     TC(c2, concI==='dentro'?'E8F8F0':concI==='fuera'?'FFF5F5':'F8F8F8', R(concTxt(concI),11,concClr(concI),true),false),
-                    TC(c3+c4, concS==='dentro'?'E8F8F0':concS==='fuera'?'FFF5F5':'F8F8F8', R(concTxt(concS),11,concClr(concS),true),false),
+                    TC(c3+c4, concS==='dentro'?'E8F8F0':concS==='fuera'?'FFF5F5':'F8F8F8', R(concTxt(concS),11,concClr(concS),true),false,2),
                 ]),
             ]);
         };
@@ -1335,12 +1051,12 @@
                 tabTemperaturas(tempRegs,W), SP(0),
                 tempChartPng ? IMG_WORD(W, 'Gráfico de Temperaturas') : '',
 
-                // ── 12. TERMINACIONES ──
+                // ── 13. TERMINACIONES ──
                 SECC('13. TERMINACIONES'), SP(0),
                 tabTerminaciones(termLista,termChecks,W), SP(0),
                 F2W('OBSERVACIONES TERMINACIONES', obs.terminaciones||'', W), SP(0),
 
-                // ── 13. OBSERVACIONES POR ÁREA ──
+                // ── 14. OBSERVACIONES POR ÁREA ──
                 SECC('14. OBSERVACIONES POR ÁREA'), SP(0),
                 tabObsAreas([
                     ['Desarme',       obs.desarme||''],
@@ -1414,13 +1130,6 @@
         };
 
         window.updateFlujo = (i, paso, sig) => {
-            // Determinar área actual para verificar permiso
-            const areaActual = window.vistaActual;
-            const otNum = window.data[i]?.ot;
-            if (!window.puedeIntervenirEnArea(areaActual, otNum)) {
-                alert('⛔ No tienes permiso para realizar esta acción en esta área.');
-                return;
-            }
             if (!window.data[i].pasos) window.data[i].pasos = {};
             window.data[i].pasos[paso] = true;
             if (paso === 'med_ok' || paso === 'met_ok') {
@@ -1660,106 +1369,6 @@
             const v = document.getElementById("vista");
             if (!v) return;
 
-            // ── PANEL USUARIOS ──────────────────────────────────
-            if (window.vistaActual === "usuarios") {
-                if (!window.puedeVerUsuarios()) {
-                    v.innerHTML = `<div class="card"><p style="color:red">⛔ Sin permisos para ver esta sección.</p></div>`;
-                    return;
-                }
-                const usRef = ref(db, 'usuarios');
-                get(usRef).then(snap => {
-                    const todos = snap.val() || {};
-                    const lista = Object.entries(todos).map(([uid, u]) => ({ uid, ...u }));
-                    const puedeGest = window.puedeGestionarUsuarios();
-                    let html = `<div class="card">
-                        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
-                            <h2>👥 Gestión de Usuarios</h2>
-                            ${puedeGest ? `<button class="btn-primary btn-sm" onclick="window.mostrarFormNuevoUsuario()">➕ Nuevo Usuario</button>` : ''}
-                        </div>
-                        <div id="form-nuevo-usuario" style="display:none;background:#f0f4ff;border:1px solid #c0d0f0;border-radius:8px;padding:16px;margin-bottom:16px;">
-                            <h3 style="margin-bottom:12px;">➕ Crear Nuevo Usuario</h3>
-                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-                                <div><label style="font-size:0.8em;font-weight:600;">Nombre</label><br><input id="nu-nombre" class="med-input" style="width:100%" placeholder="Nombre completo"></div>
-                                <div><label style="font-size:0.8em;font-weight:600;">Email</label><br><input id="nu-email" class="med-input" style="width:100%" placeholder="correo@empresa.cl" type="email"></div>
-                                <div><label style="font-size:0.8em;font-weight:600;">Contraseña</label><br><input id="nu-pass" class="med-input" style="width:100%" placeholder="Mínimo 6 caracteres" type="password"></div>
-                                <div><label style="font-size:0.8em;font-weight:600;">Rol</label><br>
-                                    <select id="nu-rol" class="med-input" style="width:100%" onchange="window.toggleAreaSelect('nu-area-wrap', this.value)">
-                                        <option value="tecnico">Técnico General</option>
-                                        <option value="tecnico_area">Técnico Área Fija</option>
-                                        <option value="supervisor">Supervisor</option>
-                                        <option value="admin">Admin</option>
-                                    </select>
-                                </div>
-                                <div id="nu-area-wrap" style="display:none"><label style="font-size:0.8em;font-weight:600;">Área Fija</label><br>
-                                    <select id="nu-area" class="med-input" style="width:100%">
-                                        <option value="">-- Selecciona --</option>
-                                        <option value="desarme_mant">Desarme y Mant.</option>
-                                        <option value="calidad">Control Calidad</option>
-                                        <option value="mecanica">Área Mecánica</option>
-                                        <option value="bobinado">Área Bobinado</option>
-                                        <option value="armado_bal">Balanceo y Armado</option>
-                                        <option value="despacho">Área Despacho</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div style="display:flex;gap:8px;">
-                                <button class="btn-primary btn-sm" onclick="window.crearUsuario()">✅ Crear Usuario</button>
-                                <button class="btn-sm" onclick="document.getElementById('form-nuevo-usuario').style.display='none'">Cancelar</button>
-                            </div>
-                            <p id="nu-error" style="color:red;font-size:0.85em;margin-top:8px;"></p>
-                        </div>
-                        <div style="overflow-x:auto">
-                        <table style="width:100%;border-collapse:collapse;font-size:0.9em;">
-                            <thead><tr style="background:var(--sidebar);color:white;">
-                                <th style="padding:8px 12px;text-align:left;">Nombre</th>
-                                <th style="padding:8px 12px;text-align:left;">Email</th>
-                                <th style="padding:8px 12px;text-align:left;">Rol</th>
-                                <th style="padding:8px 12px;text-align:left;">Área</th>
-                                <th style="padding:8px 12px;text-align:center;">Estado</th>
-                                ${puedeGest ? '<th style="padding:8px 12px;text-align:center;">Acciones</th>' : ''}
-                            </tr></thead><tbody>`;
-                    lista.forEach(u => {
-                        const activo = u.activo !== false;
-                        html += `<tr style="border-bottom:1px solid var(--border);${activo?'':'opacity:0.5;'}">
-                            <td style="padding:8px 12px;font-weight:600;">${u.nombre||'—'}</td>
-                            <td style="padding:8px 12px;color:var(--text2);">${u.email||'—'}</td>
-                            <td style="padding:8px 12px;">
-                                ${puedeGest && u.uid !== window.sesion?.uid ? `<select onchange="window.editarRolUsuario('${u.uid}',this.value)" style="padding:4px 8px;border-radius:4px;border:1px solid var(--border);">
-                                    <option value="tecnico" ${u.rol==='tecnico'?'selected':''}>Técnico General</option>
-                                    <option value="tecnico_area" ${u.rol==='tecnico_area'?'selected':''}>Técnico Área Fija</option>
-                                    <option value="supervisor" ${u.rol==='supervisor'?'selected':''}>Supervisor</option>
-                                    <option value="admin" ${u.rol==='admin'?'selected':''}>Admin</option>
-                                </select>` : `<span style="font-size:0.85em;background:#e0e8ff;padding:2px 8px;border-radius:10px;">${ROLES[u.rol]||u.rol}</span>`}
-                            </td>
-                            <td style="padding:8px 12px;">
-                                ${puedeGest && u.rol==='tecnico_area' ? `<select onchange="window.editarAreaUsuario('${u.uid}',this.value)" style="padding:4px 8px;border-radius:4px;border:1px solid var(--border);">
-                                    <option value="">-- Sin área --</option>
-                                    <option value="desarme_mant" ${u.area==='desarme_mant'?'selected':''}>Desarme y Mant.</option>
-                                    <option value="calidad" ${u.area==='calidad'?'selected':''}>Control Calidad</option>
-                                    <option value="mecanica" ${u.area==='mecanica'?'selected':''}>Área Mecánica</option>
-                                    <option value="bobinado" ${u.area==='bobinado'?'selected':''}>Área Bobinado</option>
-                                    <option value="armado_bal" ${u.area==='armado_bal'?'selected':''}>Balanceo y Armado</option>
-                                    <option value="despacho" ${u.area==='despacho'?'selected':''}>Área Despacho</option>
-                                </select>` : `<span style="color:var(--text2);font-size:0.85em;">${AREA_LABELS[u.area]||'—'}</span>`}
-                            </td>
-                            <td style="padding:8px 12px;text-align:center;">
-                                <span style="font-size:0.8em;font-weight:700;padding:2px 8px;border-radius:10px;background:${activo?'#eafaf1':'#fdf2f2'};color:${activo?'#27ae60':'#e74c3c'};">${activo?'Activo':'Inactivo'}</span>
-                            </td>
-                            ${puedeGest ? `<td style="padding:8px 12px;text-align:center;">
-                                ${u.uid !== window.sesion?.uid ? `
-                                <button class="btn-sm" style="background:${activo?'#e74c3c':'#27ae60'};color:white;font-size:0.75em;margin:0 2px;" 
-                                    onclick="window.toggleActivoUsuario('${u.uid}',${activo})">${activo?'🚫 Desactivar':'✅ Activar'}</button>
-                                <button class="btn-del btn-sm" style="font-size:0.75em;margin:0 2px;"
-                                    onclick="if(confirm('¿Eliminar usuario ${u.nombre}? Esta acción no se puede deshacer.'))window.eliminarUsuario('${u.uid}')">🗑️</button>` : '<span style="color:var(--text2);font-size:0.8em;">(tú)</span>'}
-                            </td>` : ''}
-                        </tr>`;
-                    });
-                    html += `</tbody></table></div></div>`;
-                    v.innerHTML = html;
-                });
-                return;
-            }
-
             if (window.vistaActual === "dashboard") {
                 const dataOrdenada = [...window.data]
                     .map((d, indexOriginal) => ({ ...d, indexOriginal }))
@@ -1798,7 +1407,7 @@
                     const fechaFmt = d.fecha ? `${dd}/${m}/${y}` : '';
                     const pct = window.calcularAvance(d);
                     html += `<tr>
-                        <td style="text-align:center"><button onclick="window.togglePrioridad(${d.indexOriginal})" style="background:none;cursor:pointer;font-size:1.2em;padding:2px 4px;border:none;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
+                        <td style="text-align:center"><button onclick="window.data[${d.indexOriginal}].pri=(window.data[${d.indexOriginal}].pri=='urgente'?'normal':'urgente'); window.save()" style="background:none;cursor:pointer;font-size:1.2em;padding:2px 4px;border:none;">${d.pri=='urgente'?'🔴':'⚪'}</button></td>
                         <td><b style="color:var(--accent);">${d.ot}</b></td>
                         <td>${d.empresa}</td>
                         <td>
@@ -1813,8 +1422,7 @@
                             <button class="btn-sm" style="background:#1a6b2e;color:white;" onclick="window.descargarGuiaRecepcion(${d.indexOriginal})" title="Descargar Guía de Recepción">📥</button>
                             <button class="btn-sm" style="background:#8e44ad;color:white;" onclick="window.descargarDetalle(${d.indexOriginal})" title="Descargar Detalle Word">📋</button>
                             <button class="btn-success btn-sm" onclick="window.descargarInforme(${d.indexOriginal})" title="Descargar Informe Final Word">📄</button>
-                            ${window.esSupervisor() ? '<button class="btn-sm" style="background:#e67e22;color:white;" onclick="window.mostrarModalAsignar(\'' + d.ot + '\')" title="Asignar OT a técnico">👤</button>' : ''}
-                            ${window.esAdmin() ? '<button class="btn-del btn-sm" onclick="window.confirmarEliminar(' + d.indexOriginal + ')">✕</button>' : ''}
+                            <button class="btn-del btn-sm" onclick="if(confirm('¿Eliminar OT ${d.ot}?')){window.data.splice(${d.indexOriginal},1); window.save()}">✕</button>
                         </td></tr>`;
                 });
                 v.innerHTML = html + "</tbody></table></div></div>";
@@ -1990,10 +1598,6 @@
                 }
             }
             else if (window.vistaActual === "crear") {
-                if (!window.esSupervisor()) {
-                    v.innerHTML = `<div class="card"><p style="color:red">⛔ Solo supervisores y administradores pueden crear nuevas OTs.</p></div>`;
-                    return;
-                }
                 const PIEZAS_FIJAS = ['CARCASA','TAPA RODAMIENTO','TAPA VENTILADOR','JAULA DE ARDILLA','VENTILADOR','PLACA DE CONEXIÓN','CAJA DE CONEXIÓN','CÁNCAMOS','CHAVETA','RODAMIENTOS','POLEA','MACHÓN DE ACOPLE','PIÑÓN','CARBONES','CONTRA TAPA','INDUCIDO','COLECTOR','PORTA ESCOBILLA','RETÉN','PERNOS','INTERCAMBIADOR','CONEXIÓN A TIERRA','OTROS (ESPECIFICAR)'];
                 v.innerHTML = `
                 <div class="card" style="max-width:820px;">
