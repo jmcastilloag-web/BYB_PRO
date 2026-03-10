@@ -27,6 +27,11 @@
             <div id="m-bobinado" class="menuItem" onclick="window.mostrarVista('bobinado')">🌀 Área Bobinado</div>
             <div id="m-armado" class="menuItem" onclick="window.mostrarVista('armado_bal')">🔩 Balanceo y Armado</div>
             <div id="m-despacho" class="menuItem" style="color:#d29922;" onclick="window.mostrarVista('despacho')">🚚 Área Despacho</div>
+            <div id="menuUsuarios" class="menuItem" onclick="window.mostrarVista('usuarios')" style="display:none;">👥 Gestión Usuarios</div>
+            <div style="margin-top:auto; padding:12px 16px; border-top:1px solid rgba(255,255,255,0.1);">
+                <div id="sidebarUser" style="margin-bottom:8px;"></div>
+                <button onclick="window.logout()" style="width:100%;background:rgba(231,76,60,0.2);color:#e74c3c;border:1px solid rgba(231,76,60,0.3);border-radius:4px;padding:7px;font-size:0.82em;font-weight:600;cursor:pointer;">🚪 Cerrar Sesión</button>
+            </div>
         </aside>
         <main class="main" id="main-content">
             <div id="vista">Cargando sistema...</div>
@@ -37,6 +42,24 @@
         <div class="modal-content">
             <span class="close" onclick="document.getElementById('modalDetalle').style.display='none'">&times;</span>
             <div id="contenidoDetalle"></div>
+        </div>
+    </div>
+
+    <!-- LOGIN OVERLAY -->
+    <div id="loginOverlay" style="display:flex; position:fixed; z-index:9999; top:0; left:0; width:100%; height:100%; background:linear-gradient(135deg,#1a2a3a 0%,#2c3e50 100%); align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:12px; padding:40px 36px; width:360px; max-width:95%; box-shadow:0 20px 60px rgba(0,0,0,0.4); text-align:center;">
+            <div style="font-size:2em; font-weight:800; color:#1a2a3a; letter-spacing:2px; margin-bottom:4px;">BYB NORTH</div>
+            <div style="font-size:0.8em; color:#7f8c8d; letter-spacing:1px; margin-bottom:28px;">SISTEMA DE TALLER</div>
+            <div style="text-align:left; margin-bottom:14px;">
+                <label style="font-size:0.78em;font-weight:700;color:#7f8c8d;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Usuario</label>
+                <input id="loginUser" type="text" placeholder="Ingrese su usuario" style="width:100%;padding:10px 12px;border:1.5px solid #dde1e7;border-radius:6px;font-size:0.95em;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+            </div>
+            <div style="text-align:left; margin-bottom:20px;">
+                <label style="font-size:0.78em;font-weight:700;color:#7f8c8d;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Contraseña</label>
+                <input id="loginPass" type="password" placeholder="Ingrese su contraseña" style="width:100%;padding:10px 12px;border:1.5px solid #dde1e7;border-radius:6px;font-size:0.95em;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')window.hacerLogin()">
+            </div>
+            <button onclick="window.hacerLogin()" style="width:100%;background:linear-gradient(135deg,#1a2a3a,#2c3e50);color:white;border:none;padding:12px;border-radius:6px;font-size:1em;font-weight:700;cursor:pointer;letter-spacing:0.5px;">INGRESAR</button>
+            <p id="loginError" style="color:#e74c3c;font-size:0.85em;margin-top:12px;min-height:18px;"></p>
         </div>
     </div>
 
