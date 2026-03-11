@@ -989,6 +989,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         const TR = (cells,h=85) => `<w:tr><w:trPr><w:trHeight w:val="${h}"/></w:trPr>${cells.join('')}</w:tr>`;
         const TABLA = (cols,rows) => { const tot=cols.reduce((a,b)=>a+b,0); return `<w:tbl><w:tblPr><w:tblW w:w="${tot}" w:type="dxa"/><w:tblInd w:w="130" w:type="dxa"/>${BORD}<w:tblCellMar><w:left w:w="10" w:type="dxa"/><w:right w:w="10" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${cols.map(c=>`<w:gridCol w:w="${c}"/>`).join('')}</w:tblGrid>${rows.join('')}</w:tbl>`; };
         const SECC = (t) => `<w:p><w:pPr><w:spacing w:before="50" w:after="20" w:line="240" w:lineRule="auto"/><w:shd w:val="clear" w:color="auto" w:fill="004F88"/><w:ind w:left="80" w:right="80"/></w:pPr>${R(t,13,'FFFFFF',true)}</w:p>`;
+        const RESP = (nombre) => nombre ? `<w:p><w:pPr><w:spacing w:before="20" w:after="20" w:line="240" w:lineRule="auto"/><w:shd w:val="clear" w:color="auto" w:fill="EAF0FF"/><w:ind w:left="80" w:right="80"/></w:pPr>${R('👤 Responsable: '+nombre, 11, '1a2a6a', false)}</w:p>` : '';
         const F2  = (label,val,W=9026) => { const w1=Math.round(W*0.36),w2=W-w1; return TABLA([w1,w2],[TR([TH(label,w1,false),TD(val,w2)])]); };
         const F2W = (label,val,W=9026) => { const w1=Math.round(W*0.36),w2=W-w1; return TABLA([w1,w2],[TR([TC(w1,'F5F6F7',R(label,13,'555555',true),false),TD(val,w2)])]); };  // obs style
         const PIE = () => `<w:p><w:pPr><w:spacing w:before="300" w:after="60" w:line="240" w:lineRule="auto"/><w:jc w:val="center"/></w:pPr>${R('Documento generado: '+fmtFecha()+' — BORYBOR NORTE',14,'AAAAAA')}</w:p>`;
@@ -1429,23 +1430,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 tabPiezasSalida(piezasRec, piezasSalida, W), SP(0),
 
                 // ── 4. DESARME ──
-                SECC('4.  DESARME'), SP(0),
+                SECC('4.  DESARME'), RESP((d.responsables||{}).desarme_ok), SP(0),
                 tabLista(hallazgos,W), SP(0),
                 tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
                 tarDesarme.length>0 ? tabLista(tarDesarme,W) : '',
                 tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
+                tarMant.length>0 ? RESP((d.responsables||{}).mant_ok) : '',
                 tarMant.length>0 ? tabLista(tarMant,W) : '',
                 SP(0), F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
 
                 // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
-                SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), SP(0),
+                SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), RESP((d.responsables||{}).med_ok), SP(0),
                 tabMedElec(medIng,W), SP(0),
                 tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
                 tarCalidad.length>0 ? tabLista(tarCalidad,W) : '',
                 F2W('OBSERVACIONES', obs.med_ingreso||'', W), SP(0),
 
                 // ── 6. METROLOGÍA MECÁNICA ──
-                SECC('6.  METROLOGÍA MECÁNICA'), SP(0),
+                SECC('6.  METROLOGÍA MECÁNICA'), RESP((d.responsables||{}).met_ok), SP(0),
                 SECC('   CONTROL METROLÓGICO DE ALOJAMIENTOS Y ASENTAMIENTOS'), SP(0),
                 tabMetroPlanillaCombinada(d,'metro_aloj_lc_ing','metro_aloj_lc_sal','ALOJAMIENTO LADO CARGA (Drive End)',W), SP(0),
                 tabMetroPlanillaCombinada(d,'metro_aloj_ll_ing','metro_aloj_ll_sal','ALOJAMIENTO LADO LIBRE (Non Drive End)',W), SP(0),
@@ -1455,12 +1457,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 tarMecIng.length>0 ? SECC('    TAREAS METROLOGÍA INGRESO') : '',
                 tarMecIng.length>0 ? tabLista(tarMecIng,W) : '',
                 tarMec.length>0 ? SECC('    TAREAS MECÁNICA FINAL') : '',
+                tarMec.length>0 ? RESP((d.responsables||{}).mec_fin) : '',
                 tarMec.length>0 ? tabLista(tarMec,W) : '',
                 SP(0), F2W('OBSERVACIONES', obs.metrologia||'', W), SP(0),
 
                 // ── 7. DATOS DE BOBINADO (plana completa) ──
                 `<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>`,
-                SECC('7.  DATOS DE BOBINADO'), SP(0),
+                SECC('7.  DATOS DE BOBINADO'), RESP((d.responsables||{}).bobinado_fin), SP(0),
                 tabBobCompleto(d,W), SP(0),
                 `<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>`,
 
@@ -1471,18 +1474,18 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 tabChecks(FALLAS_LIST,det,W), SP(0),
 
                 // ── 9. RODAMIENTOS Y ARMADO ──
-                SECC('9.  RODAMIENTOS Y ARMADO'), SP(0),
+                SECC('9.  RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
                 tabRodamientos(d,W), SP(0),
                 tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
                 tarArmado.length>0 ? tabLista(tarArmado,W) : '',
                 F2W('OBSERVACIONES ARMADO', obs.armado||'', W), SP(0),
 
                 // ── 10. MEDICIONES ELÉCTRICAS DE SALIDA ──
-                SECC('10. MEDICIONES ELÉCTRICAS DE SALIDA'), SP(0),
+                SECC('10. MEDICIONES ELÉCTRICAS DE SALIDA'), RESP((d.responsables||{}).med_ok), SP(0),
                 tabMedElec(medSal,W), SP(0),
 
                 // ── 11. PRUEBAS DINÁMICAS ──
-                SECC('11. PRUEBAS DINÁMICAS'), SP(0),
+                SECC('11. PRUEBAS DINÁMICAS'), RESP((d.responsables||{}).pruebas_ok), SP(0),
                 tabPruebas(d,W), SP(0),
                 tarPruebas.length>0 ? SECC('    TAREAS DE PRUEBAS DINÁMICAS') : '',
                 tarPruebas.length>0 ? tabLista(tarPruebas,W) : '',
@@ -1494,7 +1497,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 tempChartPng ? IMG_WORD(W, 'Gráfico de Temperaturas') : '',
 
                 // ── 13. TERMINACIONES ──
-                SECC('13. TERMINACIONES'), SP(0),
+                SECC('13. TERMINACIONES'), RESP((d.responsables||{}).term_ok), SP(0),
                 tabTerminaciones(termLista,termChecks,W), SP(0),
                 F2W('OBSERVACIONES TERMINACIONES', obs.terminaciones||'', W), SP(0),
 
