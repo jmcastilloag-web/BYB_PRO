@@ -1,4 +1,5 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
@@ -153,6 +154,26 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 } else {
                     btnPend.style.display = 'none';
                 }
+            }
+            // Botón dinámico "Nueva OT" para técnicos de calidad
+            let btnNuevaOT = document.getElementById('menuNuevaOT');
+            const esCalidad = window.esTecnico() && window.getAreasGenerales().includes('calidad');
+            if (esCalidad && !btnNuevaOT) {
+                const nav = el.closest('nav') || el.parentElement;
+                if (nav) {
+                    btnNuevaOT = document.createElement('button');
+                    btnNuevaOT.id = 'menuNuevaOT';
+                    btnNuevaOT.className = 'nav-btn';
+                    btnNuevaOT.onclick = () => window.mostrarVista('crear');
+                    btnNuevaOT.style.cssText = 'display:flex;width:100%;text-align:left;padding:10px 16px;border:none;background:rgba(0,120,80,0.18);color:#2ecc71;cursor:pointer;font-weight:700;font-size:0.88em;border-radius:6px;margin:4px 0;transition:background 0.2s;';
+                    btnNuevaOT.onmouseover = () => btnNuevaOT.style.background = 'rgba(0,120,80,0.32)';
+                    btnNuevaOT.onmouseout  = () => btnNuevaOT.style.background = 'rgba(0,120,80,0.18)';
+                    btnNuevaOT.innerHTML = '➕ Nueva OT';
+                    const refNode = document.getElementById('menuPendientes') || document.getElementById('menuUsuarios') || nav.firstChild;
+                    nav.insertBefore(btnNuevaOT, refNode);
+                }
+            } else if (!esCalidad && btnNuevaOT) {
+                btnNuevaOT.remove();
             }
         };
 
@@ -668,7 +689,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 ];
                 window.usuarios = usuariosIniciales;
                 const obj = {};
-                usuariosIniciales.forEach(u => { obj[u.usuario] = u; });
+                usuariosIniciales.forEach(u => { obj[u.usuario.replace(/\./g,'_')] = u; }); // clave segura Firebase
                 set(usersRef, obj);
                 console.log('✅ Usuarios iniciales cargados:', usuariosIniciales.length);
             }
@@ -693,7 +714,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 
         window.guardarUsuarios = () => {
             const obj = {};
-            window.usuarios.forEach(u => { if(u && u.usuario) obj[u.usuario] = u; });
+            // Firebase no permite '.' en claves → reemplazamos por '_' solo en la clave
+            window.usuarios.forEach(u => {
+                if(u && u.usuario) {
+                    const safeKey = u.usuario.replace(/\./g, '_');
+                    obj[safeKey] = u;
+                }
+            });
             console.log('💾 Guardando usuarios en Firebase:', Object.keys(obj));
             return set(usersRef, obj);
         };
@@ -1961,8 +1988,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                         <td><b style="color:var(--accent);">${d.ot}</b></td>
                         <td>${d.empresa}</td>
                         <td>
-                            <input type="date" value="${d.fecha||''}" style="width:138px;font-size:0.85em;"
-                                onchange="window.data[${d.indexOriginal}].fecha=this.value; if(window.data[${d.indexOriginal}].estado=='espera_fecha')window.data[${d.indexOriginal}].estado='ejecucion_trabajos'; window.save()">
+                            ${window.puedeEditar()
+                                ? `<input type="date" value="${d.fecha||''}" style="width:138px;font-size:0.85em;" onchange="window.data[${d.indexOriginal}].fecha=this.value; if(window.data[${d.indexOriginal}].estado=='espera_fecha')window.data[${d.indexOriginal}].estado='ejecucion_trabajos'; window.save()">`
+                                : `<span style="font-size:0.9em;">${fechaFmt || '—'}</span>`
+                            }
                             ${diasHtml}
                         </td>
                         <td><span class="badge badge-blue">${estadoBadge}</span></td>
@@ -2148,7 +2177,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 }
             }
             else if (window.vistaActual === "crear") {
-                if (window.esTecnico()) { v.innerHTML = `<div class="card"><p>⛔ Los técnicos no pueden crear OTs.</p></div>`; return; }
+                if (window.esTecnico() && !window.getAreasGenerales().includes("calidad")) { v.innerHTML = `<div class="card"><p>⛔ Los técnicos no pueden crear OTs.</p></div>`; return; }
                 const PIEZAS_FIJAS = ['CARCASA','TAPA RODAMIENTO','TAPA VENTILADOR','JAULA DE ARDILLA','VENTILADOR','PLACA DE CONEXIÓN','CAJA DE CONEXIÓN','CÁNCAMOS','CHAVETA','RODAMIENTOS','POLEA','MACHÓN DE ACOPLE','PIÑÓN','CARBONES','CONTRA TAPA','INDUCIDO','COLECTOR','PORTA ESCOBILLA','RETÉN','PERNOS','INTERCAMBIADOR','CONEXIÓN A TIERRA','OTROS (ESPECIFICAR)'];
                 v.innerHTML = `
                 <div class="card" style="max-width:820px;">
