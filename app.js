@@ -39,8 +39,22 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         window.puedeEditarOT = (ot, area) => {
             if (window.puedeEditar()) return true;
             if (window.esTecnico()) {
+                // Asignación específica a esta OT
                 const asig = window.usuarioActual?.asignaciones || [];
-                return asig.some(a => String(a.ot) === String(ot) && (!area || a.area === area));
+                if (asig.some(a => String(a.ot) === String(ot) && (!area || a.area === area))) return true;
+                // Área general: el usuario tiene autorización libre en esa área
+                const areasGenerales = window.getAreasGenerales();
+                // Mapeo vista → areaId
+                const areaMap = {
+                    desarme_mant: 'desarme_mant',
+                    calidad: 'calidad',
+                    mecanica: 'mecanica',
+                    bobinado: 'bobinado',
+                    armado_bal: 'armado_bal',
+                    despacho: 'despacho',
+                };
+                const areaId = areaMap[area] || area;
+                if (areaId && areasGenerales.includes(areaId)) return true;
             }
             return false;
         };
