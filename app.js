@@ -25,19 +25,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         window.usuarioActual = null;
         window.usuariosCargados = false;
 
-        // Verificar si hay sesión guardada
-        // Verificar si hay sesión guardada (expira en 12 horas)
+        // Restaurar sesión guardada (persiste 12 horas entre recargas)
+        window._sesionValidadaPorFirebase = false;
         try {
             const sesionRaw = localStorage.getItem('byb_sesion');
             if (sesionRaw) {
-                const { data: uData, expira } = JSON.parse(sesionRaw);
-                if (expira && Date.now() < expira) {
+                const parsed = JSON.parse(sesionRaw);
+                // Soportar formato nuevo {data, expira} y formato viejo {usuario, ...}
+                const uData = parsed.data || parsed;
+                const expira = parsed.expira || null;
+                if (uData && uData.usuario && (!expira || Date.now() < expira)) {
                     window.usuarioActual = uData;
+                    console.log('✅ Sesión restaurada:', uData.usuario);
                 } else {
-                    localStorage.removeItem('byb_sesion'); // sesión expirada
+                    localStorage.removeItem('byb_sesion');
+                    console.log('⏰ Sesión expirada, requiere login');
                 }
             }
-        } catch(e) {}
+        } catch(e) { console.warn('Error al leer sesión:', e); }
 
         // Helpers de rol
         window.esAdmin     = () => window.usuarioActual?.rol === 'admin';
@@ -715,19 +720,24 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 console.log('✅ Usuarios iniciales cargados:', usuariosIniciales.length);
             }
             window.usuariosCargados = true;
-            // Refrescar sesión activa con datos actualizados
+            // Refrescar sesión activa con datos actualizados de Firebase
             if (window.usuarioActual) {
-                const u = window.usuarios.find(u => u.usuario === window.usuarioActual.usuario);
+                // Buscar con comparación insensible a mayúsculas para evitar problemas
+                const u = window.usuarios.find(u => u.usuario.toLowerCase() === window.usuarioActual.usuario.toLowerCase());
                 if (u && u.activo !== false) {
-                    window.usuarioActual = u;
+                    window.usuarioActual = u; // actualizar con datos frescos
+                    window._sesionValidadaPorFirebase = true;
                     try { localStorage.setItem('byb_sesion', JSON.stringify({data:u, expira:Date.now()+12*60*60*1000})); } catch(e) {}
                     window.actualizarInfoUsuario();
-                } else if (!u || u.activo === false) {
+                } else if (u && u.activo === false) {
+                    // Usuario desactivado: cerrar sesión
                     window.usuarioActual = null;
                     try { localStorage.removeItem('byb_sesion'); } catch(e) {}
                     window.mostrarLogin();
                     return;
                 }
+                // Si no se encuentra el usuario en la lista aún, conservar la sesión del localStorage
+                // (puede pasar si Firebase tarda o hay problema de red)
             } else {
                 window.mostrarLogin();
             }
@@ -2065,7 +2075,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         window.render = () => {
             const v = document.getElementById("vista");
             if (!v) return;
-            if (!window.usuarioActual) { window.mostrarLogin(); return; }
+            if (!window.usuarioActual) {
+                // Solo mostrar login si ya terminó de cargar usuarios de Firebase
+                // (evita pantalla de login momentánea al recargar con sesión guardada)
+                if (window.usuariosCargados) window.mostrarLogin();
+                return;
+            }
+            // Si hay sesión, ocultar el overlay de login por si acaso
+            document.getElementById('loginOverlay').style.display = 'none';
 
             // ── Vista Trabajos Pendientes ──
             if (window.vistaActual === 'trabajosPendientes') {
