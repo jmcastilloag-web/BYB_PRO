@@ -26,9 +26,17 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         window.usuariosCargados = false;
 
         // Verificar si hay sesión guardada
+        // Verificar si hay sesión guardada (expira en 12 horas)
         try {
-            const sesion = sessionStorage.getItem('byb_sesion');
-            if (sesion) window.usuarioActual = JSON.parse(sesion);
+            const sesionRaw = localStorage.getItem('byb_sesion');
+            if (sesionRaw) {
+                const { data: uData, expira } = JSON.parse(sesionRaw);
+                if (expira && Date.now() < expira) {
+                    window.usuarioActual = uData;
+                } else {
+                    localStorage.removeItem('byb_sesion'); // sesión expirada
+                }
+            }
         } catch(e) {}
 
         // Helpers de rol
@@ -119,7 +127,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             const u = window.usuarios.find(u => u.usuario.toLowerCase() === usr && u.password === pwd && u.activo !== false);
             if (!u) { if(err) err.textContent = '❌ Usuario o contraseña incorrectos'; return; }
             window.usuarioActual = u;
-            try { sessionStorage.setItem('byb_sesion', JSON.stringify(u)); } catch(e) {}
+            try { localStorage.setItem('byb_sesion', JSON.stringify({data:u, expira:Date.now()+12*60*60*1000})); } catch(e) {}
             window.ocultarLogin();
             window.actualizarInfoUsuario();
             window.render();
@@ -129,7 +137,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
         window.logout = () => {
             if (!confirm('¿Cerrar sesión?')) return;
             window.usuarioActual = null;
-            try { sessionStorage.removeItem('byb_sesion'); } catch(e) {}
+            try { localStorage.removeItem('byb_sesion'); } catch(e) {}
             window.mostrarLogin();
         };
 
@@ -712,11 +720,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                 const u = window.usuarios.find(u => u.usuario === window.usuarioActual.usuario);
                 if (u && u.activo !== false) {
                     window.usuarioActual = u;
-                    try { sessionStorage.setItem('byb_sesion', JSON.stringify(u)); } catch(e) {}
+                    try { localStorage.setItem('byb_sesion', JSON.stringify({data:u, expira:Date.now()+12*60*60*1000})); } catch(e) {}
                     window.actualizarInfoUsuario();
                 } else if (!u || u.activo === false) {
                     window.usuarioActual = null;
-                    try { sessionStorage.removeItem('byb_sesion'); } catch(e) {}
+                    try { localStorage.removeItem('byb_sesion'); } catch(e) {}
                     window.mostrarLogin();
                     return;
                 }
