@@ -1401,7 +1401,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                     expCv.style.left = '-9999px';
                     expCv.style.top = '-9999px';
                     document.body.appendChild(expCv);
-                    window._dibujarGrafEnCanvas(expCv, tempRegs);
+                    window._dibujarGrafEnCanvas(expCv, tempRegs, true);
                     tempChartPng = expCv.toDataURL('image/png').split(',')[1];
                     document.body.removeChild(expCv);
                 } catch(e) { console.warn('Error generando gráfico:', e); }
@@ -1456,6 +1456,33 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 
                 tarMecIng.length>0 ? SECC('    TAREAS METROLOGÍA INGRESO') : '',
                 tarMecIng.length>0 ? tabLista(tarMecIng,W) : '',
+                (()=>{
+                    const revItems = [
+                        {k:'contratapa_lc', label:'Revisión Contratapa Lado Carga'},
+                        {k:'contratapa_ll', label:'Revisión Contratapa Lado Libre'},
+                        {k:'slingues_lc',   label:'Revisión de Slingues LC'},
+                        {k:'slingues_ll',   label:'Revisión de Slingues LL'},
+                        {k:'machon_acople', label:'Machón o Acople'},
+                        {k:'eje_acople',    label:'Eje Acople'},
+                        {k:'ventilador',    label:'Ventilador'},
+                        {k:'otros',         label:'Otros'},
+                    ];
+                    const checks = d.metro_revision_checks || {};
+                    const hasData = revItems.some(it => checks[it.k]?.obs);
+                    if (!hasData) return '';
+                    const rows = revItems.map(it => {
+                        const ch = checks[it.k] || {};
+                        return TR([
+                            TC(3500,'',`<w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t>${it.label}</w:t></w:r>`,false),
+                            TC(1000,ch.ok?'C6EFCE':'',`<w:r><w:rPr><w:sz w:val="18"/><w:b/></w:rPr><w:t xml:space="preserve">${ch.ok?'✅ OK':'—'}</w:t></w:r>`,true),
+                            TC(W-4500,'',`<w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${ch.obs||'—'}</w:t></w:r>`,false),
+                        ]);
+                    }).join('');
+                    return SECC('    LISTA DE REVISIÓN VISUAL DE INGRESO') +
+                        `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="BFBFBF"/><w:left w:val="single" w:sz="4" w:color="BFBFBF"/><w:bottom w:val="single" w:sz="4" w:color="BFBFBF"/><w:right w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideH w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideV w:val="single" w:sz="4" w:color="BFBFBF"/></w:tblBorders></w:tblPr>` +
+                        TR([TH('Ítem de Revisión',3500),TH('Estado',1000),TH('Observación',W-4500)]) +
+                        rows + `</w:tbl>`;
+                })(),
                 RESP((d.responsables||{}).mec_fin),
                 tarMec.length>0 ? SECC('    TAREAS MECÁNICA FINAL') : '',
                 tarMec.length>0 ? tabLista(tarMec,W) : '',
@@ -1695,6 +1722,12 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
             };
             window.save(); window.render();
         };
+        window.guardarRevisionCheck = (i, clave, campo, valor) => {
+            if (!window.data[i].metro_revision_checks) window.data[i].metro_revision_checks = {};
+            if (!window.data[i].metro_revision_checks[clave]) window.data[i].metro_revision_checks[clave] = {ok:false, obs:''};
+            window.data[i].metro_revision_checks[clave][campo] = valor;
+            window.save();
+        };
         window.guardarMecMedidas = (i, clave, valor) => {
             if (!window.data[i].mec_trab_usuario?.[clave]) return;
             window.data[i].mec_trab_usuario[clave].medidas = valor;
@@ -1724,61 +1757,130 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 
         // ── Gráfico de temperatura global ─────────────────────────
         // Núcleo del dibujo — recibe canvas y datos directamente
-        window._dibujarGrafEnCanvas = function(canvas, datos) {
+        window._dibujarGrafEnCanvas = function(canvas, datos, exportMode=false) {
             if (!canvas || datos.length < 2) return;
-            canvas.width  = canvas.offsetWidth  || 800;
-            canvas.height = canvas.height || 230;
+            // Resolución 2× para pantalla, fija para exportación Word
+            const DPR = exportMode ? 1 : (window.devicePixelRatio || 1);
+            const cssW = exportMode ? 1100 : (canvas.offsetWidth || 760);
+            const cssH = exportMode ? 340  : 260;
+            canvas.width  = Math.round(cssW * DPR);
+            canvas.height = Math.round(cssH * DPR);
+            if (!exportMode) { canvas.style.width = cssW+'px'; canvas.style.height = cssH+'px'; }
             const W=canvas.width, H=canvas.height;
-            const pad={t:32,r:24,b:36,l:46};
+            const sc=DPR;
+            const pad={t:Math.round(42*sc), r:Math.round(30*sc), b:Math.round(48*sc), l:Math.round(56*sc)};
             const cW=W-pad.l-pad.r, cH=H-pad.t-pad.b;
             const ctx=canvas.getContext('2d');
             ctx.clearRect(0,0,W,H);
-            ctx.fillStyle='#f4f8ff'; ctx.fillRect(0,0,W,H);
-            ctx.strokeStyle='#dde1e7'; ctx.lineWidth=0.5;
-            ctx.strokeRect(pad.l,pad.t,cW,cH);
+
+            // Fondo blanco limpio con borde suave
+            ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,W,H);
+            // Fondo área gráfica
+            ctx.fillStyle='#f8fbff';
+            ctx.beginPath(); ctx.roundRect(pad.l, pad.t, cW, cH, 4*sc); ctx.fill();
+
             const allV=datos.flatMap(r=>[+r.lc,+r.ll,+r.est]).filter(n=>!isNaN(n));
             if (!allV.length) return;
-            const minV=Math.floor(Math.min(...allV)-3), maxV=Math.ceil(Math.max(...allV)+3);
+            const rawMin=Math.min(...allV), rawMax=Math.max(...allV);
+            const range = rawMax - rawMin || 10;
+            const minV=Math.floor(rawMin - range*0.08);
+            const maxV=Math.ceil(rawMax  + range*0.12);
+
             const xS=n2=>pad.l+(n2/(datos.length-1))*cW;
             const yS=v=>pad.t+cH-((v-minV)/(maxV-minV||1))*cH;
-            for(let g=0;g<=5;g++){
-                const gy=pad.t+(g/5)*cH;
-                ctx.beginPath(); ctx.strokeStyle='#e0e8f0'; ctx.lineWidth=1;
-                ctx.moveTo(pad.l,gy); ctx.lineTo(pad.l+cW,gy); ctx.stroke();
-                ctx.fillStyle='#666'; ctx.font='10px sans-serif'; ctx.textAlign='right';
-                ctx.fillText(Math.round(maxV-((maxV-minV)/5)*g)+'°', pad.l-4, gy+4);
+
+            // Grillas horizontales
+            const nGrid=6;
+            for(let g=0;g<=nGrid;g++){
+                const gy=Math.round(pad.t+(g/nGrid)*cH)+0.5;
+                const val=Math.round(maxV-((maxV-minV)/nGrid)*g);
+                ctx.beginPath();
+                ctx.strokeStyle = g===0||g===nGrid ? '#c8d8e8' : '#dde8f2';
+                ctx.lineWidth = g===0||g===nGrid ? 1*sc : 0.7*sc;
+                ctx.setLineDash([]);
+                ctx.moveTo(pad.l, gy); ctx.lineTo(pad.l+cW, gy); ctx.stroke();
+                ctx.fillStyle='#555'; ctx.font=`${Math.round(10.5*sc)}px Calibri,Arial`;
+                ctx.textAlign='right';
+                ctx.fillText(val+'°', pad.l-6*sc, gy+4*sc);
             }
-            const stepX=Math.ceil(datos.length/12);
-            ctx.fillStyle='#555'; ctx.font='10px sans-serif'; ctx.textAlign='center';
-            datos.forEach((r,n)=>{ if(n%stepX===0||n===datos.length-1) ctx.fillText(r.t+"'", xS(n), H-6); });
-            ctx.fillStyle='#888'; ctx.font='9px sans-serif';
-            ctx.textAlign='left'; ctx.fillText('°C', 2, pad.t-10);
-            ctx.textAlign='center'; ctx.fillText('Tiempo (min)', pad.l+cW/2, H-0);
-            const series=[{k:'lc',c:'#e74c3c',l:'L. Carga'},{k:'ll',c:'#3498db',l:'L. Libre'},{k:'est',c:'#27ae60',l:'Estator'}];
+            // Grillas verticales suaves
+            const stepX=Math.max(1,Math.ceil(datos.length/10));
+            datos.forEach((r,n)=>{
+                if((n%stepX===0||n===datos.length-1) && n>0 && n<datos.length-1) {
+                    const gx=Math.round(xS(n))+0.5;
+                    ctx.beginPath(); ctx.strokeStyle='#e8eef5'; ctx.lineWidth=0.7*sc;
+                    ctx.moveTo(gx,pad.t); ctx.lineTo(gx,pad.t+cH); ctx.stroke();
+                }
+            });
+            // Borde del área
+            ctx.strokeStyle='#b8cfe0'; ctx.lineWidth=1.2*sc; ctx.setLineDash([]);
+            ctx.strokeRect(pad.l, pad.t, cW, cH);
+
+            // Etiquetas eje X
+            ctx.fillStyle='#444'; ctx.font=`${Math.round(10.5*sc)}px Calibri,Arial`; ctx.textAlign='center';
+            datos.forEach((r,n)=>{ if(n%stepX===0||n===datos.length-1) ctx.fillText(r.t+"'", xS(n), H-10*sc); });
+            // Título ejes
+            ctx.fillStyle='#666'; ctx.font=`italic ${Math.round(10*sc)}px Calibri,Arial`;
+            ctx.textAlign='center'; ctx.fillText('Tiempo (min)', pad.l+cW/2, H-1*sc);
+            ctx.save(); ctx.translate(12*sc, pad.t+cH/2);
+            ctx.rotate(-Math.PI/2); ctx.textAlign='center';
+            ctx.fillText('Temperatura (°C)', 0, 0); ctx.restore();
+
+            const series=[
+                {k:'lc', c:'#C0392B', cf:'#E74C3C', l:'L. Carga'},
+                {k:'ll', c:'#1A6BA0', cf:'#3498DB', l:'L. Libre'},
+                {k:'est',c:'#1A7A44', cf:'#27AE60', l:'Estator'}
+            ];
+
+            // Áreas sombreadas primero
             series.forEach(s=>{
+                const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t+cH);
+                grad.addColorStop(0, s.cf+'40');
+                grad.addColorStop(1, s.cf+'05');
                 ctx.beginPath();
                 datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); });
                 ctx.lineTo(xS(datos.length-1),pad.t+cH); ctx.lineTo(xS(0),pad.t+cH); ctx.closePath();
-                ctx.fillStyle=s.c+'28'; ctx.fill();
-                ctx.beginPath(); ctx.strokeStyle=s.c; ctx.lineWidth=2.5;
+                ctx.fillStyle=grad; ctx.fill();
+            });
+
+            // Líneas principales con curva suave
+            series.forEach(s=>{
+                ctx.beginPath(); ctx.strokeStyle=s.c; ctx.lineWidth=2.2*sc;
+                ctx.lineJoin='round'; ctx.lineCap='round'; ctx.setLineDash([]);
                 datos.forEach((r,n)=>{ n===0?ctx.moveTo(xS(n),yS(+r[s.k])):ctx.lineTo(xS(n),yS(+r[s.k])); });
                 ctx.stroke();
+                // Puntos y etiquetas de valor
                 datos.forEach((r,n)=>{
                     const px=xS(n), py=yS(+r[s.k]);
-                    ctx.beginPath(); ctx.arc(px,py,4,0,Math.PI*2);
-                    ctx.fillStyle='white'; ctx.fill();
-                    ctx.strokeStyle=s.c; ctx.lineWidth=2; ctx.stroke();
-                    if(n%2===0||n===datos.length-1){
-                        ctx.fillStyle=s.c; ctx.font='bold 9px sans-serif'; ctx.textAlign='center';
-                        ctx.fillText(r[s.k]+'°', px, py-8);
+                    // Punto
+                    ctx.beginPath(); ctx.arc(px,py,3.5*sc,0,Math.PI*2);
+                    ctx.fillStyle='#ffffff'; ctx.fill();
+                    ctx.strokeStyle=s.c; ctx.lineWidth=1.8*sc; ctx.stroke();
+                    // Valor encima (solo en puntos seleccionados)
+                    if(n%stepX===0||n===datos.length-1){
+                        const lbl=r[s.k]+'°';
+                        const lblW=ctx.measureText(lbl).width+8*sc;
+                        const lblH=14*sc;
+                        const lblX=px-lblW/2, lblY=py-22*sc;
+                        ctx.fillStyle='rgba(255,255,255,0.88)';
+                        ctx.beginPath(); ctx.roundRect(lblX,lblY,lblW,lblH,3*sc); ctx.fill();
+                        ctx.fillStyle=s.c; ctx.font=`bold ${Math.round(9.5*sc)}px Calibri,Arial`;
+                        ctx.textAlign='center'; ctx.fillText(lbl, px, py-11*sc);
                     }
                 });
             });
+
+            // Leyenda elegante arriba derecha
+            const legX=pad.l+cW-4*sc, legY=pad.t+8*sc;
+            const legW=110*sc, legH=(series.length*18+10)*sc;
+            ctx.fillStyle='rgba(255,255,255,0.92)';
+            ctx.beginPath(); ctx.roundRect(legX-legW, legY, legW, legH, 5*sc); ctx.fill();
+            ctx.strokeStyle='#c0cfe0'; ctx.lineWidth=0.8*sc; ctx.stroke();
             series.forEach((s,si)=>{
-                const lx=pad.l+si*(cW/3);
-                ctx.fillStyle=s.c; ctx.fillRect(lx,6,14,10);
-                ctx.fillStyle='#333'; ctx.font='11px sans-serif'; ctx.textAlign='left';
-                ctx.fillText(s.l, lx+18, 15);
+                const ly=legY+10*sc+si*18*sc;
+                ctx.fillStyle=s.c; ctx.fillRect(legX-legW+8*sc, ly-5*sc, 18*sc, 8*sc);
+                ctx.fillStyle='#333'; ctx.font=`${Math.round(10*sc)}px Calibri,Arial`;
+                ctx.textAlign='left'; ctx.fillText(s.l, legX-legW+30*sc, ly+2*sc);
             });
         };
 
@@ -3058,6 +3160,43 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                                             </div>`).join('')}
                                     </div>
                                 </div>
+                            ${(()=>{
+                                const items = [
+                                    {k:'contratapa_lc', label:'Revisión Contratapa Lado Carga'},
+                                    {k:'contratapa_ll', label:'Revisión Contratapa Lado Libre'},
+                                    {k:'slingues_lc',   label:'Revisión de Slingues LC'},
+                                    {k:'slingues_ll',   label:'Revisión de Slingues LL'},
+                                    {k:'machon_acople', label:'Machón o Acople'},
+                                    {k:'eje_acople',    label:'Eje Acople'},
+                                    {k:'ventilador',    label:'Ventilador'},
+                                    {k:'otros',         label:'Otros'},
+                                ];
+                                const checks = d.metro_revision_checks || {};
+                                return `<div class="det-seccion-titulo" style="margin-top:14px;">🔍 Lista de Revisión Visual de Ingreso</div>
+                                <div style="background:#fff8e8;border:1.5px solid #e8c060;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+                                    <p style="font-size:0.8em;color:#8a6000;margin:0 0 10px 0;">Completar todos los ítems antes de guardar. La observación es obligatoria.</p>
+                                    <table style="width:100%;border-collapse:collapse;">
+                                        <tr style="background:#f5e8c0;">
+                                            <th style="padding:5px 8px;font-size:0.78em;text-align:left;color:#6b4a00;width:32%;">Ítem</th>
+                                            <th style="padding:5px 8px;font-size:0.78em;text-align:center;color:#6b4a00;width:10%;">OK</th>
+                                            <th style="padding:5px 8px;font-size:0.78em;text-align:left;color:#6b4a00;">Observación (obligatoria)</th>
+                                        </tr>
+                                        ${items.map(it => {
+                                            const ch = checks[it.k] || {};
+                                            return `<tr style="border-bottom:1px solid #e8d898;">
+                                                <td style="padding:6px 8px;font-size:0.84em;color:#444;font-weight:600;">${it.label}</td>
+                                                <td style="padding:6px 8px;text-align:center;">
+                                                    <input type="checkbox" ${ch.ok?'checked':''} style="width:16px;height:16px;cursor:pointer;"
+                                                        onchange="window.guardarRevisionCheck(${i},'${it.k}','ok',this.checked)">
+                                                </td>
+                                                <td style="padding:4px 6px;">
+                                                    <textarea rows="2" style="width:100%;padding:5px 7px;border:1px solid ${ch.obs?'#b0c8b0':'#e8b060'};border-radius:4px;font-size:0.82em;resize:vertical;background:${ch.obs?'#f8fff8':'#fffbf0'};" placeholder="Ingrese observación..." onblur="window.guardarRevisionCheck(${i},'${it.k}','obs',this.value)">${ch.obs||''}</textarea>
+                                                </td>
+                                            </tr>`;
+                                        }).join('')}
+                                    </table>
+                                </div>`;
+                            })()}
                             <button class="btn-finish" onclick="window.updateFlujo(${i},'met_ok')">✅ Guardar Metrología</button>`;
                         }
                         else if (d.estado === 'ejecucion_trabajos') {
@@ -3088,9 +3227,15 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
                                     </div>`;
                                 } else if (finalizado) {
                                     return `<div style="border:2px solid #27ae60;border-radius:10px;padding:14px 16px;margin-bottom:12px;background:#f0fff4;">
-                                        <div style="font-weight:700;font-size:0.95em;color:#1a7a44;margin-bottom:4px;">${tw.label} <span style="background:#27ae60;color:white;border-radius:10px;padding:2px 8px;font-size:0.78em;margin-left:6px;">✅ TERMINADO</span></div>
-                                        <div style="font-size:0.83em;color:#555;margin-top:4px;">👤 <b>${tj.usuario}</b></div>
-                                        ${tj.medidas ? `<div style="font-size:0.83em;margin-top:4px;"><b>Medidas:</b> ${tj.medidas}</div>` : ''}
+                                        <div style="font-weight:700;font-size:0.95em;color:#1a7a44;margin-bottom:8px;">${tw.label}</div>
+                                        <div style="display:flex;align-items:center;gap:10px;background:#d4f5e2;border:1.5px solid #27ae60;border-radius:8px;padding:9px 14px;margin-bottom:6px;">
+                                            <span style="font-size:1.5em;line-height:1;">✅</span>
+                                            <div>
+                                                <div style="font-weight:800;font-size:0.93em;color:#145a32;letter-spacing:0.3px;">OK — APROBADO</div>
+                                                <div style="font-size:0.83em;color:#1a7a44;margin-top:2px;">👤 Técnico responsable: <b style="font-size:1em;">${tj.usuario}</b></div>
+                                            </div>
+                                        </div>
+                                        ${tj.medidas ? `<div style="font-size:0.83em;margin-top:6px;background:#fff;border:1px solid #b2dfcb;border-radius:5px;padding:6px 10px;"><b>📏 Medidas/Notas:</b> ${tj.medidas}</div>` : ''}
                                         ${archivos.length ? `<div style="margin-top:6px;font-size:0.8em;">${archivos.map(a=>`<a href="${a.url}" target="_blank" style="color:#004F88;margin-right:8px;">📎 ${a.name}</a>`).join('')}</div>` : ''}
                                     </div>`;
                                 } else {
