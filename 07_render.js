@@ -537,6 +537,84 @@ window.render = () => {
             let UI = ""; let p = d.pasos || {}; if(!d.mediciones) d.mediciones = {}; if(!d.placa) d.placa = {};
             const obs = (k) => `<textarea id="obs_${k}_${i}" onchange="window.guardarObs(${i},'${k}')" placeholder="Notas...">${d.observaciones?.[k]||''}</textarea>`;
 
+            // ── Constante global de piezas de inspección ──────────────────────────────
+            const PIEZAS_INSP = [
+                {k:'acople',              l:'Acople'},
+                {k:'slinger',             l:'Slinger'},
+                {k:'tapa_lc',             l:'Tapa LC'},
+                {k:'tapa_ll',             l:'Tapa LL'},
+                {k:'rodamiento_lc',       l:'Rodamiento LC'},
+                {k:'rodamiento_ll',       l:'Rodamiento LL'},
+                {k:'pernos',              l:'Pernos'},
+                {k:'contratapa_int_lc',   l:'Contratapa Interior LC'},
+                {k:'contratapa_int_ll',   l:'Contratapa Interior LL'},
+                {k:'contratapa_ext_lc',   l:'Contratapa Exterior LC'},
+                {k:'contratapa_ext_ll',   l:'Contratapa Exterior LL'},
+                {k:'ventilador',          l:'Ventilador'},
+                {k:'cubre_ventilador',    l:'Cubre Ventilador'},
+                {k:'caja_conexion',       l:'Caja Conexión'},
+                {k:'placa_conexion',      l:'Placa Conexión'},
+                {k:'cables_terminales',   l:'Cables y Terminales'},
+            ];
+            const PIEZAS_MANT = [
+                ...PIEZAS_INSP,
+                {k:'mant_estator',        l:'Mantención Estátor'},
+                {k:'mant_rotor',          l:'Mantención Rotor'},
+            ];
+            // Helper HTML de tabla de piezas
+            const htmlTablaPiezas = (dataKey, idx2) => {
+                const checks = window.data[idx2][dataKey] || {};
+                const lista = dataKey === 'check_piezas_mant_ind' ? PIEZAS_MANT : PIEZAS_INSP;
+                return `<div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.82em;margin-bottom:8px;">
+                    <thead>
+                        <tr style="background:#1a2a3a;color:white;">
+                            <th style="padding:6px 8px;text-align:left;width:26%;">Pieza</th>
+                            <th style="padding:6px;text-align:center;width:11%;">✅ Bueno</th>
+                            <th style="padding:6px;text-align:center;width:11%;">❌ Malo</th>
+                            <th style="padding:6px;text-align:center;width:11%;">➖ N/A</th>
+                            <th style="padding:6px 8px;text-align:left;">Observaciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    ${lista.map((p,pi2) => {
+                        const c = checks[p.k] || {};
+                        const bg = pi2%2===0?'#f8fbff':'white';
+                        const bB = c.estado==='bueno'?'#27ae60':'#e0e0e0', bM = c.estado==='malo'?'#e74c3c':'#e0e0e0', bN = c.estado==='na'?'#95a5a6':'#e0e0e0';
+                        const cB = c.estado==='bueno'?'white':'#555', cM = c.estado==='malo'?'white':'#555', cN = c.estado==='na'?'white':'#555';
+                        return `<tr style="background:${bg};border-bottom:1px solid #dde1e7;">
+                            <td style="padding:5px 8px;font-weight:600;">${p.l}</td>
+                            <td style="padding:4px;text-align:center;">
+                                <button onclick="if(!window.data[${idx2}]['${dataKey}'])window.data[${idx2}]['${dataKey}']={};
+                                    if(!window.data[${idx2}]['${dataKey}']['${p.k}'])window.data[${idx2}]['${dataKey}']['${p.k}']={obs:''};
+                                    window.data[${idx2}]['${dataKey}']['${p.k}'].estado='bueno';window.save();window.render();"
+                                    style="padding:3px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.8em;font-weight:700;background:${bB};color:${cB};">Bueno</button>
+                            </td>
+                            <td style="padding:4px;text-align:center;">
+                                <button onclick="if(!window.data[${idx2}]['${dataKey}'])window.data[${idx2}]['${dataKey}']={};
+                                    if(!window.data[${idx2}]['${dataKey}']['${p.k}'])window.data[${idx2}]['${dataKey}']['${p.k}']={obs:''};
+                                    window.data[${idx2}]['${dataKey}']['${p.k}'].estado='malo';window.save();window.render();"
+                                    style="padding:3px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.8em;font-weight:700;background:${bM};color:${cM};">Malo</button>
+                            </td>
+                            <td style="padding:4px;text-align:center;">
+                                <button onclick="if(!window.data[${idx2}]['${dataKey}'])window.data[${idx2}]['${dataKey}']={};
+                                    if(!window.data[${idx2}]['${dataKey}']['${p.k}'])window.data[${idx2}]['${dataKey}']['${p.k}']={obs:''};
+                                    window.data[${idx2}]['${dataKey}']['${p.k}'].estado='na';window.save();window.render();"
+                                    style="padding:3px 8px;border:none;border-radius:4px;cursor:pointer;font-size:0.8em;font-weight:700;background:${bN};color:${cN};">N/A</button>
+                            </td>
+                            <td style="padding:4px 6px;">
+                                <input type="text" value="${(c.obs||'').replace(/"/g,'&quot;')}" placeholder="Observación..."
+                                    style="width:100%;padding:4px 6px;border:1px solid #dde1e7;border-radius:4px;font-size:0.82em;box-sizing:border-box;"
+                                    onblur="if(!window.data[${idx2}]['${dataKey}'])window.data[${idx2}]['${dataKey}']={};
+                                        if(!window.data[${idx2}]['${dataKey}']['${p.k}'])window.data[${idx2}]['${dataKey}']['${p.k}']={};
+                                        window.data[${idx2}]['${dataKey}']['${p.k}'].obs=this.value;window.save();">
+                            </td>
+                        </tr>`;
+                    }).join('')}
+                    </tbody>
+                </table></div>`;
+            };
+
             if (window.vistaActual === 'desarme_mant') {
                 if (d.estado === 'desarme') {
                     UI = `<h3>Desarme</h3>
@@ -580,9 +658,94 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
+                        <div class="det-seccion-titulo" style="margin-top:12px;">🔩 Inspección de Piezas — Desarme</div>
+                        <div style="background:#f0f8f0;border:1.5px solid #a0c8a0;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+                            <p style="font-size:0.8em;color:#2d6a2d;margin:0 0 8px 0;">Marca el estado de cada pieza durante el desarme. Quedará registrado en el informe.</p>
+                            ${htmlTablaPiezas('check_piezas_desarme', i)}
+                        </div>
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'desarme_ok','ingresos_pendientes')">✅ Fin Desarme</button>`;
                 }
-                else if (d.estado === 'ejecucion_trabajos') UI = `<h3>Mantención</h3>${obs('mantencion')}
+                else if (d.estado === 'ejecucion_trabajos') {
+                    const usuActualNombre = window.usuarioActual?.nombre || window.usuarioActual?.usuario || 'sin_nombre';
+                    const maintInd = d.mant_piezas_individual || {};
+                    const yaRegistrado = !!maintInd[usuActualNombre];
+                    UI = `<h3>Mantención</h3>${obs('mantencion')}
+                        <div class="det-seccion-titulo" style="margin-top:10px;">🔧 Inspección Individual de Piezas — Mantención</div>
+                        <div style="background:#fff8f0;border:1.5px solid #e8a060;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+                            <p style="font-size:0.8em;color:#7a4000;margin:0 0 8px 0;">Cada técnico registra las piezas que inspeccionó/reparó. Pueden haber múltiples técnicos en el mismo mantenimiento.</p>
+                            ${!yaRegistrado ? `<button onclick="
+                                if(!window.data[${i}].mant_piezas_individual)window.data[${i}].mant_piezas_individual={};
+                                window.data[${i}].mant_piezas_individual['${usuActualNombre}']={};
+                                window.save();window.render();"
+                                style="background:#e67e22;color:white;border:none;border-radius:6px;padding:8px 18px;cursor:pointer;font-weight:700;font-size:0.9em;margin-bottom:8px;">
+                                ✋ Registrar mi inspección como ${usuActualNombre}
+                            </button>` : ''}
+                            ${Object.entries(maintInd).map(([usr, _udat]) => {
+                                const isMe = usr === usuActualNombre || window.puedeEditar();
+                                const bgCard = usr === usuActualNombre ? '#fffbf5' : '#f8f9fa';
+                                const borderCard = usr === usuActualNombre ? '#e67e22' : '#dde1e7';
+                                const checksUsr = maintInd[usr] || {};
+                                return `<div style="border:2px solid ${borderCard};border-radius:8px;padding:10px 12px;margin-bottom:10px;background:${bgCard};">
+                                    <div style="font-weight:700;font-size:0.9em;color:#1a2a3a;margin-bottom:8px;">
+                                        👤 ${usr}${usr===usuActualNombre?' <span style="background:#e67e22;color:white;border-radius:10px;padding:1px 8px;font-size:0.78em;">Tú</span>':''}
+                                    </div>
+                                    ${isMe ? (() => {
+                                        // Table editable for this user
+                                        return `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.8em;">
+                                            <thead><tr style="background:#1a2a3a;color:white;">
+                                                <th style="padding:5px 8px;text-align:left;width:26%;">Pieza</th>
+                                                <th style="padding:5px;text-align:center;width:11%;">✅ Bueno</th>
+                                                <th style="padding:5px;text-align:center;width:11%;">❌ Malo</th>
+                                                <th style="padding:5px;text-align:center;width:11%;">➖ N/A</th>
+                                                <th style="padding:5px 8px;text-align:left;">Observaciones</th>
+                                            </tr></thead><tbody>
+                                            ${PIEZAS_MANT.map((p,pi2) => {
+                                                const c2 = checksUsr[p.k] || {};
+                                                const bg2 = pi2%2===0?'#fdf9f5':'white';
+                                                const bB2 = c2.estado==='bueno'?'#27ae60':'#e0e0e0', bM2 = c2.estado==='malo'?'#e74c3c':'#e0e0e0', bN2 = c2.estado==='na'?'#95a5a6':'#e0e0e0';
+                                                const cB2 = c2.estado==='bueno'?'white':'#555', cM2 = c2.estado==='malo'?'white':'#555', cN2 = c2.estado==='na'?'white':'#555';
+                                                const usrKey = usr.replace(/'/g,"\\'");
+                                                return `<tr style="background:${bg2};border-bottom:1px solid #ffe0c0;">
+                                                    <td style="padding:5px 8px;font-weight:600;">${p.l}</td>
+                                                    <td style="padding:4px;text-align:center;"><button onclick="
+                                                        if(!window.data[${i}].mant_piezas_individual)window.data[${i}].mant_piezas_individual={};
+                                                        if(!window.data[${i}].mant_piezas_individual['${usrKey}'])window.data[${i}].mant_piezas_individual['${usrKey}']={};
+                                                        if(!window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'])window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}']={obs:''};
+                                                        window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'].estado='bueno';window.save();window.render();"
+                                                        style="padding:3px 7px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;background:${bB2};color:${cB2};">Bueno</button></td>
+                                                    <td style="padding:4px;text-align:center;"><button onclick="
+                                                        if(!window.data[${i}].mant_piezas_individual)window.data[${i}].mant_piezas_individual={};
+                                                        if(!window.data[${i}].mant_piezas_individual['${usrKey}'])window.data[${i}].mant_piezas_individual['${usrKey}']={};
+                                                        if(!window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'])window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}']={obs:''};
+                                                        window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'].estado='malo';window.save();window.render();"
+                                                        style="padding:3px 7px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;background:${bM2};color:${cM2};">Malo</button></td>
+                                                    <td style="padding:4px;text-align:center;"><button onclick="
+                                                        if(!window.data[${i}].mant_piezas_individual)window.data[${i}].mant_piezas_individual={};
+                                                        if(!window.data[${i}].mant_piezas_individual['${usrKey}'])window.data[${i}].mant_piezas_individual['${usrKey}']={};
+                                                        if(!window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'])window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}']={obs:''};
+                                                        window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'].estado='na';window.save();window.render();"
+                                                        style="padding:3px 7px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;background:${bN2};color:${cN2};">N/A</button></td>
+                                                    <td style="padding:4px 6px;"><input type="text" value="${(c2.obs||'').replace(/"/g,'&quot;')}" placeholder="Observación..."
+                                                        style="width:100%;padding:4px 6px;border:1px solid #ffc890;border-radius:4px;font-size:0.8em;box-sizing:border-box;"
+                                                        onblur="if(!window.data[${i}].mant_piezas_individual)window.data[${i}].mant_piezas_individual={};
+                                                            if(!window.data[${i}].mant_piezas_individual['${usrKey}'])window.data[${i}].mant_piezas_individual['${usrKey}']={};
+                                                            if(!window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'])window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}']={};
+                                                            window.data[${i}].mant_piezas_individual['${usrKey}']['${p.k}'].obs=this.value;window.save();"></td>
+                                                </tr>`;
+                                            }).join('')}
+                                            </tbody></table></div>`;
+                                    })() : (() => {
+                                        // Read-only summary for other users
+                                        const filled = PIEZAS_MANT.filter(p => checksUsr[p.k]?.estado && checksUsr[p.k].estado !== 'na');
+                                        return `<div style="font-size:0.83em;color:#555;">${filled.length===0?'Sin piezas registradas aún.':filled.map(p=>{
+                                            const c2=checksUsr[p.k]||{};
+                                            const col=c2.estado==='bueno'?'#27ae60':c2.estado==='malo'?'#e74c3c':'#aaa';
+                                            return `<span style="display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:10px;background:#f0f0f0;color:${col};font-weight:700;">${p.l}: ${c2.estado.toUpperCase()}${c2.obs?' — '+c2.obs:''}</span>`;
+                                        }).join('')}</div>`;
+                                    })()}
+                                </div>`;
+                            }).join('')}
+                        </div>
                         <div class="det-seccion-titulo" style="margin-top:10px;">🔧 Tareas de Mantención</div>
                         <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
                             <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
@@ -1373,7 +1536,64 @@ window.render = () => {
                     const rods = d.rodamientos || [];
                     const rodChecks = d.rodamientos_ok || {};
                     const todosRodOk = rods.length === 0 || rods.every((_,ri2) => rodChecks[ri2]);
-                    UI = `<h3>Balanceo</h3>${obs('balanceo')}<button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>`;
+                    const balD = d.balanceo_data || {};
+                    const tipoAcople = balD.tipo_acople || 'chaveta';
+                    UI = `<h3>Balanceo</h3>${obs('balanceo')}
+                        <div class="det-seccion-titulo" style="margin-top:10px;">⚖️ Datos de Balanceo</div>
+                        <div style="background:#f0f4ff;border:1.5px solid #9090d0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+                            <div class="med-fila2" style="margin-bottom:10px;">
+                                <div class="med-campo">
+                                    <label style="font-size:0.82em;font-weight:700;">Desbalance Inicial (g·mm/kg)</label>
+                                    <input class="med-input" type="text" value="${balD.desbalance_ini||''}" placeholder="Ej: 2.5"
+                                        onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                            window.data[${i}].balanceo_data.desbalance_ini=this.value;window.save();">
+                                </div>
+                                <div class="med-campo">
+                                    <label style="font-size:0.82em;font-weight:700;">Desbalance de Término (g·mm/kg)</label>
+                                    <input class="med-input" type="text" value="${balD.desbalance_term||''}" placeholder="Ej: 0.4"
+                                        onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                            window.data[${i}].balanceo_data.desbalance_term=this.value;window.save();">
+                                </div>
+                            </div>
+                            <div class="med-campo" style="margin-bottom:10px;">
+                                <label style="font-size:0.82em;font-weight:700;">Tipo de Acoplamiento</label>
+                                <select style="width:100%;padding:7px;border:1px solid #c0c8e8;border-radius:5px;font-size:0.88em;"
+                                    onchange="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                        window.data[${i}].balanceo_data.tipo_acople=this.value;window.save();window.render();">
+                                    <option value="chaveta" ${tipoAcople==='chaveta'?'selected':''}>🔑 Chaveta</option>
+                                    <option value="machon" ${tipoAcople==='machon'?'selected':''}>🔗 Machón (Acoplamiento directo)</option>
+                                    <option value="otro" ${tipoAcople==='otro'?'selected':''}>🔩 Otro</option>
+                                </select>
+                            </div>
+                            ${tipoAcople === 'chaveta' ? `
+                            <div class="med-fila2">
+                                <div class="med-campo">
+                                    <label style="font-size:0.82em;font-weight:700;">Peso Media Chaveta (g)</label>
+                                    <input class="med-input" type="text" value="${balD.peso_media_chaveta||''}" placeholder="Ej: 45.2"
+                                        onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                            window.data[${i}].balanceo_data.peso_media_chaveta=this.value;window.save();">
+                                </div>
+                                <div class="med-campo">
+                                    <label style="font-size:0.82em;font-weight:700;">Medida de Chavetero (mm)</label>
+                                    <input class="med-input" type="text" value="${balD.medida_chavetero||''}" placeholder="Ej: 8x7x50"
+                                        onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                            window.data[${i}].balanceo_data.medida_chavetero=this.value;window.save();">
+                                </div>
+                            </div>` : tipoAcople === 'machon' ? `
+                            <div class="med-campo">
+                                <label style="font-size:0.82em;font-weight:700;">Datos del Acoplamiento / Machón</label>
+                                <input class="med-input" type="text" value="${balD.acople_info||''}" placeholder="Ej: Modelo, medidas, marca..."
+                                    onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                        window.data[${i}].balanceo_data.acople_info=this.value;window.save();">
+                            </div>` : `
+                            <div class="med-campo">
+                                <label style="font-size:0.82em;font-weight:700;">Descripción del Acoplamiento</label>
+                                <input class="med-input" type="text" value="${balD.acople_info||''}" placeholder="Describe el tipo de acoplamiento..."
+                                    onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                        window.data[${i}].balanceo_data.acople_info=this.value;window.save();">
+                            </div>`}
+                        </div>
+                        <button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>
                     if (rods.length > 0) {
                         UI += `<div class="det-seccion-titulo">🔩 Instalación de Rodamientos</div>
                         <div style="background:#f8f9fa;border:1px solid #dde1e7;border-radius:6px;padding:10px;margin-bottom:10px;">
@@ -1393,6 +1613,11 @@ window.render = () => {
                         UI += `<p style="color:#aaa;font-size:0.85em;padding:6px 0;">Sin rodamientos registrados en Mecánica.</p>`;
                     }
                     UI += `${obs('armado')}
+                        <div class="det-seccion-titulo" style="margin-top:12px;">🔩 Inspección de Piezas — Armado</div>
+                        <div style="background:#f0f8f0;border:1.5px solid #a0c8a0;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+                            <p style="font-size:0.8em;color:#2d6a2d;margin:0 0 8px 0;">Verifica el estado de cada pieza al momento del armado. Quedará registrado en el informe.</p>
+                            ${htmlTablaPiezas('check_piezas_armado', i)}
+                        </div>
                         <div class="det-seccion-titulo" style="margin-top:10px;">🏗️ Tareas de Armado</div>
                         <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
                             <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
