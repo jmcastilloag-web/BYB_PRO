@@ -305,17 +305,20 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
         const tabBalanceo = (balData, W=9026) => {
             const b = balData || {};
             const c2 = [Math.round(W/2), W-Math.round(W/2)];
-            const tipoLabel = b.tipo_acople==='machon'?'Machón (Acoplamiento directo)':b.tipo_acople==='otro'?'Otro':'Chaveta';
+            const acopleLbl = b.trae_acople===true?'Sí':b.trae_acople===false?'No':'—';
             const rows = [
-                TR([TH('Desbalance Inicial (g·mm/kg)',c2[0],false), TC(c2[1],'FFF8F0',`<w:r><w:rPr>${CAL(18,'2C3E50',true)}</w:rPr><w:t>${xE(b.desbalance_ini||'—')}</w:t></w:r>`,true)]),
-                TR([TH('Desbalance de Término (g·mm/kg)',c2[0],false), TC(c2[1],'E8F8F0',`<w:r><w:rPr>${CAL(18,'27AE60',true)}</w:rPr><w:t>${xE(b.desbalance_term||'—')}</w:t></w:r>`,true)]),
-                TR([TH('Tipo de Acoplamiento',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(tipoLabel)}</w:t></w:r>`,false)]),
+                TR([TH('',c2[0],false), TC(c2[1],'D0E8FF',`<w:r><w:rPr>${CAL(18,'1A3A6A',true)}</w:rPr><w:t>Plano 1 (P1)</w:t></w:r>`,true)]),
+                TR([TH('Desbalance Inicial P1 (g·mm/kg)',c2[0],false), TC(c2[1],'FFF8F0',`<w:r><w:rPr>${CAL(18,'2C3E50',true)}</w:rPr><w:t>${xE(b.desbalance_ini_p1||'—')}</w:t></w:r>`,true)]),
+                TR([TH('Desbalance Término P1 (g·mm/kg)',c2[0],false), TC(c2[1],'E8F8F0',`<w:r><w:rPr>${CAL(18,'27AE60',true)}</w:rPr><w:t>${xE(b.desbalance_term_p1||'—')}</w:t></w:r>`,true)]),
+                TR([TH('',c2[0],false), TC(c2[1],'D0E8FF',`<w:r><w:rPr>${CAL(18,'1A3A6A',true)}</w:rPr><w:t>Plano 2 (P2)</w:t></w:r>`,true)]),
+                TR([TH('Desbalance Inicial P2 (g·mm/kg)',c2[0],false), TC(c2[1],'FFF8F0',`<w:r><w:rPr>${CAL(18,'2C3E50',true)}</w:rPr><w:t>${xE(b.desbalance_ini_p2||'—')}</w:t></w:r>`,true)]),
+                TR([TH('Desbalance Término P2 (g·mm/kg)',c2[0],false), TC(c2[1],'E8F8F0',`<w:r><w:rPr>${CAL(18,'27AE60',true)}</w:rPr><w:t>${xE(b.desbalance_term_p2||'—')}</w:t></w:r>`,true)]),
+                TR([TH('Peso Media Chaveta (g)',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(b.peso_media_chaveta||'—')}</w:t></w:r>`,true)]),
+                TR([TH('Medida Chavetero (mm)',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(b.medida_chavetero||'—')}</w:t></w:r>`,false)]),
+                TR([TH('¿Trae Acople?',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50',true)}</w:rPr><w:t>${xE(acopleLbl)}</w:t></w:r>`,false)]),
             ];
-            if(b.tipo_acople==='chaveta'||!b.tipo_acople) {
-                rows.push(TR([TH('Peso Media Chaveta (g)',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(b.peso_media_chaveta||'—')}</w:t></w:r>`,true)]));
-                rows.push(TR([TH('Medida de Chavetero (mm)',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(b.medida_chavetero||'—')}</w:t></w:r>`,false)]));
-            } else {
-                rows.push(TR([TH('Datos del Acoplamiento',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t xml:space="preserve">${xE(b.acople_info||'—')}</w:t></w:r>`,false)]));
+            if(b.trae_acople===true && b.acople_info) {
+                rows.push(TR([TH('Descripción del Acople',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t xml:space="preserve">${xE(b.acople_info||'—')}</w:t></w:r>`,false)]));
             }
             return TABLA(c2, rows);
         };
@@ -350,7 +353,38 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             </w:tbl>`;
         };
 
-        const TRABAJOS_LIST=[{k:'fab_anillo',l:'Fab. anillo rectificado de anillos'},{k:'camb_carbones',l:'Cambio carbones / asentamiento'},{k:'mant_porta_escobilla',l:'Mant. porta escobilla'},{k:'camb_prensas',l:'Cambio de prensas'},{k:'camb_cable_salida',l:'Cambio cable de salida'},{k:'camb_ptc_rtd',l:'Cambio PTC / RTD'},{k:'camb_pt100',l:'Cambio PT-100'},{k:'camb_flexible',l:'Cambio de flexible'},{k:'camb_enchufe_3f',l:'Cambio enchufe 3F'},{k:'mant_calefactores',l:'Mant. calefactores bobinado'},{k:'bob_campos_comp',l:'Bobinado campos de compensación'},{k:'bob_interpolos',l:'Bobinado interpolos'},{k:'bob_inducido',l:'Bobinado inducido'},{k:'mant_campos',l:'Mant. campos'},{k:'mant_campos_comp',l:'Mant. campos de compensación'},{k:'mant_interpolos',l:'Mant. interpolos'},{k:'mant_inducido',l:'Mant. inducido'},{k:'rect_colector',l:'Rect. y desmicado de colector'},{k:'vicelado_colector',l:'Vicelado colector'},{k:'mant_tacometro',l:'Mant. tacómetro'},{k:'barn_camp_inter',l:'Barnizado y secado camp. inter.'},{k:'barn_inducido',l:'Barnizado y secado inducido'},{k:'camb_grasera',l:'Cambio grasera'},{k:'camb_ducto_grasera',l:'Cambio ducto de grasera'},{k:'armado',l:'Armado'},{k:'pintura',l:'Pintura'},{k:'pruebas_electricas',l:'Pruebas eléctricas'}];
+        // Tabla armado individual por técnico
+        const tabArmadoIndividual = (armadoInd, checkDesarme, W=9026) => {
+            if(!armadoInd || Object.keys(armadoInd).length===0) return TABLA([W],[TR([TD('(Sin registros de armado individual)',W)])]);
+            const chkDes = checkDesarme || {};
+            const piezasVisArm = PIEZAS_INSP_DOCX.filter(p => (chkDes[p.k]?.estado) !== 'na');
+            const c = [2400, 900, W-2400-900];
+            const estLabel = e => e==='bueno'?'✅ Bueno':e==='malo'?'❌ Malo':e==='na'?'N/A':'—';
+            const estColor = e => e==='bueno'?'27AE60':e==='malo'?'E74C3C':e==='na'?'888888':'999999';
+            const estBg    = e => e==='bueno'?'E8F8F0':e==='malo'?'FFF0F0':'FFFFFF';
+            let tables = '';
+            Object.entries(armadoInd).forEach(([usr, checks]) => {
+                const allPiezas = piezasVisArm.filter(p => checks[p.k]?.estado);
+                if(allPiezas.length === 0) return;
+                tables += TR([TC(W,'1A3A2A',`<w:r><w:rPr>${CAL(17,'FFFFFF',true)}</w:rPr><w:t xml:space="preserve">👤 ${xE(usr)}</w:t></w:r>`,false, 3)]);
+                allPiezas.forEach((p,pi) => {
+                    const ch = checks[p.k] || {};
+                    const est = ch.estado||'na';
+                    const bg = pi%2===0?'F5FDF8':'FFFFFF';
+                    tables += TR([
+                        TC(c[0],bg,`<w:r><w:rPr>${CAL(16,'2C3E50',true)}</w:rPr><w:t>${xE(p.l)}</w:t></w:r>`,false),
+                        TC(c[1],estBg(est),`<w:r><w:rPr>${CAL(16,estColor(est),true)}</w:rPr><w:t>${estLabel(est)}</w:t></w:r>`,true),
+                        TC(c[2],bg,`<w:r><w:rPr>${CAL(16,'555555')}</w:rPr><w:t xml:space="preserve">${xE(ch.obs||'')}</w:t></w:r>`,false),
+                    ]);
+                });
+            });
+            return `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="BFBFBF"/><w:left w:val="single" w:sz="4" w:color="BFBFBF"/><w:bottom w:val="single" w:sz="4" w:color="BFBFBF"/><w:right w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideH w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideV w:val="single" w:sz="4" w:color="BFBFBF"/></w:tblBorders></w:tblPr>
+                ${TR([TH('PIEZA',c[0],false),TH('ESTADO',c[1]),TH('OBSERVACIONES',c[2],false)])}
+                ${tables}
+            </w:tbl>`;
+        };
+
+[{k:'fab_anillo',l:'Fab. anillo rectificado de anillos'},{k:'camb_carbones',l:'Cambio carbones / asentamiento'},{k:'mant_porta_escobilla',l:'Mant. porta escobilla'},{k:'camb_prensas',l:'Cambio de prensas'},{k:'camb_cable_salida',l:'Cambio cable de salida'},{k:'camb_ptc_rtd',l:'Cambio PTC / RTD'},{k:'camb_pt100',l:'Cambio PT-100'},{k:'camb_flexible',l:'Cambio de flexible'},{k:'camb_enchufe_3f',l:'Cambio enchufe 3F'},{k:'mant_calefactores',l:'Mant. calefactores bobinado'},{k:'bob_campos_comp',l:'Bobinado campos de compensación'},{k:'bob_interpolos',l:'Bobinado interpolos'},{k:'bob_inducido',l:'Bobinado inducido'},{k:'mant_campos',l:'Mant. campos'},{k:'mant_campos_comp',l:'Mant. campos de compensación'},{k:'mant_interpolos',l:'Mant. interpolos'},{k:'mant_inducido',l:'Mant. inducido'},{k:'rect_colector',l:'Rect. y desmicado de colector'},{k:'vicelado_colector',l:'Vicelado colector'},{k:'mant_tacometro',l:'Mant. tacómetro'},{k:'barn_camp_inter',l:'Barnizado y secado camp. inter.'},{k:'barn_inducido',l:'Barnizado y secado inducido'},{k:'camb_grasera',l:'Cambio grasera'},{k:'camb_ducto_grasera',l:'Cambio ducto de grasera'},{k:'armado',l:'Armado'},{k:'pintura',l:'Pintura'},{k:'pruebas_electricas',l:'Pruebas eléctricas'}];
         const FALLAS_LIST=[{k:'falla_metalado_lc',l:'Metalado descanso lado conexión'},{k:'falla_metalado_ll',l:'Metalado descanso lado libre'},{k:'falla_fab_descanso_lc',l:'Fabricación descanso LC'},{k:'falla_fab_descanso_ll',l:'Fabricación descanso LL'},{k:'falla_bob_campos',l:'Bobinado dos campos rueda polar'},{k:'falla_mant_correctivo',l:'Mant. correctivo / sumergido en agua'}];
 
         // ─ Imagen en Word ─
@@ -561,7 +595,7 @@ window.descargarInforme = async (i) => {
     const tarArmado    = d.tareas_armado        || [];
     const tarPruebas   = d.tareas_pruebas       || [];
     const checkPiezasDesarme = d.check_piezas_desarme || {};
-    const checkPiezasArmado  = d.check_piezas_armado  || {};
+    const armadoInd          = d.armado_piezas_individual || {};
     const maintInd           = d.mant_piezas_individual || {};
     const balData            = d.balanceo_data || {};
 
@@ -691,9 +725,9 @@ window.descargarInforme = async (i) => {
         // ── 10. RODAMIENTOS Y ARMADO ──
         SECC('10. RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
         tabRodamientos(d,W), SP(0),
-        Object.keys(checkPiezasArmado).length>0 ? SECC('    INSPECCIÓN DE PIEZAS — ARMADO') : '',
-        Object.keys(checkPiezasArmado).length>0 ? tabInspeccionPiezas(checkPiezasArmado, PIEZAS_INSP_DOCX, W) : '',
-        Object.keys(checkPiezasArmado).length>0 ? SP(0) : '',
+        Object.keys(armadoInd).length>0 ? SECC('    INSPECCIÓN DE PIEZAS — ARMADO') : '',
+        Object.keys(armadoInd).length>0 ? tabArmadoIndividual(armadoInd, checkPiezasDesarme, W) : '',
+        Object.keys(armadoInd).length>0 ? SP(0) : '',
         tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
         tarArmado.length>0 ? tabLista(tarArmado,W) : '',
         F2W('OBSERVACIONES ARMADO', obs.armado||'', W), SP(0),
