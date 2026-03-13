@@ -669,6 +669,8 @@ window.render = () => {
                     const usuActualNombre = window.usuarioActual?.nombre || window.usuarioActual?.usuario || 'sin_nombre';
                     const maintInd = d.mant_piezas_individual || {};
                     const yaRegistrado = !!maintInd[usuActualNombre];
+                    const _checkDesNa = d.check_piezas_desarme || {};
+                    const piezasVisMant = PIEZAS_MANT.filter(p => (_checkDesNa[p.k]?.estado) !== 'na');
                     UI = `<h3>Mantención</h3>${obs('mantencion')}
                         <div class="det-seccion-titulo" style="margin-top:10px;">🔧 Inspección Individual de Piezas — Mantención</div>
                         <div style="background:#fff8f0;border:1.5px solid #e8a060;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
@@ -699,7 +701,7 @@ window.render = () => {
                                                 <th style="padding:5px;text-align:center;width:11%;">➖ N/A</th>
                                                 <th style="padding:5px 8px;text-align:left;">Observaciones</th>
                                             </tr></thead><tbody>
-                                            ${PIEZAS_MANT.map((p,pi2) => {
+                                            ${piezasVisMant.map((p,pi2) => {
                                                 const c2 = checksUsr[p.k] || {};
                                                 const bg2 = pi2%2===0?'#fdf9f5':'white';
                                                 const bB2 = c2.estado==='bueno'?'#27ae60':'#e0e0e0', bM2 = c2.estado==='malo'?'#e74c3c':'#e0e0e0', bN2 = c2.estado==='na'?'#95a5a6':'#e0e0e0';
@@ -736,7 +738,7 @@ window.render = () => {
                                             </tbody></table></div>`;
                                     })() : (() => {
                                         // Read-only summary for other users
-                                        const filled = PIEZAS_MANT.filter(p => checksUsr[p.k]?.estado && checksUsr[p.k].estado !== 'na');
+                                        const filled = piezasVisMant.filter(p => checksUsr[p.k]?.estado && checksUsr[p.k].estado !== 'na');
                                         return `<div style="font-size:0.83em;color:#555;">${filled.length===0?'Sin piezas registradas aún.':filled.map(p=>{
                                             const c2=checksUsr[p.k]||{};
                                             const col=c2.estado==='bueno'?'#27ae60':c2.estado==='malo'?'#e74c3c':'#aaa';
@@ -1541,32 +1543,37 @@ window.render = () => {
                     UI = `<h3>Balanceo</h3>${obs('balanceo')}
                         <div class="det-seccion-titulo" style="margin-top:10px;">⚖️ Datos de Balanceo</div>
                         <div style="background:#f0f4ff;border:1.5px solid #9090d0;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+                            <div style="font-weight:700;font-size:0.85em;color:#3a3a6a;margin-bottom:6px;">📊 Plano 1 (P1)</div>
                             <div class="med-fila2" style="margin-bottom:10px;">
                                 <div class="med-campo">
-                                    <label style="font-size:0.82em;font-weight:700;">Desbalance Inicial (g·mm/kg)</label>
-                                    <input class="med-input" type="text" value="${balD.desbalance_ini||''}" placeholder="Ej: 2.5"
+                                    <label style="font-size:0.82em;font-weight:700;">Desbalance Inicial P1 (g·mm/kg)</label>
+                                    <input class="med-input" type="text" value="${balD.desbalance_ini_p1||''}" placeholder="Ej: 2.5"
                                         onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
-                                            window.data[${i}].balanceo_data.desbalance_ini=this.value;window.save();">
+                                            window.data[${i}].balanceo_data.desbalance_ini_p1=this.value;window.save();">
                                 </div>
                                 <div class="med-campo">
-                                    <label style="font-size:0.82em;font-weight:700;">Desbalance de Término (g·mm/kg)</label>
-                                    <input class="med-input" type="text" value="${balD.desbalance_term||''}" placeholder="Ej: 0.4"
+                                    <label style="font-size:0.82em;font-weight:700;">Desbalance Término P1 (g·mm/kg)</label>
+                                    <input class="med-input" type="text" value="${balD.desbalance_term_p1||''}" placeholder="Ej: 0.4"
                                         onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
-                                            window.data[${i}].balanceo_data.desbalance_term=this.value;window.save();">
+                                            window.data[${i}].balanceo_data.desbalance_term_p1=this.value;window.save();">
                                 </div>
                             </div>
-                            <div class="med-campo" style="margin-bottom:10px;">
-                                <label style="font-size:0.82em;font-weight:700;">Tipo de Acoplamiento</label>
-                                <select style="width:100%;padding:7px;border:1px solid #c0c8e8;border-radius:5px;font-size:0.88em;"
-                                    onchange="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
-                                        window.data[${i}].balanceo_data.tipo_acople=this.value;window.save();window.render();">
-                                    <option value="chaveta" ${tipoAcople==='chaveta'?'selected':''}>🔑 Chaveta</option>
-                                    <option value="machon" ${tipoAcople==='machon'?'selected':''}>🔗 Machón (Acoplamiento directo)</option>
-                                    <option value="otro" ${tipoAcople==='otro'?'selected':''}>🔩 Otro</option>
-                                </select>
+                            <div style="font-weight:700;font-size:0.85em;color:#3a3a6a;margin-bottom:6px;">📊 Plano 2 (P2)</div>
+                            <div class="med-fila2" style="margin-bottom:10px;">
+                                <div class="med-campo">
+                                    <label style="font-size:0.82em;font-weight:700;">Desbalance Inicial P2 (g·mm/kg)</label>
+                                    <input class="med-input" type="text" value="${balD.desbalance_ini_p2||''}" placeholder="Ej: 3.1"
+                                        onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                            window.data[${i}].balanceo_data.desbalance_ini_p2=this.value;window.save();">
+                                </div>
+                                <div class="med-campo">
+                                    <label style="font-size:0.82em;font-weight:700;">Desbalance Término P2 (g·mm/kg)</label>
+                                    <input class="med-input" type="text" value="${balD.desbalance_term_p2||''}" placeholder="Ej: 0.3"
+                                        onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                            window.data[${i}].balanceo_data.desbalance_term_p2=this.value;window.save();">
+                                </div>
                             </div>
-                            ${tipoAcople === 'chaveta' ? `
-                            <div class="med-fila2">
+                            <div class="med-fila2" style="margin-bottom:10px;">
                                 <div class="med-campo">
                                     <label style="font-size:0.82em;font-weight:700;">Peso Media Chaveta (g)</label>
                                     <input class="med-input" type="text" value="${balD.peso_media_chaveta||''}" placeholder="Ej: 45.2"
@@ -1574,24 +1581,32 @@ window.render = () => {
                                             window.data[${i}].balanceo_data.peso_media_chaveta=this.value;window.save();">
                                 </div>
                                 <div class="med-campo">
-                                    <label style="font-size:0.82em;font-weight:700;">Medida de Chavetero (mm)</label>
+                                    <label style="font-size:0.82em;font-weight:700;">Medida Chavetero (mm)</label>
                                     <input class="med-input" type="text" value="${balD.medida_chavetero||''}" placeholder="Ej: 8x7x50"
                                         onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
                                             window.data[${i}].balanceo_data.medida_chavetero=this.value;window.save();">
                                 </div>
-                            </div>` : tipoAcople === 'machon' ? `
-                            <div class="med-campo">
-                                <label style="font-size:0.82em;font-weight:700;">Datos del Acoplamiento / Machón</label>
-                                <input class="med-input" type="text" value="${balD.acople_info||''}" placeholder="Ej: Modelo, medidas, marca..."
+                            </div>
+                            <div class="med-campo" style="margin-bottom:6px;">
+                                <label style="font-size:0.82em;font-weight:700;">¿Trae Acople?</label>
+                                <div style="display:flex;gap:12px;margin-top:5px;">
+                                    <button onclick="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                        window.data[${i}].balanceo_data.trae_acople=true;window.save();window.render();"
+                                        style="padding:6px 20px;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.88em;
+                                        background:${balD.trae_acople===true?'#27ae60':'#e0e0e0'};color:${balD.trae_acople===true?'white':'#555'};">✅ Sí</button>
+                                    <button onclick="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
+                                        window.data[${i}].balanceo_data.trae_acople=false;window.save();window.render();"
+                                        style="padding:6px 20px;border:none;border-radius:6px;cursor:pointer;font-weight:700;font-size:0.88em;
+                                        background:${balD.trae_acople===false?'#e74c3c':'#e0e0e0'};color:${balD.trae_acople===false?'white':'#555'};">❌ No</button>
+                                </div>
+                            </div>
+                            ${balD.trae_acople === true ? `
+                            <div class="med-campo" style="margin-top:8px;">
+                                <label style="font-size:0.82em;font-weight:700;">Descripción del Acople</label>
+                                <input class="med-input" type="text" value="${balD.acople_info||''}" placeholder="Modelo, medidas, tipo de acoplamiento..."
                                     onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
                                         window.data[${i}].balanceo_data.acople_info=this.value;window.save();">
-                            </div>` : `
-                            <div class="med-campo">
-                                <label style="font-size:0.82em;font-weight:700;">Descripción del Acoplamiento</label>
-                                <input class="med-input" type="text" value="${balD.acople_info||''}" placeholder="Describe el tipo de acoplamiento..."
-                                    onblur="if(!window.data[${i}].balanceo_data)window.data[${i}].balanceo_data={};
-                                        window.data[${i}].balanceo_data.acople_info=this.value;window.save();">
-                            </div>`}
+                            </div>` : ''}
                         </div>
                         <button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>
                     if (rods.length > 0) {
@@ -1615,8 +1630,88 @@ window.render = () => {
                     UI += `${obs('armado')}
                         <div class="det-seccion-titulo" style="margin-top:12px;">🔩 Inspección de Piezas — Armado</div>
                         <div style="background:#f0f8f0;border:1.5px solid #a0c8a0;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
-                            <p style="font-size:0.8em;color:#2d6a2d;margin:0 0 8px 0;">Verifica el estado de cada pieza al momento del armado. Quedará registrado en el informe.</p>
-                            ${htmlTablaPiezas('check_piezas_armado', i)}
+                            <p style="font-size:0.8em;color:#2d6a2d;margin:0 0 8px 0;">Cada técnico registra las piezas que verificó durante el armado. Se excluyen piezas marcadas N/A en Desarme.</p>
+                            ${(() => {
+                                const usuArmNombre = window.usuarioActual?.nombre || window.usuarioActual?.usuario || 'sin_nombre';
+                                const armInd = d.armado_piezas_individual || {};
+                                const yaRegArm = !!armInd[usuArmNombre];
+                                const _chkDesNa2 = d.check_piezas_desarme || {};
+                                const piezasVisArm = PIEZAS_INSP.filter(p => (_chkDesNa2[p.k]?.estado) !== 'na');
+                                let htmlArm = '';
+                                if (!yaRegArm) {
+                                    htmlArm += `<button onclick="if(!window.data[${i}].armado_piezas_individual)window.data[${i}].armado_piezas_individual={};
+                                        window.data[${i}].armado_piezas_individual['${usuArmNombre}']={};
+                                        window.save();window.render();"
+                                        style="background:#27ae60;color:white;border:none;border-radius:6px;padding:8px 18px;cursor:pointer;font-weight:700;font-size:0.9em;margin-bottom:8px;">
+                                        ✋ Registrar mi armado como ${usuArmNombre}
+                                    </button>`;
+                                }
+                                htmlArm += Object.entries(armInd).map(([usr2, _ud2]) => {
+                                    const isMe2 = usr2 === usuArmNombre || window.puedeEditar();
+                                    const bgCard2 = usr2 === usuArmNombre ? '#f5fff8' : '#f8f9fa';
+                                    const borderCard2 = usr2 === usuArmNombre ? '#27ae60' : '#dde1e7';
+                                    const chkArm = armInd[usr2] || {};
+                                    const usrKey2 = usr2.replace(/'/g,"\\'");
+                                    let cardHtml = `<div style="border:2px solid ${borderCard2};border-radius:8px;padding:10px 12px;margin-bottom:10px;background:${bgCard2};">
+                                        <div style="font-weight:700;font-size:0.9em;color:#1a2a3a;margin-bottom:8px;">
+                                            👤 ${usr2}${usr2===usuArmNombre?' <span style="background:#27ae60;color:white;border-radius:10px;padding:1px 8px;font-size:0.78em;">Tú</span>':''}
+                                        </div>`;
+                                    if (isMe2) {
+                                        cardHtml += `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.8em;">
+                                            <thead><tr style="background:#1a3a2a;color:white;">
+                                                <th style="padding:5px 8px;text-align:left;width:26%;">Pieza</th>
+                                                <th style="padding:5px;text-align:center;width:11%;">✅ Bueno</th>
+                                                <th style="padding:5px;text-align:center;width:11%;">❌ Malo</th>
+                                                <th style="padding:5px;text-align:center;width:11%;">➖ N/A</th>
+                                                <th style="padding:5px 8px;text-align:left;">Observaciones</th>
+                                            </tr></thead><tbody>
+                                            ${piezasVisArm.map((p,pi3) => {
+                                                const c3 = chkArm[p.k] || {};
+                                                const bg3 = pi3%2===0?'#f5fdf8':'white';
+                                                const bB3 = c3.estado==='bueno'?'#27ae60':'#e0e0e0', bM3 = c3.estado==='malo'?'#e74c3c':'#e0e0e0', bN3 = c3.estado==='na'?'#95a5a6':'#e0e0e0';
+                                                const cB3 = c3.estado==='bueno'?'white':'#555', cM3 = c3.estado==='malo'?'white':'#555', cN3 = c3.estado==='na'?'white':'#555';
+                                                return `<tr style="background:${bg3};border-bottom:1px solid #c0e8c0;">
+                                                    <td style="padding:5px 8px;font-weight:600;">${p.l}</td>
+                                                    <td style="padding:4px;text-align:center;"><button onclick="
+                                                        if(!window.data[${i}].armado_piezas_individual)window.data[${i}].armado_piezas_individual={};
+                                                        if(!window.data[${i}].armado_piezas_individual['${usrKey2}'])window.data[${i}].armado_piezas_individual['${usrKey2}']={};
+                                                        if(!window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'])window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}']={obs:''};
+                                                        window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'].estado='bueno';window.save();window.render();"
+                                                        style="padding:3px 7px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;background:${bB3};color:${cB3};">Bueno</button></td>
+                                                    <td style="padding:4px;text-align:center;"><button onclick="
+                                                        if(!window.data[${i}].armado_piezas_individual)window.data[${i}].armado_piezas_individual={};
+                                                        if(!window.data[${i}].armado_piezas_individual['${usrKey2}'])window.data[${i}].armado_piezas_individual['${usrKey2}']={};
+                                                        if(!window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'])window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}']={obs:''};
+                                                        window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'].estado='malo';window.save();window.render();"
+                                                        style="padding:3px 7px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;background:${bM3};color:${cM3};">Malo</button></td>
+                                                    <td style="padding:4px;text-align:center;"><button onclick="
+                                                        if(!window.data[${i}].armado_piezas_individual)window.data[${i}].armado_piezas_individual={};
+                                                        if(!window.data[${i}].armado_piezas_individual['${usrKey2}'])window.data[${i}].armado_piezas_individual['${usrKey2}']={};
+                                                        if(!window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'])window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}']={obs:''};
+                                                        window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'].estado='na';window.save();window.render();"
+                                                        style="padding:3px 7px;border:none;border-radius:4px;cursor:pointer;font-size:0.78em;font-weight:700;background:${bN3};color:${cN3};">N/A</button></td>
+                                                    <td style="padding:4px 6px;"><input type="text" value="${(c3.obs||'').replace(/"/g,'&quot;')}" placeholder="Observación..."
+                                                        style="width:100%;padding:4px 6px;border:1px solid #a0d8a0;border-radius:4px;font-size:0.8em;box-sizing:border-box;"
+                                                        onblur="if(!window.data[${i}].armado_piezas_individual)window.data[${i}].armado_piezas_individual={};
+                                                            if(!window.data[${i}].armado_piezas_individual['${usrKey2}'])window.data[${i}].armado_piezas_individual['${usrKey2}']={};
+                                                            if(!window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'])window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}']={};
+                                                            window.data[${i}].armado_piezas_individual['${usrKey2}']['${p.k}'].obs=this.value;window.save();"></td>
+                                                </tr>`;
+                                            }).join('')}
+                                            </tbody></table></div>`;
+                                    } else {
+                                        const filledArm = piezasVisArm.filter(p => chkArm[p.k]?.estado && chkArm[p.k].estado !== 'na');
+                                        cardHtml += `<div style="font-size:0.83em;color:#555;">${filledArm.length===0?'Sin piezas registradas aún.':filledArm.map(p=>{
+                                            const c3=chkArm[p.k]||{};
+                                            const col=c3.estado==='bueno'?'#27ae60':c3.estado==='malo'?'#e74c3c':'#aaa';
+                                            return `<span style="display:inline-block;margin:2px 4px;padding:2px 8px;border-radius:10px;background:#f0f0f0;color:${col};font-weight:700;">${p.l}: ${c3.estado.toUpperCase()}${c3.obs?' — '+c3.obs:''}</span>`;
+                                        }).join('')}</div>`;
+                                    }
+                                    cardHtml += `</div>`;
+                                    return cardHtml;
+                                }).join('');
+                                return htmlArm;
+                            })()}
                         </div>
                         <div class="det-seccion-titulo" style="margin-top:10px;">🏗️ Tareas de Armado</div>
                         <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
