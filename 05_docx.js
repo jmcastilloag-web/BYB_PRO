@@ -254,6 +254,102 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             ]);
         };
 
+        // ─ Piezas de inspección (lista unificada para Desarme y Armado) ─
+        const PIEZAS_INSP_DOCX = [
+            {k:'acople',            l:'Acople'},
+            {k:'slinger',           l:'Slinger'},
+            {k:'tapa_lc',           l:'Tapa LC'},
+            {k:'tapa_ll',           l:'Tapa LL'},
+            {k:'rodamiento_lc',     l:'Rodamiento LC'},
+            {k:'rodamiento_ll',     l:'Rodamiento LL'},
+            {k:'pernos',            l:'Pernos'},
+            {k:'contratapa_int_lc', l:'Contratapa Interior LC'},
+            {k:'contratapa_int_ll', l:'Contratapa Interior LL'},
+            {k:'contratapa_ext_lc', l:'Contratapa Exterior LC'},
+            {k:'contratapa_ext_ll', l:'Contratapa Exterior LL'},
+            {k:'ventilador',        l:'Ventilador'},
+            {k:'cubre_ventilador',  l:'Cubre Ventilador'},
+            {k:'caja_conexion',     l:'Caja Conexión'},
+            {k:'placa_conexion',    l:'Placa Conexión'},
+            {k:'cables_terminales', l:'Cables y Terminales'},
+        ];
+        const PIEZAS_MANT_DOCX = [
+            ...PIEZAS_INSP_DOCX,
+            {k:'mant_estator', l:'Mantención Estátor'},
+            {k:'mant_rotor',   l:'Mantención Rotor'},
+        ];
+
+        // Tabla genérica de inspección de piezas (Bueno/Malo/NA + obs)
+        const tabInspeccionPiezas = (checks, lista, W=9026) => {
+            if(!checks || Object.keys(checks).length===0) return TABLA([W],[TR([TD('(Sin inspección registrada)',W)])]);
+            const c = [3200, 900, W-3200-900];
+            const estLabel = e => e==='bueno'?'✅ Bueno':e==='malo'?'❌ Malo':e==='na'?'N/A':'—';
+            const estColor = e => e==='bueno'?'27AE60':e==='malo'?'E74C3C':e==='na'?'888888':'999999';
+            const estBg    = e => e==='bueno'?'E8F8F0':e==='malo'?'FFF0F0':e==='na'?'F5F5F5':'FFFFFF';
+            return TABLA(c,[
+                TR([TH('PIEZA',c[0],false), TH('ESTADO',c[1]), TH('OBSERVACIONES',c[2],false)]),
+                ...lista.map((p,pi) => {
+                    const ch = checks[p.k] || {};
+                    const bg = pi%2===0 ? 'F8FBFF':'FFFFFF';
+                    const est = ch.estado || 'na';
+                    return TR([
+                        TC(c[0], bg, `<w:r><w:rPr>${CAL(16,'2C3E50',true)}</w:rPr><w:t>${xE(p.l)}</w:t></w:r>`, false),
+                        TC(c[1], estBg(est), `<w:r><w:rPr>${CAL(16,estColor(est),true)}</w:rPr><w:t>${estLabel(est)}</w:t></w:r>`, true),
+                        TC(c[2], bg, `<w:r><w:rPr>${CAL(16,'555555')}</w:rPr><w:t xml:space="preserve">${xE(ch.obs||'')}</w:t></w:r>`, false),
+                    ]);
+                })
+            ]);
+        };
+
+        // Tabla de datos de balanceo
+        const tabBalanceo = (balData, W=9026) => {
+            const b = balData || {};
+            const c2 = [Math.round(W/2), W-Math.round(W/2)];
+            const tipoLabel = b.tipo_acople==='machon'?'Machón (Acoplamiento directo)':b.tipo_acople==='otro'?'Otro':'Chaveta';
+            const rows = [
+                TR([TH('Desbalance Inicial (g·mm/kg)',c2[0],false), TC(c2[1],'FFF8F0',`<w:r><w:rPr>${CAL(18,'2C3E50',true)}</w:rPr><w:t>${xE(b.desbalance_ini||'—')}</w:t></w:r>`,true)]),
+                TR([TH('Desbalance de Término (g·mm/kg)',c2[0],false), TC(c2[1],'E8F8F0',`<w:r><w:rPr>${CAL(18,'27AE60',true)}</w:rPr><w:t>${xE(b.desbalance_term||'—')}</w:t></w:r>`,true)]),
+                TR([TH('Tipo de Acoplamiento',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(tipoLabel)}</w:t></w:r>`,false)]),
+            ];
+            if(b.tipo_acople==='chaveta'||!b.tipo_acople) {
+                rows.push(TR([TH('Peso Media Chaveta (g)',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(b.peso_media_chaveta||'—')}</w:t></w:r>`,true)]));
+                rows.push(TR([TH('Medida de Chavetero (mm)',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t>${xE(b.medida_chavetero||'—')}</w:t></w:r>`,false)]));
+            } else {
+                rows.push(TR([TH('Datos del Acoplamiento',c2[0],false), TC(c2[1],'FFFFFF',`<w:r><w:rPr>${CAL(16,'2C3E50')}</w:rPr><w:t xml:space="preserve">${xE(b.acople_info||'—')}</w:t></w:r>`,false)]));
+            }
+            return TABLA(c2, rows);
+        };
+
+        // Tabla mantención individual por técnico
+        const tabMantIndividual = (maintInd, W=9026) => {
+            if(!maintInd || Object.keys(maintInd).length===0) return TABLA([W],[TR([TD('(Sin registros de mantención individual)',W)])]);
+            const c = [2400, 900, W-2400-900];
+            const estLabel = e => e==='bueno'?'✅ Bueno':e==='malo'?'❌ Malo':e==='na'?'N/A':'—';
+            const estColor = e => e==='bueno'?'27AE60':e==='malo'?'E74C3C':e==='na'?'888888':'999999';
+            const estBg    = e => e==='bueno'?'E8F8F0':e==='malo'?'FFF0F0':'FFFFFF';
+            let tables = '';
+            Object.entries(maintInd).forEach(([usr, checks]) => {
+                const filled = PIEZAS_MANT_DOCX.filter(p => checks[p.k]?.estado && checks[p.k].estado !== 'na');
+                const allPiezas = PIEZAS_MANT_DOCX.filter(p => checks[p.k]?.estado);
+                if(allPiezas.length === 0) return;
+                tables += TR([TC(W,'1A2A3A',`<w:r><w:rPr>${CAL(17,'FFFFFF',true)}</w:rPr><w:t xml:space="preserve">👤 ${xE(usr)}</w:t></w:r>`,false, 3)]);
+                allPiezas.forEach((p,pi) => {
+                    const ch = checks[p.k] || {};
+                    const est = ch.estado||'na';
+                    const bg = pi%2===0?'FAFBFC':'FFFFFF';
+                    tables += TR([
+                        TC(c[0],bg,`<w:r><w:rPr>${CAL(16,'2C3E50',true)}</w:rPr><w:t>${xE(p.l)}</w:t></w:r>`,false),
+                        TC(c[1],estBg(est),`<w:r><w:rPr>${CAL(16,estColor(est),true)}</w:rPr><w:t>${estLabel(est)}</w:t></w:r>`,true),
+                        TC(c[2],bg,`<w:r><w:rPr>${CAL(16,'555555')}</w:rPr><w:t xml:space="preserve">${xE(ch.obs||'')}</w:t></w:r>`,false),
+                    ]);
+                });
+            });
+            return `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="BFBFBF"/><w:left w:val="single" w:sz="4" w:color="BFBFBF"/><w:bottom w:val="single" w:sz="4" w:color="BFBFBF"/><w:right w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideH w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideV w:val="single" w:sz="4" w:color="BFBFBF"/></w:tblBorders></w:tblPr>
+                ${TR([TH('PIEZA',c[0],false),TH('ESTADO',c[1]),TH('OBSERVACIONES',c[2],false)])}
+                ${tables}
+            </w:tbl>`;
+        };
+
         const TRABAJOS_LIST=[{k:'fab_anillo',l:'Fab. anillo rectificado de anillos'},{k:'camb_carbones',l:'Cambio carbones / asentamiento'},{k:'mant_porta_escobilla',l:'Mant. porta escobilla'},{k:'camb_prensas',l:'Cambio de prensas'},{k:'camb_cable_salida',l:'Cambio cable de salida'},{k:'camb_ptc_rtd',l:'Cambio PTC / RTD'},{k:'camb_pt100',l:'Cambio PT-100'},{k:'camb_flexible',l:'Cambio de flexible'},{k:'camb_enchufe_3f',l:'Cambio enchufe 3F'},{k:'mant_calefactores',l:'Mant. calefactores bobinado'},{k:'bob_campos_comp',l:'Bobinado campos de compensación'},{k:'bob_interpolos',l:'Bobinado interpolos'},{k:'bob_inducido',l:'Bobinado inducido'},{k:'mant_campos',l:'Mant. campos'},{k:'mant_campos_comp',l:'Mant. campos de compensación'},{k:'mant_interpolos',l:'Mant. interpolos'},{k:'mant_inducido',l:'Mant. inducido'},{k:'rect_colector',l:'Rect. y desmicado de colector'},{k:'vicelado_colector',l:'Vicelado colector'},{k:'mant_tacometro',l:'Mant. tacómetro'},{k:'barn_camp_inter',l:'Barnizado y secado camp. inter.'},{k:'barn_inducido',l:'Barnizado y secado inducido'},{k:'camb_grasera',l:'Cambio grasera'},{k:'camb_ducto_grasera',l:'Cambio ducto de grasera'},{k:'armado',l:'Armado'},{k:'pintura',l:'Pintura'},{k:'pruebas_electricas',l:'Pruebas eléctricas'}];
         const FALLAS_LIST=[{k:'falla_metalado_lc',l:'Metalado descanso lado conexión'},{k:'falla_metalado_ll',l:'Metalado descanso lado libre'},{k:'falla_fab_descanso_lc',l:'Fabricación descanso LC'},{k:'falla_fab_descanso_ll',l:'Fabricación descanso LL'},{k:'falla_bob_campos',l:'Bobinado dos campos rueda polar'},{k:'falla_mant_correctivo',l:'Mant. correctivo / sumergido en agua'}];
 
@@ -464,6 +560,10 @@ window.descargarInforme = async (i) => {
     const tarMec       = d.tareas_mecanica      || [];
     const tarArmado    = d.tareas_armado        || [];
     const tarPruebas   = d.tareas_pruebas       || [];
+    const checkPiezasDesarme = d.check_piezas_desarme || {};
+    const checkPiezasArmado  = d.check_piezas_armado  || {};
+    const maintInd           = d.mant_piezas_individual || {};
+    const balData            = d.balanceo_data || {};
 
     // ── Generar PNG del gráfico de temperatura ──
     let tempChartPng = null;
@@ -508,11 +608,18 @@ window.descargarInforme = async (i) => {
         // ── 4. DESARME ──
         SECC('4.  DESARME'), RESP((d.responsables||{}).desarme_ok), SP(0),
         tabLista(hallazgos,W), SP(0),
+        Object.keys(checkPiezasDesarme).length>0 ? SECC('    INSPECCIÓN DE PIEZAS — DESARME') : '',
+        Object.keys(checkPiezasDesarme).length>0 ? tabInspeccionPiezas(checkPiezasDesarme, PIEZAS_INSP_DOCX, W) : '',
+        Object.keys(checkPiezasDesarme).length>0 ? SP(0) : '',
         tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
         tarDesarme.length>0 ? tabLista(tarDesarme,W) : '',
         tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
         RESP((d.responsables||{}).mant_ok),
         tarMant.length>0 ? tabLista(tarMant,W) : '',
+        Object.keys(maintInd).length>0 ? SECC('    MANTENCIÓN INDIVIDUAL POR TÉCNICO') : '',
+        Object.keys(maintInd).length>0 ? RESP((d.responsables||{}).mant_ok) : '',
+        Object.keys(maintInd).length>0 ? tabMantIndividual(maintInd, W) : '',
+        Object.keys(maintInd).length>0 ? SP(0) : '',
         SP(0), F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
 
         // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
@@ -576,36 +683,44 @@ window.descargarInforme = async (i) => {
         SECC('    TIPO DE FALLA'), SP(0),
         tabChecks(FALLAS_LIST,det,W), SP(0),
 
-        // ── 9. RODAMIENTOS Y ARMADO ──
-        SECC('9.  RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
+        // ── 9. BALANCEO ──
+        SECC('9.  BALANCEO'), RESP((d.responsables||{}).bal_ok), SP(0),
+        tabBalanceo(balData, W), SP(0),
+        F2W('OBSERVACIONES BALANCEO', obs.balanceo||'', W), SP(0),
+
+        // ── 10. RODAMIENTOS Y ARMADO ──
+        SECC('10. RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
         tabRodamientos(d,W), SP(0),
+        Object.keys(checkPiezasArmado).length>0 ? SECC('    INSPECCIÓN DE PIEZAS — ARMADO') : '',
+        Object.keys(checkPiezasArmado).length>0 ? tabInspeccionPiezas(checkPiezasArmado, PIEZAS_INSP_DOCX, W) : '',
+        Object.keys(checkPiezasArmado).length>0 ? SP(0) : '',
         tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
         tarArmado.length>0 ? tabLista(tarArmado,W) : '',
         F2W('OBSERVACIONES ARMADO', obs.armado||'', W), SP(0),
 
-        // ── 10. MEDICIONES ELÉCTRICAS DE SALIDA ──
-        SECC('10. MEDICIONES ELÉCTRICAS DE SALIDA'), RESP((d.responsables||{}).pruebas_ok), SP(0),
+        // ── 11. MEDICIONES ELÉCTRICAS DE SALIDA ──
+        SECC('11. MEDICIONES ELÉCTRICAS DE SALIDA'), RESP((d.responsables||{}).pruebas_ok), SP(0),
         tabMedElec(medSal,W), SP(0),
 
-        // ── 11. PRUEBAS DINÁMICAS ──
-        SECC('11. PRUEBAS DINÁMICAS'), RESP((d.responsables||{}).pruebas_ok), SP(0),
+        // ── 12. PRUEBAS DINÁMICAS ──
+        SECC('12. PRUEBAS DINÁMICAS'), RESP((d.responsables||{}).pruebas_ok), SP(0),
         tabPruebas(d,W), SP(0),
         tarPruebas.length>0 ? SECC('    TAREAS DE PRUEBAS DINÁMICAS') : '',
         tarPruebas.length>0 ? tabLista(tarPruebas,W) : '',
         F2W('OBSERVACIONES PRUEBAS', obs.pruebas||'', W), SP(0),
 
-        // ── 12. REGISTRO DE TEMPERATURAS ──
-        SECC('12. REGISTRO DE TEMPERATURAS'), SP(0),
+        // ── 13. REGISTRO DE TEMPERATURAS ──
+        SECC('13. REGISTRO DE TEMPERATURAS'), SP(0),
         tabTemperaturas(tempRegs,W), SP(0),
         tempChartPng ? IMG_WORD(W, 'Gráfico de Temperaturas') : '',
 
-        // ── 13. TERMINACIONES ──
-        SECC('13. TERMINACIONES'), RESP((d.responsables||{}).term_ok), SP(0),
+        // ── 14. TERMINACIONES ──
+        SECC('14. TERMINACIONES'), RESP((d.responsables||{}).term_ok), SP(0),
         tabTerminaciones(termLista,termChecks,W), SP(0),
         F2W('OBSERVACIONES TERMINACIONES', obs.terminaciones||'', W), SP(0),
 
-        // ── 14. OBSERVACIONES POR ÁREA ──
-        SECC('14. OBSERVACIONES POR ÁREA'), SP(0),
+        // ── 15. OBSERVACIONES POR ÁREA ──
+        SECC('15. OBSERVACIONES POR ÁREA'), SP(0),
         tabObsAreas([
             ['Desarme',       obs.desarme||'',       (d.responsables||{}).desarme_ok||''],
             ['Mantención',    obs.mantencion||'',    (d.responsables||{}).mant_ok||''],
