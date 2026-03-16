@@ -263,6 +263,59 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             ]);
         };
 
+        // Tabla Check Mantención / Armado por componente (con responsable y estado desarme)
+        const tabCheckComponentes = (checkDesarme, checkHecho, checkObs, checkResp, tituloCol, W=9026) => {
+            if (!checkDesarme || Object.keys(checkDesarme).length === 0) return '';
+            const LABELS = {
+                machon_acople:'Machón / Acople', eje_acople:'Eje Acople',
+                caja_conexion:'Caja de Conexión', cables_conexion:'Cables de Conexión',
+                placa_conexion:'Placa de Conexión', sensores:'Sensores',
+                regletas_borner:'Regletas / Borner', cubre_ventilador:'Cubre Ventilador',
+                ventilador:'Ventilador', porta_escobilla:'Porta Escobilla',
+                anillo:'Anillo', contrata_ext_lc:'Contratapa Ext. LC',
+                contrata_ext_ll:'Contratapa Ext. LL', contrata_int_lc:'Contratapa Int. LC',
+                contrata_int_ll:'Contratapa Int. LL', tapa_lado_carga:'Tapa Lado Carga',
+                tapa_lado_libre:'Tapa Lado Libre', rodamiento_lc:'Rodamiento LC',
+                rodamiento_ll:'Rodamiento LL', rotor_general:'Rotor General',
+                estator:'Estator', devanado:'Devanado',
+                base_motor:'Base Motor', intercambiador:'Intercambiador',
+                pernos:'Pernos', freno:'Freno', campos:'Campos', otros_check:'Otros',
+            };
+            const hecho = checkHecho || {};
+            const obs   = checkObs   || {};
+            const resp  = checkResp  || {};
+            const items = Object.entries(checkDesarme).filter(([k,v]) => v && v !== 'na');
+            if (items.length === 0) return '';
+            const c = [2500, 1000, 1000, W-2500-1000-1000-1600, 1600];
+            return TABLA(c, [
+                TR([
+                    TC(c[0],'1A3A5C',R('COMPONENTE',11,'FFFFFF',true),false),
+                    TC(c[1],'1A3A5C',R('DESARME',11,'FFFFFF',true),true),
+                    TC(c[2],'1A3A5C',R(tituloCol.toUpperCase(),11,'FFFFFF',true),true),
+                    TC(c[3],'1A3A5C',R('OBSERVACIÓN',11,'FFFFFF',true),false),
+                    TC(c[4],'1A3A5C',R('TÉCNICO',11,'FFFFFF',true),false),
+                ]),
+                ...items.map(([k,v], ri) => {
+                    const esBueno = v === 'bueno';
+                    const bgDes   = esBueno ? 'E8F8F0' : 'FFF5F5';
+                    const colDes  = esBueno ? '27AE60' : 'E74C3C';
+                    const txtDes  = esBueno ? '✅ BUENO' : '❌ MALO';
+                    const hizo    = !!hecho[k];
+                    const bgFila  = hizo ? 'EAFFF2' : (ri%2===0 ? 'F8FAFF' : 'FFFFFF');
+                    const bgCheck = hizo ? 'EAFFF2' : 'FFF5F5';
+                    const txtCheck= hizo ? '☑ HECHO' : '☐ PEND.';
+                    const colCheck= hizo ? '27AE60' : 'E74C3C';
+                    return TR([
+                        TC(c[0], bgFila,  R(LABELS[k]||k, 11, '2C3E50'), false),
+                        TC(c[1], bgDes,   R(txtDes, 11, colDes, true), true),
+                        TC(c[2], bgCheck, R(txtCheck, 11, colCheck, true), true),
+                        TC(c[3], bgFila,  R(obs[k]||'—', 11, '555555'), false),
+                        TC(c[4], 'EAF0FF', R(resp[k]||'—', 11, '1a2a6a', false), false),
+                    ]);
+                })
+            ]);
+        };
+
         // Tabla lista de texto simple (hallazgos, terminaciones)
         const tabLista = (items,W=9026) => {
             if(!items||items.length===0) return TABLA([W],[TR([TD('(Sin registros)',W)])]);
@@ -569,6 +622,7 @@ window.descargarInforme = async (i) => {
         tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
         RESP((d.responsables||{}).mant_ok),
         tarMant.length>0 ? tabLista(tarMant,W) : '',
+        (()=>{ const chkM = tabCheckComponentes(d.check_desarme, d.check_mantencion, d.check_mantencion_obs, d.check_mantencion_resp, 'Mantención', W); return chkM ? (SECC('    CHECK DE MANTENCIÓN POR COMPONENTE')+SP(0)+chkM+SP(0)) : ''; })(),
         SP(0), F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
 
         // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
@@ -635,6 +689,7 @@ window.descargarInforme = async (i) => {
         // ── 9. RODAMIENTOS Y ARMADO ──
         SECC('9.  RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
         tabRodamientos(d,W), SP(0),
+        (()=>{ const chkA = tabCheckComponentes(d.check_desarme, d.check_armado, d.check_armado_obs, d.check_armado_resp, 'Armado', W); return chkA ? (SECC('    CHECK DE ARMADO POR COMPONENTE')+SP(0)+chkA+SP(0)) : ''; })(),
         tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
         tarArmado.length>0 ? tabLista(tarArmado,W) : '',
         F2W('OBSERVACIONES ARMADO', obs.armado||'', W), SP(0),
@@ -749,7 +804,7 @@ window.descargarInforme = async (i) => {
         }
     }
 
-    const bodyFinal = seccionFotos ? body.replace(SP(0) + PIE(), SP(0) + seccionFotos + PIE()) : body;
+    const bodyFinal = seccionFotos ? body.replace(PIE(), seccionFotos + PIE()) : body;
 
     // Construir rels con fotos incluidas
     let relsBase = '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>';
