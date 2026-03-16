@@ -596,7 +596,7 @@ window.render = () => {
                                 ${(window.ITEMS_CHECK_DESARME||[]).map((item, ci) => {
                                     const val = (d.check_desarme||{})[item.k] || 'na';
                                     const obsV = (d.check_desarme_obs||{})[item.k] || '';
-                                    const fotos = ((d.fotos_desarme||{})[item.k]) || [];
+                                    const fotos = ((d.fotos_b64_desarme||{})[item.k]) || [];
                                     const rowBg = ci%2===0 ? '#f4f8ff' : 'white';
                                     return `<tr style="background:${rowBg};border-bottom:1px solid #dde1e7;">
                                         <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${item.label}</td>
@@ -650,7 +650,7 @@ window.render = () => {
                     const _chkM    = d.check_mantencion || {};
                     const _chkMObs = d.check_mantencion_obs || {};
                     const _chkMRsp = d.check_mantencion_resp || {};
-                    const _fotosM  = d.fotos_mantencion || {};
+                    const _fotosM  = d.fotos_b64_mantencion || {};
                     const _itemsMant = (window.ITEMS_CHECK_DESARME||[]).filter(it => _chkD[it.k] && _chkD[it.k] !== 'na');
                     const _checkMantSection = _itemsMant.length > 0
                         ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔧 Check de Mantención por Componente</div>
@@ -1499,7 +1499,7 @@ window.render = () => {
                     const _chkA    = d.check_armado  || {};
                     const _chkAObs = d.check_armado_obs  || {};
                     const _chkARsp = d.check_armado_resp || {};
-                    const _fotosA  = d.fotos_armado || {};
+                    const _fotosA  = d.fotos_b64_armado || {};
                     const _itemsArmado = (window.ITEMS_CHECK_DESARME||[]).filter(it => _chkDA[it.k] && _chkDA[it.k] !== 'na');
                     const _checkArmadoSection = _itemsArmado.length > 0
                         ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔩 Check de Armado por Componente</div>
