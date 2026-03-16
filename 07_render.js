@@ -687,6 +687,7 @@ window.render = () => {
                             </div>
                         </div>
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'mant_ok')">✅ Fin Mantención</button>`;
+                }
             }
             else if (window.vistaActual === 'calidad') {
                 if (d.estado === 'ingresos_pendientes') {
