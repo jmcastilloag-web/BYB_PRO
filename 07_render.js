@@ -590,11 +590,13 @@ window.render = () => {
                                     <th style="padding:6px;text-align:center;width:80px;">❌ MALO</th>
                                     <th style="padding:6px;text-align:center;width:70px;">— N/A</th>
                                     <th style="padding:6px 10px;text-align:left;">Observaciones</th>
+                                    <th style="padding:6px 10px;text-align:left;min-width:160px;">📷 Fotos</th>
                                 </tr></thead>
                                 <tbody>
                                 ${(window.ITEMS_CHECK_DESARME||[]).map((item, ci) => {
                                     const val = (d.check_desarme||{})[item.k] || 'na';
                                     const obsV = (d.check_desarme_obs||{})[item.k] || '';
+                                    const fotos = ((d.fotos_desarme||{})[item.k]) || [];
                                     const rowBg = ci%2===0 ? '#f4f8ff' : 'white';
                                     return `<tr style="background:${rowBg};border-bottom:1px solid #dde1e7;">
                                         <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${item.label}</td>
@@ -627,6 +629,14 @@ window.render = () => {
                                                 style="width:100%;padding:4px 6px;border:1px solid #dde1e7;border-radius:4px;font-size:0.88em;"
                                                 onblur="window.guardarObsCheckDesarme(${i},'${item.k}',this.value)">
                                         </td>
+                                        <td style="padding:4px 8px;">
+                                            ${window._htmlFotosComponente ? window._htmlFotosComponente(i,'desarme',item.k,fotos) : ''}
+                                            ${fotos.length < 10 ? `<label id="btn_foto_desarme_${i}_${item.k}" style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
+                                                📷 ${fotos.length > 0 ? fotos.length+'/10' : 'Fotos'}
+                                                <input type="file" accept="image/*" multiple style="display:none;"
+                                                    onchange="window.subirFotosComponente(${i},'desarme','${item.k}',this)">
+                                            </label>` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
+                                        </td>
                                     </tr>`;
                                 }).join('')}
                                 </tbody>
@@ -635,35 +645,67 @@ window.render = () => {
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'desarme_ok','ingresos_pendientes')">✅ Fin Desarme</button>`;
                 }
                 else if (d.estado === 'ejecucion_trabajos') {
-                    const _chkD = d.check_desarme || {};
+                    const _chkD    = d.check_desarme || {};
                     const _chkDObs = d.check_desarme_obs || {};
-                    const _itemsConEstado = (window.ITEMS_CHECK_DESARME||[]).filter(it => _chkD[it.k] && _chkD[it.k] !== 'na');
-                    const _resumeCheck = _itemsConEstado.length > 0
-                        ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔎 Resumen Check Desarme</div>
+                    const _chkM    = d.check_mantencion || {};
+                    const _chkMObs = d.check_mantencion_obs || {};
+                    const _chkMRsp = d.check_mantencion_resp || {};
+                    const _fotosM  = d.fotos_mantencion || {};
+                    const _itemsMant = (window.ITEMS_CHECK_DESARME||[]).filter(it => _chkD[it.k] && _chkD[it.k] !== 'na');
+                    const _checkMantSection = _itemsMant.length > 0
+                        ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔧 Check de Mantención por Componente</div>
                            <div style="background:#f8fbff;border:1.5px solid #b0c8e8;border-radius:8px;padding:10px 14px;margin-bottom:14px;overflow-x:auto;">
-                               <p style="font-size:0.78em;color:#555;margin:0 0 8px 0;">Solo se muestran componentes marcados como <b style="color:#27ae60;">BUENO</b> o <b style="color:#e74c3c;">MALO</b> en el desarme.</p>
+                               <p style="font-size:0.78em;color:#555;margin:0 0 8px 0;">Marca cada componente al completar su mantención. Sube hasta 10 fotos por componente.</p>
                                <table style="width:100%;border-collapse:collapse;font-size:0.82em;">
                                    <thead><tr style="background:#004F88;color:white;">
                                        <th style="padding:5px 10px;text-align:left;">COMPONENTE</th>
-                                       <th style="padding:5px;text-align:center;width:90px;">ESTADO</th>
-                                       <th style="padding:5px 10px;text-align:left;">OBSERVACIONES</th>
+                                       <th style="padding:5px;text-align:center;width:75px;">DESARME</th>
+                                       <th style="padding:5px;text-align:center;width:85px;">✅ HECHO</th>
+                                       <th style="padding:5px 10px;text-align:left;">OBSERVACIÓN</th>
+                                       <th style="padding:5px 10px;text-align:left;width:100px;">TÉCNICO</th>
+                                       <th style="padding:5px 10px;text-align:left;min-width:150px;">📷 FOTOS</th>
                                    </tr></thead><tbody>
-                                   ${_itemsConEstado.map((it, ci2) => {
-                                       const v = _chkD[it.k];
-                                       const obsT = _chkDObs[it.k] || '';
-                                       const color = v==='bueno' ? '#27ae60' : '#e74c3c';
-                                       const lbl   = v==='bueno' ? '✅ BUENO' : '❌ MALO';
-                                       return `<tr style="background:${ci2%2===0?'#f4f8ff':'white'};border-bottom:1px solid #dde1e7;">
+                                   ${_itemsMant.map((it, ci2) => {
+                                       const vDes  = _chkD[it.k];
+                                       const colDes = vDes==='bueno' ? '#27ae60' : '#e74c3c';
+                                       const lblDes = vDes==='bueno' ? '✅ BUENO' : '❌ MALO';
+                                       const hecho  = !!_chkM[it.k];
+                                       const obsM   = (_chkMObs[it.k]||'').replace(/"/g,'&quot;');
+                                       const resp   = _chkMRsp[it.k] || '—';
+                                       const fotos  = _fotosM[it.k] || [];
+                                       const rowBg  = hecho ? '#eafff2' : (ci2%2===0?'#f4f8ff':'white');
+                                       return `<tr style="background:${rowBg};border-bottom:1px solid #dde1e7;">
                                            <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${it.label}</td>
-                                           <td style="text-align:center;padding:5px;"><span style="color:${color};font-weight:700;font-size:0.88em;">${lbl}</span></td>
-                                           <td style="padding:5px 10px;color:#555;font-size:0.88em;">${obsT || '—'}</td>
+                                           <td style="text-align:center;padding:5px;"><span style="color:${colDes};font-weight:700;font-size:0.85em;">${lblDes}</span></td>
+                                           <td style="text-align:center;padding:5px;">
+                                               <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+                                                   <input type="checkbox" ${hecho?'checked':''}
+                                                       style="width:16px;height:16px;accent-color:#27ae60;cursor:pointer;"
+                                                       onchange="window.toggleCheckMantencion(${i},'${it.k}',this.checked); window.render();">
+                                                   <span style="font-size:0.82em;font-weight:700;color:${hecho?'#27ae60':'#aaa'};">${hecho?'HECHO':'—'}</span>
+                                               </label>
+                                           </td>
+                                           <td style="padding:4px 8px;">
+                                               <input type="text" value="${obsM}" placeholder="Observación..."
+                                                   style="width:100%;padding:4px 6px;border:1px solid #dde1e7;border-radius:4px;font-size:0.85em;"
+                                                   onblur="window.guardarObsCheckMantencion(${i},'${it.k}',this.value)">
+                                           </td>
+                                           <td style="padding:5px 8px;font-size:0.82em;color:#1a2a6a;font-weight:600;">${resp}</td>
+                                           <td style="padding:4px 8px;">
+                                               ${window._htmlFotosComponente ? window._htmlFotosComponente(i,'mantencion',it.k,fotos) : ''}
+                                               ${fotos.length < 10 ? `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
+                                                   📷 ${fotos.length>0?fotos.length+'/10':'Fotos'}
+                                                   <input type="file" accept="image/*" multiple style="display:none;"
+                                                       onchange="window.subirFotosComponente(${i},'mantencion','${it.k}',this)">
+                                               </label>` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
+                                           </td>
                                        </tr>`;
                                    }).join('')}
                                    </tbody>
                                </table>
                            </div>`
                         : '';
-                    UI = `<h3>Mantención</h3>${_resumeCheck}${obs('mantencion')}
+                    UI = `<h3>Mantención</h3>${_checkMantSection}${obs('mantencion')}
                         <div class="det-seccion-titulo" style="margin-top:10px;">🔧 Tareas de Mantención</div>
                         <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
                             <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
@@ -1455,35 +1497,66 @@ window.render = () => {
                     const rods = d.rodamientos || [];
                     const rodChecks = d.rodamientos_ok || {};
                     const todosRodOk = rods.length === 0 || rods.every((_,ri2) => rodChecks[ri2]);
-                    const _chkDA = d.check_desarme || {};
-                    const _chkDAObs = d.check_desarme_obs || {};
+                    const _chkDA   = d.check_desarme || {};
+                    const _chkA    = d.check_armado  || {};
+                    const _chkAObs = d.check_armado_obs  || {};
+                    const _chkARsp = d.check_armado_resp || {};
+                    const _fotosA  = d.fotos_armado || {};
                     const _itemsArmado = (window.ITEMS_CHECK_DESARME||[]).filter(it => _chkDA[it.k] && _chkDA[it.k] !== 'na');
-                    const _resumeArmado = _itemsArmado.length > 0
-                        ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔎 Resumen Check Desarme</div>
+                    const _checkArmadoSection = _itemsArmado.length > 0
+                        ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔩 Check de Armado por Componente</div>
                            <div style="background:#f8fbff;border:1.5px solid #b0c8e8;border-radius:8px;padding:10px 14px;margin-bottom:14px;overflow-x:auto;">
-                               <p style="font-size:0.78em;color:#555;margin:0 0 8px 0;">Solo se muestran componentes marcados como <b style="color:#27ae60;">BUENO</b> o <b style="color:#e74c3c;">MALO</b> en el desarme.</p>
+                               <p style="font-size:0.78em;color:#555;margin:0 0 8px 0;">Marca cada componente al armarlo. Sube hasta 10 fotos por componente.</p>
                                <table style="width:100%;border-collapse:collapse;font-size:0.82em;">
                                    <thead><tr style="background:#004F88;color:white;">
                                        <th style="padding:5px 10px;text-align:left;">COMPONENTE</th>
-                                       <th style="padding:5px;text-align:center;width:90px;">ESTADO</th>
-                                       <th style="padding:5px 10px;text-align:left;">OBSERVACIONES</th>
+                                       <th style="padding:5px;text-align:center;width:75px;">DESARME</th>
+                                       <th style="padding:5px;text-align:center;width:85px;">✅ ARMADO</th>
+                                       <th style="padding:5px 10px;text-align:left;">OBSERVACIÓN</th>
+                                       <th style="padding:5px 10px;text-align:left;width:100px;">TÉCNICO</th>
+                                       <th style="padding:5px 10px;text-align:left;min-width:150px;">📷 FOTOS</th>
                                    </tr></thead><tbody>
                                    ${_itemsArmado.map((it, ci3) => {
-                                       const v = _chkDA[it.k];
-                                       const obsT = _chkDAObs[it.k] || '';
-                                       const color = v==='bueno' ? '#27ae60' : '#e74c3c';
-                                       const lbl   = v==='bueno' ? '✅ BUENO' : '❌ MALO';
-                                       return `<tr style="background:${ci3%2===0?'#f4f8ff':'white'};border-bottom:1px solid #dde1e7;">
+                                       const vDes   = _chkDA[it.k];
+                                       const colDes = vDes==='bueno' ? '#27ae60' : '#e74c3c';
+                                       const lblDes = vDes==='bueno' ? '✅ BUENO' : '❌ MALO';
+                                       const armado = !!_chkA[it.k];
+                                       const obsA   = (_chkAObs[it.k]||'').replace(/"/g,'&quot;');
+                                       const resp   = _chkARsp[it.k] || '—';
+                                       const fotos  = _fotosA[it.k] || [];
+                                       const rowBg  = armado ? '#eafff2' : (ci3%2===0?'#f4f8ff':'white');
+                                       return `<tr style="background:${rowBg};border-bottom:1px solid #dde1e7;">
                                            <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${it.label}</td>
-                                           <td style="text-align:center;padding:5px;"><span style="color:${color};font-weight:700;font-size:0.88em;">${lbl}</span></td>
-                                           <td style="padding:5px 10px;color:#555;font-size:0.88em;">${obsT || '—'}</td>
+                                           <td style="text-align:center;padding:5px;"><span style="color:${colDes};font-weight:700;font-size:0.85em;">${lblDes}</span></td>
+                                           <td style="text-align:center;padding:5px;">
+                                               <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+                                                   <input type="checkbox" ${armado?'checked':''}
+                                                       style="width:16px;height:16px;accent-color:#27ae60;cursor:pointer;"
+                                                       onchange="window.toggleCheckArmado(${i},'${it.k}',this.checked); window.render();">
+                                                   <span style="font-size:0.82em;font-weight:700;color:${armado?'#27ae60':'#aaa'};">${armado?'ARMADO':'—'}</span>
+                                               </label>
+                                           </td>
+                                           <td style="padding:4px 8px;">
+                                               <input type="text" value="${obsA}" placeholder="Observación..."
+                                                   style="width:100%;padding:4px 6px;border:1px solid #dde1e7;border-radius:4px;font-size:0.85em;"
+                                                   onblur="window.guardarObsCheckArmado(${i},'${it.k}',this.value)">
+                                           </td>
+                                           <td style="padding:5px 8px;font-size:0.82em;color:#1a2a6a;font-weight:600;">${resp}</td>
+                                           <td style="padding:4px 8px;">
+                                               ${window._htmlFotosComponente ? window._htmlFotosComponente(i,'armado',it.k,fotos) : ''}
+                                               ${fotos.length < 10 ? `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
+                                                   📷 ${fotos.length>0?fotos.length+'/10':'Fotos'}
+                                                   <input type="file" accept="image/*" multiple style="display:none;"
+                                                       onchange="window.subirFotosComponente(${i},'armado','${it.k}',this)">
+                                               </label>` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
+                                           </td>
                                        </tr>`;
                                    }).join('')}
                                    </tbody>
                                </table>
                            </div>`
                         : '';
-                    UI = `<h3>Balanceo</h3>${obs('balanceo')}<button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>${_resumeArmado}`;
+                    UI = `<h3>Balanceo</h3>${obs('balanceo')}<button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>${_checkArmadoSection}`;
                     if (rods.length > 0) {
                         UI += `<div class="det-seccion-titulo">🔩 Instalación de Rodamientos</div>
                         <div style="background:#f8f9fa;border:1px solid #dde1e7;border-radius:6px;padding:10px;margin-bottom:10px;">
