@@ -454,56 +454,50 @@ window.subirFotosComponente = async (i, etapa, clave, inputEl) => {
     const files = Array.from(inputEl.files);
     if (!files.length) return;
     const d = window.data[i];
-    const fotoKey     = 'fotos_'    + etapa; // guarda URLs para mostrar en app
-    const fotoB64Key  = 'fotos_b64_' + etapa; // guarda base64 para el Word
-    if (!d[fotoKey])    d[fotoKey]    = {};
+    // Usar solo base64 — sin Firebase Storage (evita problemas CORS)
+    const fotoB64Key = 'fotos_b64_' + etapa;
     if (!d[fotoB64Key]) d[fotoB64Key] = {};
-    if (!d[fotoKey][clave])    d[fotoKey][clave]    = [];
     if (!d[fotoB64Key][clave]) d[fotoB64Key][clave] = [];
-    const actuales   = d[fotoKey][clave].length;
+    const actuales = d[fotoB64Key][clave].length;
     const disponibles = 10 - actuales;
     if (disponibles <= 0) { alert('Ya tienes 10 fotos en este componente.'); return; }
     const aSubir = files.slice(0, disponibles);
     const btnId = 'btn_foto_' + etapa + '_' + i + '_' + clave;
     const btn = document.getElementById(btnId);
-    if (btn) { btn.textContent = '⏳ Subiendo...'; btn.disabled = true; }
+    if (btn) { btn.textContent = '⏳ Procesando...'; btn.disabled = true; }
     try {
         for (const file of aSubir) {
-            // Convertir a base64 ANTES de subir (para tenerlo disponible para el Word)
             const b64 = await _fileToBase64(file);
             const ext = file.name.split('.').pop().toLowerCase();
-            // Subir a Firebase Storage
-            const path = 'fotos/' + d.ot + '/' + etapa + '/' + clave + '_' + Date.now() + '.' + ext;
-            const ref = sRef(storage, path);
-            await uploadBytes(ref, file);
-            const url = await getDownloadURL(ref);
-            // Guardar URL (para mostrar en app) y base64 (para el Word)
-            d[fotoKey][clave].push(url);
+            // Guardar base64 completo para mostrar en app + para el Word
             d[fotoB64Key][clave].push({ b64, ext: ext === 'jpg' ? 'jpeg' : ext });
         }
         window.save();
         window.render();
     } catch(e) {
-        alert('Error al subir foto: ' + e.message);
+        alert('Error al procesar foto: ' + e.message);
         if (btn) { btn.textContent = '📷 Fotos'; btn.disabled = false; }
     }
 };
 window.eliminarFotoComponente = (i, etapa, clave, fi) => {
-    const fotoKey    = 'fotos_'    + etapa;
     const fotoB64Key = 'fotos_b64_' + etapa;
-    if (!window.data[i][fotoKey]?.[clave]) return;
-    window.data[i][fotoKey][clave].splice(fi, 1);
-    if (window.data[i][fotoB64Key]?.[clave]) window.data[i][fotoB64Key][clave].splice(fi, 1);
+    if (!window.data[i][fotoB64Key]?.[clave]) return;
+    window.data[i][fotoB64Key][clave].splice(fi, 1);
     window.save();
     window.render();
 };
 window._htmlFotosComponente = (i, etapa, clave, fotos) => {
     if (!fotos || fotos.length === 0) return '';
     let html = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">';
-    fotos.forEach(function(url, fi) {
+    fotos.forEach(function(item, fi) {
+        // item puede ser {b64, ext} o string URL (compatibilidad)
+        const src = (item && item.b64)
+            ? 'data:image/' + (item.ext||'jpeg') + ';base64,' + item.b64
+            : (typeof item === 'string' ? item : '');
+        if (!src) return;
         html += '<div style="position:relative;display:inline-block;">';
-        html += '<a href="' + url + '" target="_blank">';
-        html += '<img src="' + url + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;">';
+        html += '<a href="' + src + '" target="_blank">';
+        html += '<img src="' + src + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;">';
         html += '</a>';
         html += '<button onclick="window.eliminarFotoComponente(' + i + ',&quot;' + etapa + '&quot;,&quot;' + clave + '&quot;,' + fi + ')" ';
         html += 'style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:16px;padding:0;text-align:center;">✕</button>';
