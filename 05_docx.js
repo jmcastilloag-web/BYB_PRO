@@ -304,15 +304,15 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
         // ─ Imagen en Word ─
         // Gráfico temperatura: 18cm ancho x 9cm alto
         const IMG_WORD = (W, alt) => {
-            const cx = Math.round(18 * 36000); // 18cm en EMU
-            const cy = Math.round(9  * 36000); // 9cm en EMU
+            const cx = Math.round(18 * 360000); // 18cm en EMU
+            const cy = Math.round(9  * 360000); // 9cm en EMU
             return `<w:p><w:pPr><w:spacing w:after="0" w:before="60"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="99" name="${alt}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="${alt}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId9"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
         };
 
         // Foto componente: 8.94cm ancho x 6.69cm alto (2 por fila en el informe)
         const IMG_FOTO = (rId) => {
-            const cx = Math.round(8.94 * 36000);
-            const cy = Math.round(6.69 * 36000);
+            const cx = Math.round(8.94 * 360000);
+            const cy = Math.round(6.69 * 360000);
             return `<w:p><w:pPr><w:spacing w:after="60" w:before="0"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rId}" name="foto${rId}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rId}" name="foto${rId}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
         };
 
@@ -323,8 +323,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
 const PORTADA_INFORME = (ot, empresa, anio, placa) => {
     const p = placa || {};
     // Banner ocupa todo el ancho de la página
-    const bannerW = Math.round(18 * 36000);   // 18cm en EMU
-    const bannerH = Math.round(11.45 * 36000); // 11.45cm en EMU
+    const bannerW = Math.round(18 * 360000);   // 18cm en EMU
+    const bannerH = Math.round(11.45 * 360000); // 11.45cm en EMU
     const bannerXml = `<w:p><w:pPr><w:spacing w:after="0" w:before="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${bannerW}" cy="${bannerH}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="10" name="banner"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="10" name="banner"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId10"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${bannerW}" cy="${bannerH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 
     const infoMotor = [
@@ -686,9 +686,9 @@ window.descargarInforme = async (i) => {
 
     // Recolectar todas las fotos de las 3 etapas
     const ETAPAS_FOTOS = [
-        { key: 'fotos_desarme',    label: 'FOTOGRAFÍAS — DESARME' },
-        { key: 'fotos_mantencion', label: 'FOTOGRAFÍAS — MANTENCIÓN' },
-        { key: 'fotos_armado',     label: 'FOTOGRAFÍAS — ARMADO' },
+        { key: 'fotos_b64_desarme',    label: 'FOTOGRAFÍAS — DESARME' },
+        { key: 'fotos_b64_mantencion', label: 'FOTOGRAFÍAS — MANTENCIÓN' },
+        { key: 'fotos_b64_armado',     label: 'FOTOGRAFÍAS — ARMADO' },
     ];
     const LABELS_COMP = {
         machon_acople:'Machón / Acople', eje_acople:'Eje Acople',
@@ -719,55 +719,31 @@ window.descargarInforme = async (i) => {
         seccionFotos += SECC('15. ' + etapa.label) + SP(0);
 
         for (const clave of claves) {
-            const urls = fotosEtapa[clave] || [];
-            if (urls.length === 0) continue;
+            const items = fotosEtapa[clave] || [];
+            if (items.length === 0) continue;
             const labelComp = LABELS_COMP[clave] || clave;
-            // Subtítulo componente
             seccionFotos += `<w:p><w:pPr><w:spacing w:before="80" w:after="20"/><w:ind w:left="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="004F88"/><w:sz w:val="22"/></w:rPr><w:t>${xE(labelComp)}</w:t></w:r></w:p>`;
-
-            // Fotos de 2 en 2 por fila usando tabla
-            for (let fi = 0; fi < urls.length; fi += 2) {
-                const url1 = urls[fi];
-                const url2 = urls[fi + 1];
+            const cxF2 = Math.round(8.94 * 36000);
+            const cyF2 = Math.round(6.69 * 36000);
+            const mkImgXml = (rid) => `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cxF2}" cy="${cyF2}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rid}" name="foto${rid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxF2}" cy="${cyF2}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+            for (let fi = 0; fi < items.length; fi += 2) {
+                const f1 = items[fi];
+                const f2 = items[fi + 1];
                 const rId1 = rIdCounter++;
-                const rId2 = url2 ? rIdCounter++ : null;
-
-                try {
-                    // Descargar foto 1
-                    const resp1 = await fetch(url1);
-                    const buf1  = await resp1.arrayBuffer();
-                    const ext1  = url1.includes('.png') ? 'png' : 'jpg';
-                    const fname1 = `foto_${rId1}.${ext1}`;
-                    extraFiles[`word/media/${fname1}`] = new Uint8Array(buf1);
-                    const mime1 = ext1 === 'png' ? 'image/png' : 'image/jpeg';
-                    relsExtra.push(`<Relationship Id="rId${rId1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fname1}"/>`);
-
-                    const cxF = Math.round(8.94 * 36000);
-                    const cyF = Math.round(6.69 * 36000);
-                    const imgXml = (rid) => `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cxF}" cy="${cyF}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rid}" name="foto${rid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxF}" cy="${cyF}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
-
-                    let img2xml = '';
-                    if (url2 && rId2) {
-                        try {
-                            const resp2 = await fetch(url2);
-                            const buf2  = await resp2.arrayBuffer();
-                            const ext2  = url2.includes('.png') ? 'png' : 'jpg';
-                            const fname2 = `foto_${rId2}.${ext2}`;
-                            extraFiles[`word/media/${fname2}`] = new Uint8Array(buf2);
-                            relsExtra.push(`<Relationship Id="rId${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fname2}"/>`);
-                            img2xml = imgXml(rId2);
-                        } catch(e2) { console.warn('Error foto2:', e2); }
-                    }
-
-                    const halfW = Math.round(W / 2);
-                    seccionFotos += TABLA([halfW, W-halfW], [
-                        TR([
-                            TC(halfW, 'FFFFFF', imgXml(rId1), true),
-                            TC(W-halfW, 'FFFFFF', img2xml || '', true),
-                        ])
-                    ]);
-                    seccionFotos += SP(20);
-                } catch(e) { console.warn('Error descargando foto:', url1, e); }
+                const rId2 = f2 ? rIdCounter++ : null;
+                const fname1 = 'foto_' + rId1 + '.' + (f1.ext || 'jpeg');
+                extraFiles['word/media/' + fname1] = Uint8Array.from(atob(f1.b64), c2=>c2.charCodeAt(0));
+                relsExtra.push('<Relationship Id="rId' + rId1 + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + fname1 + '"/>');
+                let img2xml = '';
+                if (f2 && rId2) {
+                    const fname2 = 'foto_' + rId2 + '.' + (f2.ext || 'jpeg');
+                    extraFiles['word/media/' + fname2] = Uint8Array.from(atob(f2.b64), c2=>c2.charCodeAt(0));
+                    relsExtra.push('<Relationship Id="rId' + rId2 + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + fname2 + '"/>');
+                    img2xml = mkImgXml(rId2);
+                }
+                const halfW = Math.round(W / 2);
+                seccionFotos += TABLA([halfW, W - halfW], [TR([TC(halfW, 'FFFFFF', mkImgXml(rId1), true), TC(W - halfW, 'FFFFFF', img2xml, true)])]);
+                seccionFotos += SP(20);
             }
             seccionFotos += SP(40);
         }
