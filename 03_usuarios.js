@@ -32,14 +32,14 @@ onValue(dbRef, (snapshot) => {
     try { localStorage.setItem('taller_byb_backup', JSON.stringify(window.data)); } catch(e) {}
     window.actualizarAlertas();
     window.actualizarInfoUsuario();
-    window.render();
+    setTimeout(() => { try { window.render(); } catch(e) { console.warn('render error:', e); } }, 0);
 }, (error) => {
     firebaseConectado = true;
     clearTimeout(fbTimeout);
     console.error('Firebase error:', error.message);
     try { window.data = JSON.parse(localStorage.getItem('taller_byb_backup') || '[]'); } catch(e) { window.data = []; }
     window.actualizarAlertas();
-    window.render();
+    setTimeout(() => { try { window.render(); } catch(e) { console.warn('render error:', e); } }, 0);
 });
 
 
