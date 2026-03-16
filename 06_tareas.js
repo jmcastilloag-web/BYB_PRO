@@ -120,19 +120,20 @@ window.finalizarTrabajoMec = (i, clave) => {
     window.save(); window.render();
 };
 window.subirMecArchivo = async (i, clave) => {
-    const input = document.getElementById(`mecfile_${i}_${clave}`);
+    const input = document.getElementById('mecfile_' + i + '_' + clave);
     const file = input?.files[0];
     if (!file) return alert('Selecciona un archivo primero');
     try {
-        const storagePath = sRef(storage, `ot_${window.data[i].ot}/mec_${clave}_${Date.now()}_${file.name}`);
-        await uploadBytes(storagePath, file);
-        const url = await getDownloadURL(storagePath);
+        // Usar base64 en DB (sin Storage, evita CORS)
+        const b64 = await _fileToBase64(file);
+        const ext = file.name.split('.').pop().toLowerCase();
+        const dataUrl = 'data:application/octet-stream;base64,' + b64;
         if (!window.data[i].mec_trab_usuario) window.data[i].mec_trab_usuario = {};
         if (!window.data[i].mec_trab_usuario[clave]) window.data[i].mec_trab_usuario[clave] = {usuario:'',medidas:'',archivos:[],ok:false};
         if (!window.data[i].mec_trab_usuario[clave].archivos) window.data[i].mec_trab_usuario[clave].archivos = [];
-        window.data[i].mec_trab_usuario[clave].archivos.push({name: file.name, url});
+        window.data[i].mec_trab_usuario[clave].archivos.push({name: file.name, url: dataUrl, b64, ext});
         window.save(); window.render();
-    } catch(e) { alert('Error al subir archivo: ' + e.message); }
+    } catch(e) { alert('Error al procesar archivo: ' + e.message); }
 };
 
 // ── Gráfico de temperatura global ─────────────────────────
@@ -573,4 +574,6 @@ window.irAOT = (areaId, otId) => {
         if (btn) btn.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 200);
 };
+
+
 
