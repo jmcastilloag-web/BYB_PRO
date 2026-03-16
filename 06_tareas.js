@@ -411,6 +411,89 @@ window.guardarObsCheckDesarme = (i, clave, valor) => {
     window.save();
 };
 
+// ── Check Mantención por componente ──────────────────────────
+window.toggleCheckMantencion = (i, clave, checked) => {
+    if (!window.data[i].check_mantencion) window.data[i].check_mantencion = {};
+    if (!window.data[i].check_mantencion_resp) window.data[i].check_mantencion_resp = {};
+    const nombre = window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—';
+    window.data[i].check_mantencion[clave] = checked;
+    window.data[i].check_mantencion_resp[clave] = checked ? nombre : '';
+    window.save();
+};
+window.guardarObsCheckMantencion = (i, clave, valor) => {
+    if (!window.data[i].check_mantencion_obs) window.data[i].check_mantencion_obs = {};
+    window.data[i].check_mantencion_obs[clave] = valor;
+    window.save();
+};
+
+// ── Check Armado por componente ──────────────────────────────
+window.toggleCheckArmado = (i, clave, checked) => {
+    if (!window.data[i].check_armado) window.data[i].check_armado = {};
+    if (!window.data[i].check_armado_resp) window.data[i].check_armado_resp = {};
+    const nombre = window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—';
+    window.data[i].check_armado[clave] = checked;
+    window.data[i].check_armado_resp[clave] = checked ? nombre : '';
+    window.save();
+};
+window.guardarObsCheckArmado = (i, clave, valor) => {
+    if (!window.data[i].check_armado_obs) window.data[i].check_armado_obs = {};
+    window.data[i].check_armado_obs[clave] = valor;
+    window.save();
+};
+
+// ── Fotos por componente / etapa ─────────────────────────────
+window.subirFotosComponente = async (i, etapa, clave, inputEl) => {
+    const files = Array.from(inputEl.files);
+    if (!files.length) return;
+    const d = window.data[i];
+    const fotoKey = 'fotos_' + etapa;
+    if (!d[fotoKey]) d[fotoKey] = {};
+    if (!d[fotoKey][clave]) d[fotoKey][clave] = [];
+    const actuales = d[fotoKey][clave].length;
+    const disponibles = 10 - actuales;
+    if (disponibles <= 0) { alert('Ya tienes 10 fotos en este componente.'); return; }
+    const aSubir = files.slice(0, disponibles);
+    const btnId = 'btn_foto_' + etapa + '_' + i + '_' + clave;
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.textContent = '⏳ Subiendo...'; btn.disabled = true; }
+    try {
+        for (const file of aSubir) {
+            const ext = file.name.split('.').pop();
+            const path = 'fotos/' + d.ot + '/' + etapa + '/' + clave + '_' + Date.now() + '.' + ext;
+            const ref = sRef(storage, path);
+            await uploadBytes(ref, file);
+            const url = await getDownloadURL(ref);
+            d[fotoKey][clave].push(url);
+        }
+        window.save();
+        window.render();
+    } catch(e) {
+        alert('Error al subir foto: ' + e.message);
+        if (btn) { btn.textContent = '📷 Fotos'; btn.disabled = false; }
+    }
+};
+window.eliminarFotoComponente = (i, etapa, clave, fi) => {
+    const fotoKey = 'fotos_' + etapa;
+    if (!window.data[i][fotoKey]?.[clave]) return;
+    window.data[i][fotoKey][clave].splice(fi, 1);
+    window.save();
+    window.render();
+};
+window._htmlFotosComponente = (i, etapa, clave, fotos) => {
+    if (!fotos || fotos.length === 0) return '';
+    return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' +
+        fotos.map((url, fi) =>
+            '<div style="position:relative;display:inline-block;">' +
+            '<a href="' + url + '" target="_blank">' +
+            '<img src="' + url + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;">' +
+            '</a>' +
+            '<button onclick="window.eliminarFotoComponente(' + i + ',\'' + etapa + '\',\'' + clave + '\',' + fi + ')" ' +
+            'style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:16px;padding:0;text-align:center;">✕</button>' +
+            '</div>'
+        ).join('') +
+    '</div>';
+};
+
 // Lista centralizada de ítems del check de desarme
 window.ITEMS_CHECK_DESARME = [
     { k: 'machon_acople',       label: 'Machón u Acople' },
