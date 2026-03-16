@@ -505,7 +505,7 @@ window._htmlFotosComponente = (i, etapa, clave, fotos) => {
             '<a href="' + url + '" target="_blank">' +
             '<img src="' + url + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;">' +
             '</a>' +
-            '<button onclick="window.eliminarFotoComponente(' + i + ','' + etapa + '','' + clave + '',' + fi + ')" ' +
+            '<button onclick="window.eliminarFotoComponente(' + i + ',\'' + etapa + '\',\'' + clave + '\',' + fi + ')" ' +
             'style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:16px;padding:0;text-align:center;">✕</button>' +
             '</div>'
         ).join('') +
