@@ -692,12 +692,10 @@ window.render = () => {
                                            </td>
                                            <td style="padding:5px 8px;font-size:0.82em;color:#1a2a6a;font-weight:600;">${resp}</td>
                                            <td style="padding:4px 8px;">
-                                               ${window._htmlFotosComponente ? window._htmlFotosComponente(i,'mantencion',it.k,fotos) : ''}
-                                               ${fotos.length < 10 ? `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
-                                                   📷 ${fotos.length>0?fotos.length+'/10':'Fotos'}
-                                                   <input type="file" accept="image/*" multiple style="display:none;"
-                                                       onchange="window.subirFotosComponente(${i},'mantencion','${it.k}',this)">
-                                               </label>` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
+                                               ${(window._htmlFotosComponente||function(){return '';})(i,'mantencion',it.k,fotos)}
+                                               ${fotos.length < 10
+                                                   ? `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">📷 ${fotos.length>0?fotos.length+'/10':'Fotos'}<input type="file" accept="image/*" multiple style="display:none" onchange="window.subirFotosComponente(${i},'mantencion','${it.k}',this)"></label>`
+                                                   : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
                                            </td>
                                        </tr>`;
                                    }).join('')}
