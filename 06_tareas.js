@@ -499,17 +499,18 @@ window.eliminarFotoComponente = (i, etapa, clave, fi) => {
 };
 window._htmlFotosComponente = (i, etapa, clave, fotos) => {
     if (!fotos || fotos.length === 0) return '';
-    return '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">' +
-        fotos.map((url, fi) =>
-            '<div style="position:relative;display:inline-block;">' +
-            '<a href="' + url + '" target="_blank">' +
-            '<img src="' + url + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;">' +
-            '</a>' +
-            '<button onclick="window.eliminarFotoComponente(' + i + ',\'' + etapa + '\',\'' + clave + '\',' + fi + ')" ' +
-            'style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:16px;padding:0;text-align:center;">✕</button>' +
-            '</div>'
-        ).join('') +
-    '</div>';
+    let html = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">';
+    fotos.forEach(function(url, fi) {
+        html += '<div style="position:relative;display:inline-block;">';
+        html += '<a href="' + url + '" target="_blank">';
+        html += '<img src="' + url + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;">';
+        html += '</a>';
+        html += '<button onclick="window.eliminarFotoComponente(' + i + ',&quot;' + etapa + '&quot;,&quot;' + clave + '&quot;,' + fi + ')" ';
+        html += 'style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:16px;padding:0;text-align:center;">✕</button>';
+        html += '</div>';
+    });
+    html += '</div>';
+    return html;
 };
 
 // Lista centralizada de ítems del check de desarme
