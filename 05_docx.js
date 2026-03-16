@@ -302,10 +302,18 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
         const FALLAS_LIST=[{k:'falla_metalado_lc',l:'Metalado descanso lado conexión'},{k:'falla_metalado_ll',l:'Metalado descanso lado libre'},{k:'falla_fab_descanso_lc',l:'Fabricación descanso LC'},{k:'falla_fab_descanso_ll',l:'Fabricación descanso LL'},{k:'falla_bob_campos',l:'Bobinado dos campos rueda polar'},{k:'falla_mant_correctivo',l:'Mant. correctivo / sumergido en agua'}];
 
         // ─ Imagen en Word ─
+        // Gráfico temperatura: 18cm ancho x 9cm alto
         const IMG_WORD = (W, alt) => {
-            const cx = Math.round(W * 914.4 * 0.95); // EMU ≈ ancho página
-            const cy = Math.round(cx * 300/800);      // ratio 800x300
+            const cx = Math.round(18 * 36000); // 18cm en EMU
+            const cy = Math.round(9  * 36000); // 9cm en EMU
             return `<w:p><w:pPr><w:spacing w:after="0" w:before="60"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="99" name="${alt}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="${alt}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId9"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+        };
+
+        // Foto componente: 8.94cm ancho x 6.69cm alto (2 por fila en el informe)
+        const IMG_FOTO = (rId) => {
+            const cx = Math.round(8.94 * 36000);
+            const cy = Math.round(6.69 * 36000);
+            return `<w:p><w:pPr><w:spacing w:after="60" w:before="0"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rId}" name="foto${rId}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rId}" name="foto${rId}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
         };
 
         // ─ buildDocx ─
@@ -315,8 +323,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
 const PORTADA_INFORME = (ot, empresa, anio, placa) => {
     const p = placa || {};
     // Banner ocupa todo el ancho de la página
-    const bannerW = Math.round(9026 * 914.4);
-    const bannerH = Math.round(bannerW * 0.277); // ratio aproximado banner
+    const bannerW = Math.round(18 * 36000);   // 18cm en EMU
+    const bannerH = Math.round(11.45 * 36000); // 11.45cm en EMU
     const bannerXml = `<w:p><w:pPr><w:spacing w:after="0" w:before="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${bannerW}" cy="${bannerH}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="10" name="banner"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="10" name="banner"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId10"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${bannerW}" cy="${bannerH}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
 
     const infoMotor = [
@@ -357,15 +365,18 @@ const buildDocx = async (fn,body,titulo,extraFiles) => {
     zip.file('word/header1.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><w:p><w:pPr><w:spacing w:before="60" w:after="140" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251657216" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1"><wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:posOffset>-517830</wp:posOffset></wp:positionH><wp:positionV relativeFrom="paragraph"><wp:posOffset>-344323</wp:posOffset></wp:positionV><wp:extent cx="1053389" cy="599440"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="1" name="logo"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="logo"/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId1"/><a:srcRect/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr bwMode="auto"><a:xfrm><a:off x="0" y="0"/><a:ext cx="1053389" cy="599440"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:anchor></w:drawing></w:r><w:r><w:rPr><w:b/><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/><w:color w:val="2C3E50"/><w:sz w:val="26"/><w:szCs w:val="26"/></w:rPr><w:t xml:space="preserve">                          BORYBOR NORTE   |   ${xE(titulo)}</w:t></w:r></w:p></w:hdr>`);
     zip.file('word/media/logo.jpeg', Uint8Array.from(atob(LOGO_B64),c=>c.charCodeAt(0)));
     zip.file('word/document.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><w:body>${body}<w:sectPr><w:headerReference w:type="default" r:id="rId6"/><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="900" w:right="1080" w:bottom="900" w:left="1080" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>`);
-    // Archivos extra (ej: gráfico de temperatura)
+    // Archivos extra
     if (extraFiles) {
-        for (const [path, data] of Object.entries(extraFiles)) { zip.file(path, data); }
-        // Si hay imagen del gráfico, actualizar rels para incluir rId9 y rId10 (banner)
-        if (extraFiles['word/media/temp_chart.png']) {
-            zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/temp_chart.png"/><Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/banner.jpeg"/></Relationships>');
+        for (const [path, data] of Object.entries(extraFiles)) {
+            if (path === '_rels_override') continue; // se maneja aparte
+            zip.file(path, data);
         }
-        // Si hay banner (informe final sin chart)
-        if (extraFiles['word/media/banner.jpeg'] && !extraFiles['word/media/temp_chart.png']) {
+        // Usar rels override si viene con fotos de componentes
+        if (extraFiles['_rels_override']) {
+            zip.file('word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + extraFiles['_rels_override'] + '</Relationships>');
+        } else if (extraFiles['word/media/temp_chart.png']) {
+            zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/temp_chart.png"/><Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/banner.jpeg"/></Relationships>');
+        } else if (extraFiles['word/media/banner.jpeg']) {
             zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/><Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/banner.jpeg"/></Relationships>');
         }
     }
@@ -667,10 +678,111 @@ window.descargarInforme = async (i) => {
 
         SP(0), PIE(),
     ].join('');
+
+    // ── Descargar fotos desde Firebase y agregarlas al ZIP ──
     const extraFiles = {};
     extraFiles['word/media/banner.jpeg'] = Uint8Array.from(atob(BANNER_B64), c2=>c2.charCodeAt(0));
     if (tempChartPng) extraFiles['word/media/temp_chart.png'] = Uint8Array.from(atob(tempChartPng), c2=>c2.charCodeAt(0));
-    await buildDocx(`Informe_OT_${d.ot}_${d.empresa}.docx`, body, 'PROTOCOLO TÉCNICO FINAL', extraFiles);
+
+    // Recolectar todas las fotos de las 3 etapas
+    const ETAPAS_FOTOS = [
+        { key: 'fotos_desarme',    label: 'FOTOGRAFÍAS — DESARME' },
+        { key: 'fotos_mantencion', label: 'FOTOGRAFÍAS — MANTENCIÓN' },
+        { key: 'fotos_armado',     label: 'FOTOGRAFÍAS — ARMADO' },
+    ];
+    const LABELS_COMP = {
+        machon_acople:'Machón / Acople', eje_acople:'Eje Acople',
+        caja_conexion:'Caja de Conexión', cables_conexion:'Cables de Conexión',
+        placa_conexion:'Placa de Conexión', sensores:'Sensores',
+        regletas_borner:'Regletas / Borner', cubre_ventilador:'Cubre Ventilador',
+        ventilador:'Ventilador', porta_escobilla:'Porta Escobilla',
+        anillo:'Anillo', contrata_ext_lc:'Contratapa Ext. LC',
+        contrata_ext_ll:'Contratapa Ext. LL', contrata_int_lc:'Contratapa Int. LC',
+        contrata_int_ll:'Contratapa Int. LL', tapa_lado_carga:'Tapa Lado Carga',
+        tapa_lado_libre:'Tapa Lado Libre', rodamiento_lc:'Rodamiento LC',
+        rodamiento_ll:'Rodamiento LL', rotor_general:'Rotor General',
+        estator:'Estator', devanado:'Devanado',
+        base_motor:'Base Motor', intercambiador:'Intercambiador',
+        pernos:'Pernos', freno:'Freno', campos:'Campos', otros_check:'Otros',
+    };
+
+    // Descargar fotos como base64 y armar sección Word
+    let seccionFotos = '';
+    let rIdCounter = 20; // empezar desde rId20 para no chocar con rId9/rId10
+    const relsExtra = [];
+
+    for (const etapa of ETAPAS_FOTOS) {
+        const fotosEtapa = d[etapa.key] || {};
+        const claves = Object.keys(fotosEtapa).filter(k => fotosEtapa[k]?.length > 0);
+        if (claves.length === 0) continue;
+
+        seccionFotos += SECC('15. ' + etapa.label) + SP(0);
+
+        for (const clave of claves) {
+            const urls = fotosEtapa[clave] || [];
+            if (urls.length === 0) continue;
+            const labelComp = LABELS_COMP[clave] || clave;
+            // Subtítulo componente
+            seccionFotos += `<w:p><w:pPr><w:spacing w:before="80" w:after="20"/><w:ind w:left="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="004F88"/><w:sz w:val="22"/></w:rPr><w:t>${xE(labelComp)}</w:t></w:r></w:p>`;
+
+            // Fotos de 2 en 2 por fila usando tabla
+            for (let fi = 0; fi < urls.length; fi += 2) {
+                const url1 = urls[fi];
+                const url2 = urls[fi + 1];
+                const rId1 = rIdCounter++;
+                const rId2 = url2 ? rIdCounter++ : null;
+
+                try {
+                    // Descargar foto 1
+                    const resp1 = await fetch(url1);
+                    const buf1  = await resp1.arrayBuffer();
+                    const ext1  = url1.includes('.png') ? 'png' : 'jpg';
+                    const fname1 = `foto_${rId1}.${ext1}`;
+                    extraFiles[`word/media/${fname1}`] = new Uint8Array(buf1);
+                    const mime1 = ext1 === 'png' ? 'image/png' : 'image/jpeg';
+                    relsExtra.push(`<Relationship Id="rId${rId1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fname1}"/>`);
+
+                    const cxF = Math.round(8.94 * 36000);
+                    const cyF = Math.round(6.69 * 36000);
+                    const imgXml = (rid) => `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cxF}" cy="${cyF}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rid}" name="foto${rid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxF}" cy="${cyF}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+
+                    let img2xml = '';
+                    if (url2 && rId2) {
+                        try {
+                            const resp2 = await fetch(url2);
+                            const buf2  = await resp2.arrayBuffer();
+                            const ext2  = url2.includes('.png') ? 'png' : 'jpg';
+                            const fname2 = `foto_${rId2}.${ext2}`;
+                            extraFiles[`word/media/${fname2}`] = new Uint8Array(buf2);
+                            relsExtra.push(`<Relationship Id="rId${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fname2}"/>`);
+                            img2xml = imgXml(rId2);
+                        } catch(e2) { console.warn('Error foto2:', e2); }
+                    }
+
+                    const halfW = Math.round(W / 2);
+                    seccionFotos += TABLA([halfW, W-halfW], [
+                        TR([
+                            TC(halfW, 'FFFFFF', imgXml(rId1), true),
+                            TC(W-halfW, 'FFFFFF', img2xml || '', true),
+                        ])
+                    ]);
+                    seccionFotos += SP(20);
+                } catch(e) { console.warn('Error descargando foto:', url1, e); }
+            }
+            seccionFotos += SP(40);
+        }
+    }
+
+    const bodyFinal = seccionFotos ? body.replace(SP(0) + PIE(), SP(0) + seccionFotos + PIE()) : body;
+
+    // Construir rels con fotos incluidas
+    let relsBase = '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>';
+    if (tempChartPng) relsBase += '<Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/temp_chart.png"/>';
+    relsBase += '<Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/banner.jpeg"/>';
+    if (relsExtra.length > 0) relsBase += relsExtra.join('');
+    extraFiles['_rels_override'] = relsBase;
+
+    await buildDocx(`Informe_OT_${d.ot}_${d.empresa}.docx`, bodyFinal, 'PROTOCOLO TÉCNICO FINAL', extraFiles);
 };
 
         window.nuevaOT = () => {
