@@ -316,6 +316,191 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             ]);
         };
 
+        // Tabla trabajos mecánica por técnico
+        const tabMecTrab = (mecTrab, W=9026) => {
+            if (!mecTrab || Object.keys(mecTrab).length === 0) return '';
+            const LABELS_MEC = {
+                encam_lc: '🔧 Encamisado Lado Carga (LC)',
+                encam_ll: '🔧 Encamisado Lado Libre (LL)',
+                metal_lc: '⚙️ Metalado / Rectificado Eje LC',
+                metal_ll: '⚙️ Metalado / Rectificado Eje LL',
+                rectif:   '🗜️ Rectificado General',
+                fabric:   '🏭 Fabricación de Pieza',
+                trab_gral:'🔩 Trabajo Mecánico General',
+            };
+            const items = Object.entries(mecTrab).filter(([k,v]) => v && v.usuario);
+            if (items.length === 0) return '';
+            const c = [2800, 1000, 1000, W-2800-1000-1000-1500, 1500];
+            return TABLA(c, [
+                TR([
+                    TC(c[0],'1A3A5C',R('TRABAJO',11,'FFFFFF',true),false),
+                    TC(c[1],'1A3A5C',R('ESTADO',11,'FFFFFF',true),true),
+                    TC(c[2],'1A3A5C',R('TÉCNICO',11,'FFFFFF',true),false),
+                    TC(c[3],'1A3A5C',R('MEDIDAS / NOTAS',11,'FFFFFF',true),false),
+                    TC(c[4],'1A3A5C',R('FOTOS',11,'FFFFFF',true),true),
+                ]),
+                ...items.map(([k,v], ri) => {
+                    const ok     = !!v.ok;
+                    const bgFila = ok ? 'EAFFF2' : (ri%2===0?'F8FAFF':'FFFFFF');
+                    const bgEst  = ok ? 'EAFFF2' : 'FFF8E8';
+                    const txtEst = ok ? '✅ OK' : '⏳ En curso';
+                    const colEst = ok ? '27AE60' : 'E8A000';
+                    const fotos  = v.fotos_b64 || [];
+                    const nFotos = fotos.length;
+                    const filaData = TR([
+                        TC(c[0], bgFila,  R(LABELS_MEC[k]||k, 11, '2C3E50'), false),
+                        TC(c[1], bgEst,   R(txtEst, 11, colEst, true), true),
+                        TC(c[2], 'EAF0FF', R(v.usuario||'—', 11, '1a2a6a', false), false),
+                        TC(c[3], bgFila,  R(v.medidas||'—', 11, '555555'), false),
+                        TC(c[4], bgFila,  R(nFotos > 0 ? nFotos + ' foto(s)' : '—', 11, nFotos>0?'004F88':'888888', nFotos>0), true),
+                    ]);
+                    // Fotos inline debajo de la fila
+                    const fotaRows = nFotos > 0 ? _fotosInlineRows(fotos, W, rIdRef, relsRef) : '';
+                    return filaData + fotaRows;
+                })
+            ]);
+        };
+
+        // Helper: generar bloque de fotos inline en Word (fila extra debajo de componente)
+        // Retorna XML de filas adicionales para insertar en una tabla
+        const _fotosInlineRows = (fotosB64Array, anchoTotal, rIdRef, relsRef) => {
+            if (!fotosB64Array || fotosB64Array.length === 0) return '';
+            const cxF = Math.round(8.94 * 36000);
+            const cyF = Math.round(6.69 * 36000);
+            const mkImg = (rid) => `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cxF}" cy="${cyF}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rid}" name="foto${rid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxF}" cy="${cyF}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+            let rows = '';
+            const halfW = Math.round(anchoTotal / 2);
+            for (let fi = 0; fi < fotosB64Array.length; fi += 2) {
+                const f1 = fotosB64Array[fi];
+                const f2 = fotosB64Array[fi+1];
+                if (!f1 || !f1.b64) continue;
+                const rId1 = rIdRef.val++;
+                const fname1 = 'foto_' + rId1 + '.' + (f1.ext||'jpeg');
+                relsRef.extraFiles['word/media/' + fname1] = Uint8Array.from(atob(f1.b64), c2=>c2.charCodeAt(0));
+                relsRef.rels.push('<Relationship Id="rId' + rId1 + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + fname1 + '"/>');
+                let cell2 = TC(halfW, 'FFFFFF', '', false);
+                if (f2 && f2.b64) {
+                    const rId2 = rIdRef.val++;
+                    const fname2 = 'foto_' + rId2 + '.' + (f2.ext||'jpeg');
+                    relsRef.extraFiles['word/media/' + fname2] = Uint8Array.from(atob(f2.b64), c2=>c2.charCodeAt(0));
+                    relsRef.rels.push('<Relationship Id="rId' + rId2 + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + fname2 + '"/>');
+                    cell2 = TC(halfW, 'FFFFFF', mkImg(rId2), true);
+                }
+                rows += TR([TC(halfW, 'FFFFFF', mkImg(rId1), true), cell2]);
+            }
+            return rows;
+        };
+
+        // Tabla Check Desarme con fotos inline
+        const tabCheckDesarmeConFotos = (checkData, checkObs, fotosDesarme, rIdRef, relsRef, W=9026) => {
+            if (!checkData || Object.keys(checkData).length === 0) return '';
+            const LABELS = {
+                machon_acople:'Machón / Acople', eje_acople:'Eje Acople',
+                caja_conexion:'Caja de Conexión', cables_conexion:'Cables de Conexión',
+                placa_conexion:'Placa de Conexión', sensores:'Sensores',
+                regletas_borner:'Regletas / Borner', cubre_ventilador:'Cubre Ventilador',
+                ventilador:'Ventilador', porta_escobilla:'Porta Escobilla',
+                anillo:'Anillo', contrata_ext_lc:'Contratapa Ext. LC',
+                contrata_ext_ll:'Contratapa Ext. LL', contrata_int_lc:'Contratapa Int. LC',
+                contrata_int_ll:'Contratapa Int. LL', tapa_lado_carga:'Tapa Lado Carga',
+                tapa_lado_libre:'Tapa Lado Libre', rodamiento_lc:'Rodamiento LC',
+                rodamiento_ll:'Rodamiento LL', rotor_general:'Rotor General',
+                estator:'Estator', devanado:'Devanado',
+                base_motor:'Base Motor', intercambiador:'Intercambiador',
+                pernos:'Pernos', freno:'Freno', campos:'Campos', otros_check:'Otros',
+            };
+            const obs    = checkObs     || {};
+            const fotos  = fotosDesarme || {};
+            const allItems = Object.keys(LABELS);
+            const c = [2800, 1000, W-2800-1000];
+            let rows = [TR([
+                TC(c[0],'1A3A5C',R('COMPONENTE',12,'FFFFFF',true),false),
+                TC(c[1],'1A3A5C',R('ESTADO',12,'FFFFFF',true),true),
+                TC(c[2],'1A3A5C',R('OBSERVACIÓN',12,'FFFFFF',true),false),
+            ])];
+            allItems.forEach((k, ri) => {
+                const v = checkData[k] || 'na';
+                const label = LABELS[k] || k;
+                const esBueno = v === 'bueno';
+                const esMalo  = v === 'malo';
+                const esNA    = v === 'na' || !v;
+                const bgFila  = ri%2===0 ? 'F8FAFF' : 'FFFFFF';
+                const bgEst   = esBueno ? 'E8F8F0' : esMalo ? 'FFF5F5' : 'F5F5F5';
+                const colEst  = esBueno ? '27AE60' : esMalo ? 'E74C3C' : '888888';
+                const txtEst  = esBueno ? '✅ BUENO' : esMalo ? '❌ MALO' : '— N/A';
+                rows.push(TR([
+                    TC(c[0], bgFila, R(label, 12, '2C3E50'), false),
+                    TC(c[1], bgEst,  R(txtEst, 12, colEst, true), true),
+                    TC(c[2], bgFila, R(obs[k]||'—', 12, '555555'), false),
+                ]));
+                // Agregar fila de fotos si hay
+                const fk = fotos[k] || [];
+                if (fk.length > 0) {
+                    const fotaRows = _fotosInlineRows(fk, W, rIdRef, relsRef);
+                    if (fotaRows) rows.push(fotaRows);
+                }
+            });
+            return TABLA(c, rows);
+        };
+
+        // Tabla Check Componentes (mantención/armado) con fotos inline
+        const tabCheckCompConFotos = (checkDesarme, checkHecho, checkObs, checkResp, fotosEtapa, tituloCol, rIdRef, relsRef, W=9026) => {
+            if (!checkDesarme || Object.keys(checkDesarme).length === 0) return '';
+            const LABELS = {
+                machon_acople:'Machón / Acople', eje_acople:'Eje Acople',
+                caja_conexion:'Caja de Conexión', cables_conexion:'Cables de Conexión',
+                placa_conexion:'Placa de Conexión', sensores:'Sensores',
+                regletas_borner:'Regletas / Borner', cubre_ventilador:'Cubre Ventilador',
+                ventilador:'Ventilador', porta_escobilla:'Porta Escobilla',
+                anillo:'Anillo', contrata_ext_lc:'Contratapa Ext. LC',
+                contrata_ext_ll:'Contratapa Ext. LL', contrata_int_lc:'Contratapa Int. LC',
+                contrata_int_ll:'Contratapa Int. LL', tapa_lado_carga:'Tapa Lado Carga',
+                tapa_lado_libre:'Tapa Lado Libre', rodamiento_lc:'Rodamiento LC',
+                rodamiento_ll:'Rodamiento LL', rotor_general:'Rotor General',
+                estator:'Estator', devanado:'Devanado',
+                base_motor:'Base Motor', intercambiador:'Intercambiador',
+                pernos:'Pernos', freno:'Freno', campos:'Campos', otros_check:'Otros',
+            };
+            const hecho = checkHecho || {};
+            const obs   = checkObs   || {};
+            const resp  = checkResp  || {};
+            const fotos = fotosEtapa || {};
+            const items = Object.entries(checkDesarme).filter(([k,v]) => v && v !== 'na');
+            if (items.length === 0) return '';
+            const c = [2200, 900, 900, W-2200-900-900-1500, 1500];
+            let rows = [TR([
+                TC(c[0],'1A3A5C',R('COMPONENTE',11,'FFFFFF',true),false),
+                TC(c[1],'1A3A5C',R('DESARME',11,'FFFFFF',true),true),
+                TC(c[2],'1A3A5C',R(tituloCol.toUpperCase(),11,'FFFFFF',true),true),
+                TC(c[3],'1A3A5C',R('OBSERVACIÓN',11,'FFFFFF',true),false),
+                TC(c[4],'1A3A5C',R('TÉCNICO',11,'FFFFFF',true),false),
+            ])];
+            items.forEach(([k,v], ri) => {
+                const esBueno = v==='bueno';
+                const bgDes   = esBueno ? 'E8F8F0' : 'FFF5F5';
+                const colDes  = esBueno ? '27AE60' : 'E74C3C';
+                const txtDes  = esBueno ? '✅ BUENO' : '❌ MALO';
+                const hizo    = !!hecho[k];
+                const bgFila  = hizo ? 'EAFFF2' : (ri%2===0?'F8FAFF':'FFFFFF');
+                const bgCheck = hizo ? 'EAFFF2' : 'FFF5F5';
+                const txtCheck= hizo ? '☑ HECHO' : '☐ PEND.';
+                const colCheck= hizo ? '27AE60' : 'E74C3C';
+                rows.push(TR([
+                    TC(c[0], bgFila,  R(LABELS[k]||k, 11, '2C3E50'), false),
+                    TC(c[1], bgDes,   R(txtDes, 11, colDes, true), true),
+                    TC(c[2], bgCheck, R(txtCheck, 11, colCheck, true), true),
+                    TC(c[3], bgFila,  R(obs[k]||'—', 11, '555555'), false),
+                    TC(c[4], 'EAF0FF', R(resp[k]||'—', 11, '1a2a6a', false), false),
+                ]));
+                const fk = fotos[k] || [];
+                if (fk.length > 0) {
+                    const fotaRows = _fotosInlineRows(fk, W, rIdRef, relsRef);
+                    if (fotaRows) rows.push(fotaRows);
+                }
+            });
+            return TABLA(c, rows);
+        };
+
         // Tabla lista de texto simple (hallazgos, terminaciones)
         const tabLista = (items,W=9026) => {
             if(!items||items.length===0) return TABLA([W],[TR([TD('(Sin registros)',W)])]);
@@ -616,18 +801,36 @@ window.descargarInforme = async (i) => {
         // ── 4. DESARME ──
         SECC('4.  DESARME'), RESP((d.responsables||{}).desarme_ok), SP(0),
         tabLista(hallazgos,W), SP(0),
-        (()=>{ const chk = tabCheckDesarme(d.check_desarme, d.check_desarme_obs, W); return chk ? (SECC('    CHECK DE DESARME')+SP(0)+chk+SP(0)) : ''; })(),
+        (()=>{ const chk = tabCheckDesarmeConFotos(d.check_desarme, d.check_desarme_obs, d.fotos_b64_desarme, rIdRef, relsRef, W); return chk ? (SECC('    CHECK DE DESARME')+SP(0)+chk+SP(0)) : ''; })(),
         tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
         tarDesarme.length>0 ? tabLista(tarDesarme,W) : '',
         tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
         RESP((d.responsables||{}).mant_ok),
         tarMant.length>0 ? tabLista(tarMant,W) : '',
-        (()=>{ const chkM = tabCheckComponentes(d.check_desarme, d.check_mantencion, d.check_mantencion_obs, d.check_mantencion_resp, 'Mantención', W); return chkM ? (SECC('    CHECK DE MANTENCIÓN POR COMPONENTE')+SP(0)+chkM+SP(0)) : ''; })(),
+        (()=>{ const chkM = tabCheckCompConFotos(d.check_desarme, d.check_mantencion, d.check_mantencion_obs, d.check_mantencion_resp, d.fotos_b64_mantencion, 'Mantención', rIdRef, relsRef, W); return chkM ? (SECC('    CHECK DE MANTENCIÓN POR COMPONENTE')+SP(0)+chkM+SP(0)) : ''; })(),
         SP(0), F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
 
         // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
         SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), RESP((d.responsables||{}).med_ok), SP(0),
         tabMedElec(medIng,W), SP(0),
+        (()=>{
+            const fm = d.fotos_b64_mediciones_ing || [];
+            if (!fm.length) return '';
+            const c=[W]; let rows = [];
+            for(let fi=0;fi<fm.length;fi+=2){
+                const f1=fm[fi],f2=fm[fi+1];
+                if(!f1||!f1.b64) continue;
+                const r1=rIdRef.val++; const fn1='foto_'+r1+'.'+(f1.ext||'jpeg');
+                relsRef.extraFiles['word/media/'+fn1]=Uint8Array.from(atob(f1.b64),c2=>c2.charCodeAt(0));
+                relsRef.rels.push('<Relationship Id="rId'+r1+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fn1+'"/>');
+                const cxF=Math.round(8.94*36000),cyF=Math.round(6.69*36000);
+                const mkI=(rid)=>`<w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cxF}" cy="${cyF}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rid}" name="foto${rid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxF}" cy="${cyF}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+                const hw=Math.round(W/2); let c2xml='';
+                if(f2&&f2.b64){const r2=rIdRef.val++;const fn2='foto_'+r2+'.'+(f2.ext||'jpeg');relsRef.extraFiles['word/media/'+fn2]=Uint8Array.from(atob(f2.b64),c2=>c2.charCodeAt(0));relsRef.rels.push('<Relationship Id="rId'+r2+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fn2+'"/>');c2xml=mkI(r2);}
+                rows.push(TR([TC(hw,'FFFFFF',mkI(r1),true),TC(W-hw,'FFFFFF',c2xml,true)]));
+            }
+            return rows.length ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+TABLA([Math.round(W/2),W-Math.round(W/2)],rows)+SP(0)) : '';
+        })(),
         tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
         tarCalidad.length>0 ? tabLista(tarCalidad,W) : '',
         F2W('OBSERVACIONES', obs.med_ingreso||'', W), SP(0),
@@ -670,6 +873,7 @@ window.descargarInforme = async (i) => {
                 rows + `</w:tbl>`;
         })(),
         RESP((d.responsables||{}).mec_fin),
+        (()=>{ const chkMec = tabMecTrab(d.mec_trab_usuario, W); return chkMec ? (SECC('    TRABAJOS MECÁNICA — TÉCNICOS RESPONSABLES')+SP(0)+chkMec+SP(0)) : ''; })(),
         tarMec.length>0 ? SECC('    TAREAS MECÁNICA FINAL') : '',
         tarMec.length>0 ? tabLista(tarMec,W) : '',
         SP(0), F2W('OBSERVACIONES', obs.metrologia||'', W), SP(0),
@@ -689,7 +893,7 @@ window.descargarInforme = async (i) => {
         // ── 9. RODAMIENTOS Y ARMADO ──
         SECC('9.  RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
         tabRodamientos(d,W), SP(0),
-        (()=>{ const chkA = tabCheckComponentes(d.check_desarme, d.check_armado, d.check_armado_obs, d.check_armado_resp, 'Armado', W); return chkA ? (SECC('    CHECK DE ARMADO POR COMPONENTE')+SP(0)+chkA+SP(0)) : ''; })(),
+        (()=>{ const chkA = tabCheckCompConFotos(d.check_desarme, d.check_armado, d.check_armado_obs, d.check_armado_resp, d.fotos_b64_armado, 'Armado', rIdRef, relsRef, W); return chkA ? (SECC('    CHECK DE ARMADO POR COMPONENTE')+SP(0)+chkA+SP(0)) : ''; })(),
         tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
         tarArmado.length>0 ? tabLista(tarArmado,W) : '',
         F2W('OBSERVACIONES ARMADO', obs.armado||'', W), SP(0),
@@ -701,6 +905,15 @@ window.descargarInforme = async (i) => {
         // ── 11. PRUEBAS DINÁMICAS ──
         SECC('11. PRUEBAS DINÁMICAS'), RESP((d.responsables||{}).pruebas_ok), SP(0),
         tabPruebas(d,W), SP(0),
+        (()=>{
+            const fp = d.fotos_b64_pruebas || [];
+            if (!fp.length) return '';
+            const cxF=Math.round(8.94*36000),cyF=Math.round(6.69*36000);
+            const mkI=(rid)=>`<w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cxF}" cy="${cyF}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rid}" name="foto${rid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxF}" cy="${cyF}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+            let rows=[];
+            for(let fi=0;fi<fp.length;fi+=2){const f1=fp[fi],f2=fp[fi+1];if(!f1||!f1.b64)continue;const r1=rIdRef.val++;const fn1='foto_'+r1+'.'+(f1.ext||'jpeg');relsRef.extraFiles['word/media/'+fn1]=Uint8Array.from(atob(f1.b64),c2=>c2.charCodeAt(0));relsRef.rels.push('<Relationship Id="rId'+r1+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fn1+'"/>');const hw=Math.round(W/2);let c2xml='';if(f2&&f2.b64){const r2=rIdRef.val++;const fn2='foto_'+r2+'.'+(f2.ext||'jpeg');relsRef.extraFiles['word/media/'+fn2]=Uint8Array.from(atob(f2.b64),c2=>c2.charCodeAt(0));relsRef.rels.push('<Relationship Id="rId'+r2+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/'+fn2+'"/>');c2xml=mkI(r2);}rows.push(TR([TC(hw,'FFFFFF',mkI(r1),true),TC(W-hw,'FFFFFF',c2xml,true)]));}
+            return rows.length ? (SECC('    FOTOGRAFÍAS PRUEBAS DINÁMICAS')+SP(0)+TABLA([Math.round(W/2),W-Math.round(W/2)],rows)+SP(0)) : '';
+        })(),
         tarPruebas.length>0 ? SECC('    TAREAS DE PRUEBAS DINÁMICAS') : '',
         tarPruebas.length>0 ? tabLista(tarPruebas,W) : '',
         F2W('OBSERVACIONES PRUEBAS', obs.pruebas||'', W), SP(0),
@@ -734,10 +947,12 @@ window.descargarInforme = async (i) => {
         SP(0), PIE(),
     ].join('');
 
-    // ── Descargar fotos desde Firebase y agregarlas al ZIP ──
+    // ── Preparar contenedor compartido para fotos inline ──
     const extraFiles = {};
     extraFiles['word/media/banner.jpeg'] = Uint8Array.from(atob(BANNER_B64), c2=>c2.charCodeAt(0));
     if (tempChartPng) extraFiles['word/media/temp_chart.png'] = Uint8Array.from(atob(tempChartPng), c2=>c2.charCodeAt(0));
+    const rIdRef  = { val: 20 }; // contador global de rIds para fotos
+    const relsRef = { extraFiles, rels: [] };
 
     // Recolectar todas las fotos de las 3 etapas
     const ETAPAS_FOTOS = [
@@ -806,10 +1021,13 @@ window.descargarInforme = async (i) => {
 
     const bodyFinal = seccionFotos ? body.replace(PIE(), seccionFotos + PIE()) : body;
 
-    // Construir rels con fotos incluidas
+    // Construir rels con todas las fotos (inline + sección final)
     let relsBase = '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId6" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header1.xml"/>';
     if (tempChartPng) relsBase += '<Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/temp_chart.png"/>';
     relsBase += '<Relationship Id="rId10" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/banner.jpeg"/>';
+    // Fotos inline (generadas durante construcción del body)
+    if (relsRef.rels.length > 0) relsBase += relsRef.rels.join('');
+    // Fotos sección final (generadas en bucle ETAPAS_FOTOS)
     if (relsExtra.length > 0) relsBase += relsExtra.join('');
     extraFiles['_rels_override'] = relsBase;
 
