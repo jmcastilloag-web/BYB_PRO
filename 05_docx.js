@@ -219,6 +219,50 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             ]);
         };
 
+        // Tabla Check de Desarme
+        const tabCheckDesarme = (checkData, checkObs, W=9026) => {
+            if (!checkData || Object.keys(checkData).length === 0) return '';
+            const LABELS = {
+                machon_acople:'Machón / Acople', eje_acople:'Eje Acople',
+                caja_conexion:'Caja de Conexión', cables_conexion:'Cables de Conexión',
+                placa_conexion:'Placa de Conexión', sensores:'Sensores',
+                regletas_borner:'Regletas / Borner', cubre_ventilador:'Cubre Ventilador',
+                ventilador:'Ventilador', porta_escobilla:'Porta Escobilla',
+                anillo:'Anillo', contrata_ext_lc:'Contratapa Ext. LC',
+                contrata_ext_ll:'Contratapa Ext. LL', contrata_int_lc:'Contratapa Int. LC',
+                contrata_int_ll:'Contratapa Int. LL', tapa_lado_carga:'Tapa Lado Carga',
+                tapa_lado_libre:'Tapa Lado Libre', rodamiento_lc:'Rodamiento LC',
+                rodamiento_ll:'Rodamiento LL', rotor_general:'Rotor General',
+                estator:'Estator', devanado:'Devanado',
+                base_motor:'Base Motor', intercambiador:'Intercambiador',
+                pernos:'Pernos', freno:'Freno', campos:'Campos', otros_check:'Otros',
+            };
+            const obs = checkObs || {};
+            // Filtrar solo los que tienen valor (no N/A)
+            const items = Object.entries(checkData).filter(([k,v]) => v && v !== 'na');
+            if (items.length === 0) return '';
+            const c = [3200, 1200, W-3200-1200];
+            return TABLA(c, [
+                TR([
+                    TC(c[0],'1A3A5C',R('COMPONENTE',12,'FFFFFF',true),false),
+                    TC(c[1],'1A3A5C',R('ESTADO',12,'FFFFFF',true),true),
+                    TC(c[2],'1A3A5C',R('OBSERVACIÓN',12,'FFFFFF',true),false),
+                ]),
+                ...items.map(([k,v], ri) => {
+                    const esBueno = v === 'bueno';
+                    const bgEstado = esBueno ? 'E8F8F0' : 'FFF5F5';
+                    const colorEstado = esBueno ? '27AE60' : 'E74C3C';
+                    const textoEstado = esBueno ? '✅ BUENO' : '❌ MALO';
+                    const bgFila = ri % 2 === 0 ? 'F8FAFF' : 'FFFFFF';
+                    return TR([
+                        TC(c[0], bgFila, R(LABELS[k]||k, 12, '2C3E50'), false),
+                        TC(c[1], bgEstado, R(textoEstado, 12, colorEstado, true), true),
+                        TC(c[2], bgFila, R(obs[k]||'—', 12, '555555'), false),
+                    ]);
+                })
+            ]);
+        };
+
         // Tabla lista de texto simple (hallazgos, terminaciones)
         const tabLista = (items,W=9026) => {
             if(!items||items.length===0) return TABLA([W],[TR([TD('(Sin registros)',W)])]);
@@ -508,6 +552,7 @@ window.descargarInforme = async (i) => {
         // ── 4. DESARME ──
         SECC('4.  DESARME'), RESP((d.responsables||{}).desarme_ok), SP(0),
         tabLista(hallazgos,W), SP(0),
+        (()=>{ const chk = tabCheckDesarme(d.check_desarme, d.check_desarme_obs, W); return chk ? (SECC('    CHECK DE DESARME')+SP(0)+chk+SP(0)) : ''; })(),
         tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
         tarDesarme.length>0 ? tabLista(tarDesarme,W) : '',
         tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
