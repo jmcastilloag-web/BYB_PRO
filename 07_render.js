@@ -580,9 +580,90 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
+                        <div class="det-seccion-titulo" style="margin-top:14px;">🔎 Check de Desarme</div>
+                        <div style="background:#f4f8ff;border:1.5px solid #b0c8e8;border-radius:8px;padding:12px 14px;margin-bottom:14px;overflow-x:auto;">
+                            <p style="font-size:0.8em;color:#555;margin:0 0 10px 0;">Marca cada componente como <b style="color:#27ae60;">BUENO</b>, <b style="color:#e74c3c;">MALO</b> o <b style="color:#888;">N/A</b>. Los marcados N/A no aparecerán en Mantención ni Armado.</p>
+                            <table style="width:100%;border-collapse:collapse;font-size:0.82em;">
+                                <thead><tr style="background:#004F88;color:white;">
+                                    <th style="padding:6px 10px;text-align:left;min-width:160px;">COMPONENTE</th>
+                                    <th style="padding:6px;text-align:center;width:80px;">✅ BUENO</th>
+                                    <th style="padding:6px;text-align:center;width:80px;">❌ MALO</th>
+                                    <th style="padding:6px;text-align:center;width:70px;">— N/A</th>
+                                    <th style="padding:6px 10px;text-align:left;">Observaciones</th>
+                                </tr></thead>
+                                <tbody>
+                                ${(window.ITEMS_CHECK_DESARME||[]).map((item, ci) => {
+                                    const val = (d.check_desarme||{})[item.k] || 'na';
+                                    const obsV = (d.check_desarme_obs||{})[item.k] || '';
+                                    const rowBg = ci%2===0 ? '#f4f8ff' : 'white';
+                                    return `<tr style="background:${rowBg};border-bottom:1px solid #dde1e7;">
+                                        <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${item.label}</td>
+                                        <td style="text-align:center;padding:4px;">
+                                            <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+                                                <input type="radio" name="chkdes_${i}_${item.k}" value="bueno" ${val==='bueno'?'checked':''}
+                                                    onchange="window.guardarCheckDesarme(${i},'${item.k}','bueno')"
+                                                    style="accent-color:#27ae60;">
+                                                <span style="color:#27ae60;font-weight:700;font-size:0.85em;">BUENO</span>
+                                            </label>
+                                        </td>
+                                        <td style="text-align:center;padding:4px;">
+                                            <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+                                                <input type="radio" name="chkdes_${i}_${item.k}" value="malo" ${val==='malo'?'checked':''}
+                                                    onchange="window.guardarCheckDesarme(${i},'${item.k}','malo')"
+                                                    style="accent-color:#e74c3c;">
+                                                <span style="color:#e74c3c;font-weight:700;font-size:0.85em;">MALO</span>
+                                            </label>
+                                        </td>
+                                        <td style="text-align:center;padding:4px;">
+                                            <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+                                                <input type="radio" name="chkdes_${i}_${item.k}" value="na" ${val==='na'?'checked':''}
+                                                    onchange="window.guardarCheckDesarme(${i},'${item.k}','na')"
+                                                    style="accent-color:#888;">
+                                                <span style="color:#888;font-weight:600;font-size:0.85em;">N/A</span>
+                                            </label>
+                                        </td>
+                                        <td style="padding:4px 8px;">
+                                            <input type="text" value="${obsV}" placeholder="Observación..."
+                                                style="width:100%;padding:4px 6px;border:1px solid #dde1e7;border-radius:4px;font-size:0.88em;"
+                                                onblur="window.guardarObsCheckDesarme(${i},'${item.k}',this.value)">
+                                        </td>
+                                    </tr>`;
+                                }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'desarme_ok','ingresos_pendientes')">✅ Fin Desarme</button>`;
                 }
-                else if (d.estado === 'ejecucion_trabajos') UI = `<h3>Mantención</h3>${obs('mantencion')}
+                else if (d.estado === 'ejecucion_trabajos') {
+                    const _chkD = d.check_desarme || {};
+                    const _chkDObs = d.check_desarme_obs || {};
+                    const _itemsConEstado = (window.ITEMS_CHECK_DESARME||[]).filter(it => _chkD[it.k] && _chkD[it.k] !== 'na');
+                    const _resumeCheck = _itemsConEstado.length > 0
+                        ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔎 Resumen Check Desarme</div>
+                           <div style="background:#f8fbff;border:1.5px solid #b0c8e8;border-radius:8px;padding:10px 14px;margin-bottom:14px;overflow-x:auto;">
+                               <p style="font-size:0.78em;color:#555;margin:0 0 8px 0;">Solo se muestran componentes marcados como <b style="color:#27ae60;">BUENO</b> o <b style="color:#e74c3c;">MALO</b> en el desarme.</p>
+                               <table style="width:100%;border-collapse:collapse;font-size:0.82em;">
+                                   <thead><tr style="background:#004F88;color:white;">
+                                       <th style="padding:5px 10px;text-align:left;">COMPONENTE</th>
+                                       <th style="padding:5px;text-align:center;width:90px;">ESTADO</th>
+                                       <th style="padding:5px 10px;text-align:left;">OBSERVACIONES</th>
+                                   </tr></thead><tbody>
+                                   ${_itemsConEstado.map((it, ci2) => {
+                                       const v = _chkD[it.k];
+                                       const obsT = _chkDObs[it.k] || '';
+                                       const color = v==='bueno' ? '#27ae60' : '#e74c3c';
+                                       const lbl   = v==='bueno' ? '✅ BUENO' : '❌ MALO';
+                                       return `<tr style="background:${ci2%2===0?'#f4f8ff':'white'};border-bottom:1px solid #dde1e7;">
+                                           <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${it.label}</td>
+                                           <td style="text-align:center;padding:5px;"><span style="color:${color};font-weight:700;font-size:0.88em;">${lbl}</span></td>
+                                           <td style="padding:5px 10px;color:#555;font-size:0.88em;">${obsT || '—'}</td>
+                                       </tr>`;
+                                   }).join('')}
+                                   </tbody>
+                               </table>
+                           </div>`
+                        : '';
+                    UI = `<h3>Mantención</h3>${_resumeCheck}${obs('mantencion')}
                         <div class="det-seccion-titulo" style="margin-top:10px;">🔧 Tareas de Mantención</div>
                         <div style="background:#f0f4ff;border:1px solid #c0d0f0;border-radius:6px;padding:10px;margin-bottom:10px;">
                             <p style="font-size:0.8em;color:#888;margin:0 0 6px 0;">Agrega cada tarea realizada. Quedará registrada en el informe.</p>
@@ -1373,7 +1454,35 @@ window.render = () => {
                     const rods = d.rodamientos || [];
                     const rodChecks = d.rodamientos_ok || {};
                     const todosRodOk = rods.length === 0 || rods.every((_,ri2) => rodChecks[ri2]);
-                    UI = `<h3>Balanceo</h3>${obs('balanceo')}<button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>`;
+                    const _chkDA = d.check_desarme || {};
+                    const _chkDAObs = d.check_desarme_obs || {};
+                    const _itemsArmado = (window.ITEMS_CHECK_DESARME||[]).filter(it => _chkDA[it.k] && _chkDA[it.k] !== 'na');
+                    const _resumeArmado = _itemsArmado.length > 0
+                        ? `<div class="det-seccion-titulo" style="margin-top:12px;">🔎 Resumen Check Desarme</div>
+                           <div style="background:#f8fbff;border:1.5px solid #b0c8e8;border-radius:8px;padding:10px 14px;margin-bottom:14px;overflow-x:auto;">
+                               <p style="font-size:0.78em;color:#555;margin:0 0 8px 0;">Solo se muestran componentes marcados como <b style="color:#27ae60;">BUENO</b> o <b style="color:#e74c3c;">MALO</b> en el desarme.</p>
+                               <table style="width:100%;border-collapse:collapse;font-size:0.82em;">
+                                   <thead><tr style="background:#004F88;color:white;">
+                                       <th style="padding:5px 10px;text-align:left;">COMPONENTE</th>
+                                       <th style="padding:5px;text-align:center;width:90px;">ESTADO</th>
+                                       <th style="padding:5px 10px;text-align:left;">OBSERVACIONES</th>
+                                   </tr></thead><tbody>
+                                   ${_itemsArmado.map((it, ci3) => {
+                                       const v = _chkDA[it.k];
+                                       const obsT = _chkDAObs[it.k] || '';
+                                       const color = v==='bueno' ? '#27ae60' : '#e74c3c';
+                                       const lbl   = v==='bueno' ? '✅ BUENO' : '❌ MALO';
+                                       return `<tr style="background:${ci3%2===0?'#f4f8ff':'white'};border-bottom:1px solid #dde1e7;">
+                                           <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${it.label}</td>
+                                           <td style="text-align:center;padding:5px;"><span style="color:${color};font-weight:700;font-size:0.88em;">${lbl}</span></td>
+                                           <td style="padding:5px 10px;color:#555;font-size:0.88em;">${obsT || '—'}</td>
+                                       </tr>`;
+                                   }).join('')}
+                                   </tbody>
+                               </table>
+                           </div>`
+                        : '';
+                    UI = `<h3>Balanceo</h3>${obs('balanceo')}<button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>${_resumeArmado}`;
                     if (rods.length > 0) {
                         UI += `<div class="det-seccion-titulo">🔩 Instalación de Rodamientos</div>
                         <div style="background:#f8f9fa;border:1px solid #dde1e7;border-radius:6px;padding:10px;margin-bottom:10px;">
