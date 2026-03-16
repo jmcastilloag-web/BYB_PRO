@@ -399,6 +399,50 @@ window.guardarObs = (i, key) => {
     window.save();
 };
 
+// ── Check de Desarme (BUENO / MALO / N/A) ─────────────────
+window.guardarCheckDesarme = (i, clave, valor) => {
+    if (!window.data[i].check_desarme) window.data[i].check_desarme = {};
+    window.data[i].check_desarme[clave] = valor;
+    window.save();
+};
+window.guardarObsCheckDesarme = (i, clave, valor) => {
+    if (!window.data[i].check_desarme_obs) window.data[i].check_desarme_obs = {};
+    window.data[i].check_desarme_obs[clave] = valor;
+    window.save();
+};
+
+// Lista centralizada de ítems del check de desarme
+window.ITEMS_CHECK_DESARME = [
+    { k: 'machon_acople',       label: 'Machón u Acople' },
+    { k: 'eje_acople',          label: 'Eje Acople' },
+    { k: 'caja_conexion',       label: 'Caja Conexión' },
+    { k: 'cables_conexion',     label: 'Cables Conexión' },
+    { k: 'placa_conexion',      label: 'Placa Conexión' },
+    { k: 'sensores',            label: 'Sensores' },
+    { k: 'regletas_borner',     label: 'Regletas Borner' },
+    { k: 'cubre_ventilador',    label: 'Cubre Ventilador' },
+    { k: 'ventilador',          label: 'Ventilador' },
+    { k: 'porta_escobilla',     label: 'Porta Escobilla' },
+    { k: 'anillo',              label: 'Anillo' },
+    { k: 'contrata_ext_lc',     label: 'Contratapa Exterior LC' },
+    { k: 'contrata_ext_ll',     label: 'Contratapa Exterior LL' },
+    { k: 'contrata_int_lc',     label: 'Contratapa Interior LC' },
+    { k: 'contrata_int_ll',     label: 'Contratapa Interior LL' },
+    { k: 'tapa_lado_carga',     label: 'Tapa Lado Carga' },
+    { k: 'tapa_lado_libre',     label: 'Tapa Lado Libre' },
+    { k: 'rodamiento_lc',       label: 'Rodamiento LC' },
+    { k: 'rodamiento_ll',       label: 'Rodamiento LL' },
+    { k: 'rotor_general',       label: 'Rotor General' },
+    { k: 'estator',             label: 'Estator' },
+    { k: 'devanado',            label: 'Devanado' },
+    { k: 'base_motor',          label: 'Base Motor' },
+    { k: 'intercambiador',      label: 'Intercambiador' },
+    { k: 'pernos',              label: 'Pernos' },
+    { k: 'freno',               label: 'Freno' },
+    { k: 'campos',              label: 'Campos' },
+    { k: 'otros_check',         label: 'Otros' },
+];
+
 // Función para manejar el acordeón
 window.acordeonesAbiertos = new Set();
 window.toggleAccordion = (event) => {
