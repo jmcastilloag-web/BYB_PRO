@@ -13,26 +13,29 @@ window._htmlFotosSimples = (i, etapa, titulo) => {
             <button onclick="window.eliminarFotoSimple(${i},'${etapa}',${fi})"
                     style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0;">✕</button>
         </div>`).join('');
-    return \`<div style="margin-top:10px;background:#f8faff;border:1px solid #d0dce8;border-radius:6px;padding:10px;">
-        <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 \${titulo || 'Fotos'} (\${fotos.length}/\${max})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">\${grid || '<span style=\"font-size:0.78em;color:#aaa;\">Sin fotos aún</span>'}</div>
-        \${fotos.length < max ? \`<label style="display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
+    const btnAgregar = fotos.length < max
+        ? `<label style="display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
             📷 Agregar fotos
             <input type="file" accept="image/*" multiple style="display:none;"
-                onchange="window.subirFotosSimples(\${i},'\${etapa}',this)">
-        </label>\` : \`<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ \${max}/\${max}</span>\`}
-    </div>\`;
+                onchange="window.subirFotosSimples(${i},'${etapa}',this)">
+        </label>`
+        : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${max}/${max}</span>`;
+    const sinFotos = fotos.length === 0 ? '<span style="font-size:0.78em;color:#aaa;">Sin fotos aún</span>' : '';
+    return `<div style="margin-top:10px;background:#f8faff;border:1px solid #d0dce8;border-radius:6px;padding:10px;">
+        <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 ${titulo || 'Fotos'} (${fotos.length}/${max})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">${grid || sinFotos}</div>
+        ${btnAgregar}
+    </div>`;
 };
 
 window._verFotoSimple = (etapa, idx, i) => {
     const d = window.data[i];
-    const fotos = d['fotos_b64_'+etapa] || [];
+    const fotos = d['fotos_b64_' + etapa] || [];
     const f = fotos[idx];
     if (!f) return;
     const win = window.open('');
-    win.document.write(\`<html><body style="margin:0;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="data:image/\${f.ext||'jpeg'};base64,\${f.b64}" style="max-width:100vw;max-height:100vh;object-fit:contain;"></body></html>\`);
+    win.document.write('<html><body style="margin:0;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="data:image/' + (f.ext||'jpeg') + ';base64,' + f.b64 + '" style="max-width:100vw;max-height:100vh;object-fit:contain;"></body></html>');
 };
-
 
 // ── Fotos para nueva OT ──
 window._fotosNuevaOT = [];
@@ -51,18 +54,18 @@ window._agregarFotosNuevaOT = async (inputEl) => {
             r.readAsDataURL(file);
         });
     }
-    // Update preview
     const prev = document.getElementById('fotos_nueva_ot_preview');
     if (prev) {
         prev.innerHTML = window._fotosNuevaOT.map((f, fi) =>
             `<div style="position:relative;display:inline-block;margin:2px;">
                 <img src="data:image/${f.ext};base64,${f.b64}" style="width:60px;height:46px;object-fit:cover;border-radius:3px;border:1px solid #dde1e7;">
-                <button onclick="window._fotosNuevaOT.splice(${fi},1);window._agregarFotosNuevaOT({files:[]});"
+                <button onclick="window._fotosNuevaOT.splice(${fi},1); window._agregarFotosNuevaOT({files:[]});"
                     style="position:absolute;top:-3px;right:-3px;background:#e74c3c;color:white;border:none;border-radius:50%;width:14px;height:14px;font-size:9px;cursor:pointer;line-height:14px;padding:0;">✕</button>
             </div>`
         ).join('');
     }
 };
+
 
 window.render = () => {
     const v = document.getElementById("vista");
