@@ -737,14 +737,20 @@ window.descargarInforme = async (i) => {
                     TC(c[2], bgFila, R(ch.obs||'—', 11, '555555'), false),
                     TC(c[3], 'EAF0FF', R(ch.tecnico||'—', 11, '1a2a6a'), false),
                 ]);
-                const fotaRows = fk.length > 0 ? _bloqFotos(fk, _extraFotos, _relsArr, _rIdCounter) : '';
-                return filaData + fotaRows;
+                return filaData; // fotos van después de la tabla
             }).join('');
-            return SECC('    CHECK DE REVISIÓN VISUAL DE INGRESO') + SP(0) +
-                TABLA(c, [
-                    TR([TC(c[0],'1A3A5C',R('COMPONENTE',11,'FFFFFF',true),false),TC(c[1],'1A3A5C',R('ESTADO',11,'FFFFFF',true),true),TC(c[2],'1A3A5C',R('OBSERVACIÓN',11,'FFFFFF',true),false),TC(c[3],'1A3A5C',R('TÉCNICO',11,'FFFFFF',true),false)]),
-                    rows
-                ]) + SP(0);
+            const headerRev = TR([TC(c[0],'1A3A5C',R('COMPONENTE',11,'FFFFFF',true),false),TC(c[1],'1A3A5C',R('ESTADO',11,'FFFFFF',true),true),TC(c[2],'1A3A5C',R('OBSERVACIÓN',11,'FFFFFF',true),false),TC(c[3],'1A3A5C',R('TÉCNICO',11,'FFFFFF',true),false)]);
+            const tot = c.reduce((a,b)=>a+b,0);
+            const tablaRevXml = `<w:tbl><w:tblPr><w:tblW w:w="${tot}" w:type="dxa"/></w:tblPr><w:tblGrid>${c.map(col=>`<w:gridCol w:w="${col}"/>`).join('')}</w:tblGrid>${headerRev}${rows}</w:tbl>`;
+            // Agregar fotos por componente después de la tabla
+            let fotosRevXml = '';
+            revItems.forEach(it => {
+                const fk = fotosRev[it.k] || [];
+                if (fk.length === 0) return;
+                const f = _bloqFotos(fk, _extraFotos, _relsArr, _rIdCounter);
+                if (f) fotosRevXml += `<w:p><w:pPr><w:spacing w:before="60" w:after="0"/><w:ind w:left="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="004F88"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">📷 ${xE(it.label)}</w:t></w:r></w:p>` + f;
+            });
+            return SECC('    CHECK DE REVISIÓN VISUAL DE INGRESO') + SP(0) + tablaRevXml + (fotosRevXml ? SP(20)+fotosRevXml : '') + SP(0);
         })(),
         RESP((d.responsables||{}).mec_fin),
         (()=>{
@@ -752,7 +758,7 @@ window.descargarInforme = async (i) => {
             const items = Object.entries(mt).filter(([k,v]) => v && v.usuario);
             if (!items.length) return '';
             const LABELS_MEC = {encam_lc:'Encamisado LC',encam_ll:'Encamisado LL',metal_lc:'Metalado LC',metal_ll:'Metalado LL',rectif:'Rectificado General',fabric:'Fabricación Pieza',trab_gral:'Trabajo Mecánico General'};
-            const c = [2500,900,900,W-2500-900-900-1800,1800];
+            const c = [2400,900,900,W-2400-900-900-1400,1400];
             let rows = [TR([TC(c[0],'1A3A5C',R('TRABAJO',11,'FFFFFF',true),false),TC(c[1],'1A3A5C',R('ESTADO',11,'FFFFFF',true),true),TC(c[2],'1A3A5C',R('TÉCNICO',11,'FFFFFF',true),false),TC(c[3],'1A3A5C',R('MEDIDAS / NOTAS',11,'FFFFFF',true),false),TC(c[4],'1A3A5C',R('FOTOS',11,'FFFFFF',true),true)])];
             let allFotos = [];
             items.forEach(([k,v],ri)=>{
