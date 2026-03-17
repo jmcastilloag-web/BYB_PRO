@@ -652,6 +652,7 @@ window.descargarInforme = async (i) => {
 
         // ── 1. DATOS DE RECEPCIÓN ──
         SECC('1.  DATOS DE RECEPCIÓN'), SP(0),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_ingreso||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DE INGRESO')+SP(0)+f+SP(0)) : ''; })(),
         TABLA([2256,2256,2257,2257],[
             TR([TH('CLIENTE',2256,false),TD(d.empresa,2256),TH('R.U.T.',2257,false),TD(rec.rut,2257)]),
             TR([TH('FECHA RECEPCIÓN',2256,false),TD(rec.fecha?(rec.fecha.split('-').reverse().join('/')):'-',2256),TH('GUÍA DESPACHO',2257,false),TD(rec.guia,2257)]),
@@ -682,6 +683,7 @@ window.descargarInforme = async (i) => {
         tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
         RESP((d.responsables||{}).mant_ok),
         tarMant.length>0 ? tabLista(tarMant,W) : '',
+        (()=>{ const f=_bloqFotos(d.fotos_b64_mantencion_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES MANTENCIÓN')+SP(0)+f+SP(0)) : ''; })(),
         (()=>{
             const chkM = tabCheckComponentes(d.check_desarme, d.check_mantencion, d.check_mantencion_obs, d.check_mantencion_resp, 'Mantención', W);
             if (!chkM) return '';
@@ -694,6 +696,7 @@ window.descargarInforme = async (i) => {
         SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), RESP((d.responsables||{}).med_ok), SP(0),
         tabMedElec(medIng,W), SP(0),
         (()=>{ const f=_bloqFotos(d.fotos_b64_mediciones_ing||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_mediciones_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES CALIDAD')+SP(0)+f+SP(0)) : ''; })(),
         tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
         tarCalidad.length>0 ? tabLista(tarCalidad,W) : '',
         F2W('OBSERVACIONES', obs.med_ingreso||'', W), SP(0),
@@ -774,6 +777,8 @@ window.descargarInforme = async (i) => {
         })(),
         tarMec.length>0 ? SECC('    TAREAS MECÁNICA FINAL') : '',
         tarMec.length>0 ? tabLista(tarMec,W) : '',
+        (()=>{ const f=_bloqFotos(d.fotos_b64_mecanica_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES MECÁNICA')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_metrologia_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES METROLOGÍA')+SP(0)+f+SP(0)) : ''; })(),
         SP(0), F2W('OBSERVACIONES', obs.metrologia||'', W), SP(0),
 
         // ── 7. DATOS DE BOBINADO (plana completa) ──
@@ -782,6 +787,9 @@ window.descargarInforme = async (i) => {
         tabBobCompleto(d,W), SP(0),
         `<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>`,
 
+        (()=>{ const f=_bloqFotos(d.fotos_b64_bobinado_mediciones||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES BOBINADO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_bobinado_devanado||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DEVANADO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_bobinado_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES BOBINADO')+SP(0)+f+SP(0)) : ''; })(),
         // ── 8. PARTES / PIEZAS / COMPONENTES ──
         SECC('8.  PARTES / PIEZAS / COMPONENTES'), SP(0),
         tabChecks(TRABAJOS_LIST,det,W), SP(0),
@@ -792,6 +800,7 @@ window.descargarInforme = async (i) => {
         SECC('9.  RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
         tabRodamientos(d,W), SP(0),
         (()=>{ const f=_bloqFotos(d.fotos_b64_balanceo||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS BALANCEO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_balanceo_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES BALANCEO')+SP(0)+f+SP(0)) : ''; })(),
         (()=>{
             const chkA = tabCheckComponentes(d.check_desarme, d.check_armado, d.check_armado_obs, d.check_armado_resp, 'Armado', W);
             if (!chkA) return '';
@@ -888,6 +897,7 @@ window.descargarInforme = async (i) => {
         ot, empresa: em, estado: 'desarme', pri: 'normal',
         pasos: {}, observaciones: {}, mediciones: {}, archivos: [],
         recepcion: rec,
+        fotos_b64_ingreso: (window._fotosNuevaOT && window._fotosNuevaOT.length > 0) ? [...window._fotosNuevaOT] : [],
         piezas_recepcion: piezas,
         piezas_recepcion_checks: {},
         placa: {
