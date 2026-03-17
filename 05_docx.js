@@ -285,7 +285,7 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                             }
                         }
                         // Celda de fotos ocupa las 4 columnas de la tabla principal via gridSpan
-                        const fotaContent = `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
+                        const fotaContent = `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
                         rows.push(`<w:tr><w:trPr><w:trHeight w:val="10"/></w:trPr><w:tc><w:tcPr><w:gridSpan w:val="4"/><w:tcW w:w="${W}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F4FF"/></w:tcPr>${fotaContent}</w:tc></w:tr>`);
                     }
                 }
