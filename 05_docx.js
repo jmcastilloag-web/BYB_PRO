@@ -320,15 +320,15 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
         // fotosArray: [{b64, ext}] — rIdRef: {val:N} — extraFilesRef y relsArrRef para acumular
         const _bloqFotos = (fotosArray, extraFilesRef, relsArrRef, rIdRef) => {
             if (!fotosArray || fotosArray.length === 0) return '';
-            const cx = Math.round(8.94 * 36000); // 8.94cm en EMU
-            const cy = Math.round(6.69 * 36000); // 6.69cm en EMU
+            const cx = Math.round(8.94 * 360000); // 8.94cm en EMU
+            const cy = Math.round(6.69 * 360000); // 6.69cm en EMU
             const mkImg = (rid) =>
                 `<w:p><w:pPr><w:spacing w:before="40" w:after="40"/><w:jc w:val="left"/></w:pPr>` +
                 `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
                 `<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
                 `<wp:extent cx="${cx}" cy="${cy}"/>` +
                 `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
-                `<wp:docPr id="${rid}" name="foto${rid}"/>` +
+                `<wp:docPr id="${rid + 1000}" name="foto${rid}"/>`
                 `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
                 `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
                 `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
