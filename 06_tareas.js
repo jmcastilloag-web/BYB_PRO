@@ -484,6 +484,34 @@ window.subirFotosComponente = async (i, etapa, clave, inputEl) => {
         if (btn) { btn.textContent = '📷 Fotos'; btn.disabled = false; }
     }
 };
+
+// ── Subir fotos simples (etapas sin componentes) ──
+window.subirFotosSimples = async (i, etapa, inputEl) => {
+    const files = Array.from(inputEl.files);
+    if (!files.length) return;
+    const d = window.data[i];
+    const key = 'fotos_b64_' + etapa;
+    if (!d[key]) d[key] = [];
+    for (const file of files) {
+        if (d[key].length >= 20) { alert('Máximo 20 fotos por sección.'); break; }
+        const ext = file.name.split('.').pop().toLowerCase().replace('jpg','jpeg');
+        const b64 = await _fileToBase64(file);
+        d[key].push({ b64, ext: ext === 'jpg' ? 'jpeg' : ext });
+    }
+    window.save();
+    window.render();
+};
+
+window.eliminarFotoSimple = (i, etapa, idx) => {
+    const d = window.data[i];
+    const key = 'fotos_b64_' + etapa;
+    if (d[key]) {
+        d[key].splice(idx, 1);
+        window.save();
+        window.render();
+    }
+};
+
 window.eliminarFotoComponente = (i, etapa, clave, fi) => {
     const fotoB64Key = 'fotos_b64_' + etapa;
     if (!window.data[i][fotoB64Key]?.[clave]) return;
