@@ -239,9 +239,9 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             };
             const obs   = checkObs  || {};
             const fotos = fotosObj  || {};
-            const cx3 = Math.round(5.5 * 360000);
-            const cy3 = Math.round(4.0 * 360000);
-            const colW3 = Math.round(W / 3);
+            const cx3 = Math.round(4.2 * 360000);
+            const cy3 = Math.round(3.15 * 360000);
+            const colW3 = Math.round(W / 4);
             const items = Object.entries(checkData).filter(([k,v]) => v && v !== 'na');
             if (items.length === 0) return '';
             const c = [3200, 1200, W-3200-1200];
@@ -266,11 +266,11 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                 // Fila de fotos del componente (3 por fila, 5.5x4cm)
                 const fArr = fotos[k] || [];
                 if (fArr.length > 0 && extraFilesRef) {
-                    for (let fi = 0; fi < fArr.length; fi += 3) {
-                        const grupo = fArr.slice(fi, fi + 3);
+                    for (let fi = 0; fi < fArr.length; fi += 4) {
+                        const grupo = fArr.slice(fi, fi + 4);
                         const imgCells = [];
                         const lblCells = [];
-                        for (let gi = 0; gi < 3; gi++) {
+                        for (let gi = 0; gi < 4; gi++) {
                             const f = grupo[gi];
                             if (f && f.b64) {
                                 const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
@@ -282,7 +282,7 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                             }
                         }
                         // Celda de fotos ocupa las 3 columnas de la tabla principal via gridSpan
-                        const fotaContent = `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
+                        const fotaContent = `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
                         rows.push(`<w:tr><w:trPr><w:trHeight w:val="10"/></w:trPr><w:tc><w:tcPr><w:gridSpan w:val="3"/><w:tcW w:w="${W}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F4FF"/></w:tcPr>${fotaContent}</w:tc></w:tr>`);
                     }
                 }
@@ -312,9 +312,9 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             const obs   = checkObs   || {};
             const resp  = checkResp  || {};
             const fotos = fotosObj   || {};
-            const cx3 = Math.round(5.5 * 360000);
-            const cy3 = Math.round(4.0 * 360000);
-            const colW3 = Math.round(W / 3);
+            const cx3 = Math.round(4.2 * 360000);
+            const cy3 = Math.round(3.15 * 360000);
+            const colW3 = Math.round(W / 4);
             const items = Object.entries(checkDesarme).filter(([k,v]) => v && v !== 'na');
             if (items.length === 0) return '';
             const c = [2500, 1000, 1000, W-2500-1000-1000-1600, 1600];
@@ -347,11 +347,11 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                 // Fila de fotos del componente (3 por fila, 5.5x4cm)
                 const fArr = fotos[k] || [];
                 if (fArr.length > 0 && extraFilesRef) {
-                    for (let fi = 0; fi < fArr.length; fi += 3) {
-                        const grupo = fArr.slice(fi, fi + 3);
+                    for (let fi = 0; fi < fArr.length; fi += 4) {
+                        const grupo = fArr.slice(fi, fi + 4);
                         const imgCells = [];
                         const lblCells = [];
-                        for (let gi = 0; gi < 3; gi++) {
+                        for (let gi = 0; gi < 4; gi++) {
                             const f = grupo[gi];
                             if (f && f.b64) {
                                 const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
@@ -362,7 +362,7 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                                 lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
                             }
                         }
-                        const fotaContent = `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
+                        const fotaContent = `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
                         rows.push(`<w:tr><w:trPr><w:trHeight w:val="10"/></w:trPr><w:tc><w:tcPr><w:gridSpan w:val="5"/><w:tcW w:w="${W}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F4FF"/></w:tcPr>${fotaContent}</w:tc></w:tr>`);
                     }
                 }
@@ -431,36 +431,64 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             return html;
         };
 
-        // ── Fotos GENERALES: 2 por fila, 8cm x 6cm, con pie de foto ──
+        // ── Fotos GENERALES: 4 por fila, 4.2cm x 3.15cm, con pie de foto ──
         const _bloqFotosGenerales = (fotosArray, extraFilesRef, relsArrRef, rIdRef, labelFn) => {
             if (!fotosArray || fotosArray.length === 0) return '';
-            const cx = Math.round(8.0 * 360000);
-            const cy = Math.round(6.0 * 360000);
+            const cx = Math.round(4.2 * 360000);
+            const cy = Math.round(3.15 * 360000);
             const W = 9026;
-            const colW = Math.round(W / 2);
+            const colW = Math.round(W / 4);
             let html = '';
-            for (let fi = 0; fi < fotosArray.length; fi += 2) {
-                const f1 = fotosArray[fi];
-                const f2 = fotosArray[fi + 1];
-                if (!f1 || !f1.b64) continue;
-                const rid1 = _regFoto(f1, extraFilesRef, relsArrRef, rIdRef);
-                const lbl1 = labelFn ? xE(labelFn(fi)) : `Foto ${fi + 1}`;
-                const imgCell1 = `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid1, cx, cy)}</w:p></w:tc>`;
-                const lblCell1 = `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(10,'555555',false)}</w:rPr><w:t>${lbl1}</w:t></w:r></w:p></w:tc>`;
-                let imgCell2 = `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`;
-                let lblCell2 = `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`;
-                if (f2 && f2.b64) {
-                    const rid2 = _regFoto(f2, extraFilesRef, relsArrRef, rIdRef);
-                    const lbl2 = labelFn ? xE(labelFn(fi+1)) : `Foto ${fi + 2}`;
-                    imgCell2 = `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid2, cx, cy)}</w:p></w:tc>`;
-                    lblCell2 = `<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(10,'555555',false)}</w:rPr><w:t>${lbl2}</w:t></w:r></w:p></w:tc>`;
+            for (let fi = 0; fi < fotosArray.length; fi += 4) {
+                const grupo = fotosArray.slice(fi, fi + 4);
+                const imgCells = [];
+                const lblCells = [];
+                for (let gi = 0; gi < 4; gi++) {
+                    const f = grupo[gi];
+                    if (f && f.b64) {
+                        const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
+                        const lbl = labelFn ? xE(labelFn(fi+gi)) : `Foto ${fi+gi+1}`;
+                        imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx, cy)}</w:p></w:tc>`);
+                        lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(9,'555555',false)}</w:rPr><w:t>${lbl}</w:t></w:r></w:p></w:tc>`);
+                    } else {
+                        imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
+                        lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
+                    }
                 }
-                html += `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblInd w:w="130" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="1" w:color="DDE1E7"/><w:left w:val="single" w:sz="1" w:color="DDE1E7"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/></w:tblGrid><w:tr>${imgCell1}${imgCell2}</w:tr><w:tr>${lblCell1}${lblCell2}</w:tr></w:tbl>`;
+                html += `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblInd w:w="130" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="1" w:color="DDE1E7"/><w:left w:val="single" w:sz="1" w:color="DDE1E7"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
                 html += SP(20);
             }
             return html;
         };
 
+        // ── Fotos INGRESO: 5 por fila, 3.3cm x 2.5cm ──
+        const _bloqFotosIngreso = (fotosArray, extraFilesRef, relsArrRef, rIdRef) => {
+            if (!fotosArray || fotosArray.length === 0) return '';
+            const cx = Math.round(3.3 * 360000);
+            const cy = Math.round(2.5 * 360000);
+            const W = 9026;
+            const colW = Math.round(W / 5);
+            let html = '';
+            for (let fi = 0; fi < fotosArray.length; fi += 5) {
+                const grupo = fotosArray.slice(fi, fi + 5);
+                const imgCells = [];
+                const lblCells = [];
+                for (let gi = 0; gi < 5; gi++) {
+                    const f = grupo[gi];
+                    if (f && f.b64) {
+                        const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
+                        imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx, cy)}</w:p></w:tc>`);
+                        lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(8,'555555',false)}</w:rPr><w:t>Foto ${fi+gi+1}</w:t></w:r></w:p></w:tc>`);
+                    } else {
+                        imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
+                        lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
+                    }
+                }
+                html += `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblInd w:w="130" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="1" w:color="DDE1E7"/><w:left w:val="single" w:sz="1" w:color="DDE1E7"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
+                html += SP(20);
+            }
+            return html;
+        };
 
         // Tabla lista de texto simple (hallazgos, terminaciones)
         const tabLista = (items,W=9026) => {
@@ -748,7 +776,7 @@ window.descargarInforme = async (i) => {
 
         // ── 1. DATOS DE RECEPCIÓN ──
         SECC('1.  DATOS DE RECEPCIÓN'), SP(0),
-        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_ingreso||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DE INGRESO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosIngreso(d.fotos_b64_ingreso||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DE INGRESO')+SP(0)+f+SP(0)) : ''; })(),
         TABLA([2256,2256,2257,2257],[
             TR([TH('CLIENTE',2256,false),TD(d.empresa,2256),TH('R.U.T.',2257,false),TD(rec.rut,2257)]),
             TR([TH('FECHA RECEPCIÓN',2256,false),TD(rec.fecha?(rec.fecha.split('-').reverse().join('/')):'-',2256),TH('GUÍA DESPACHO',2257,false),TD(rec.guia,2257)]),
