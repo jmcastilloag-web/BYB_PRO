@@ -318,7 +318,7 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
 
         // ── Helper: genera párrafos de fotos 2 por fila (inline en sección) ──
         // fotosArray: [{b64, ext}] — rIdRef: {val:N} — extraFilesRef y relsArrRef para acumular
-        const _bloqFotos = (fotosArray, extraFilesRef, relsArrRef) => {
+        const _bloqFotos = (fotosArray, extraFilesRef, relsArrRef, rIdRef) => {
             if (!fotosArray || fotosArray.length === 0) return '';
             const cx = Math.round(8.94 * 36000); // 8.94cm en EMU
             const cy = Math.round(6.69 * 36000); // 6.69cm en EMU
@@ -345,14 +345,14 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                 const f1 = fotosArray[fi];
                 const f2 = fotosArray[fi + 1];
                 if (!f1 || !f1.b64) continue;
-                const rId1 = _rIdCounter.val++;
+                const rId1 = rIdRef.val++;
                 const fn1 = 'foto_' + rId1 + '.' + (f1.ext || 'jpeg');
                 extraFilesRef[`word/media/${fn1}`] = Uint8Array.from(atob(f1.b64), c2 => c2.charCodeAt(0));
                 relsArrRef.push(`<Relationship Id="rId${rId1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn1}"/>`);
                 // 2 fotos por fila usando tabla de 2 columnas
                 let cell2 = `<w:tc><w:tcPr><w:tcW w:w="${halfW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`;
                 if (f2 && f2.b64) {
-                    const rId2 = _rIdCounter.val++;
+                    const rId2 = rIdRef.val++;
                     const fn2 = 'foto_' + rId2 + '.' + (f2.ext || 'jpeg');
                     extraFilesRef[`word/media/${fn2}`] = Uint8Array.from(atob(f2.b64), c2 => c2.charCodeAt(0));
                     relsArrRef.push(`<Relationship Id="rId${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn2}"/>`);
@@ -672,7 +672,7 @@ window.descargarInforme = async (i) => {
         (()=>{
             const chk = tabCheckDesarme(d.check_desarme, d.check_desarme_obs, W);
             if (!chk) return '';
-            const fotos = _bloqFotos(d.fotos_b64_desarme ? Object.values(d.fotos_b64_desarme).flat() : [], _extraFotos, _relsArr);
+            const fotos = _bloqFotos(d.fotos_b64_desarme ? Object.values(d.fotos_b64_desarme).flat() : [], _extraFotos, _relsArr, _rIdCounter);
             return SECC('    CHECK DE DESARME') + SP(0) + chk + (fotos ? SP(20)+fotos : '') + SP(0);
         })(),
         tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
@@ -683,7 +683,7 @@ window.descargarInforme = async (i) => {
         (()=>{
             const chkM = tabCheckComponentes(d.check_desarme, d.check_mantencion, d.check_mantencion_obs, d.check_mantencion_resp, 'Mantención', W);
             if (!chkM) return '';
-            const fotos = _bloqFotos(d.fotos_b64_mantencion ? Object.values(d.fotos_b64_mantencion).flat() : [], _extraFotos, _relsArr);
+            const fotos = _bloqFotos(d.fotos_b64_mantencion ? Object.values(d.fotos_b64_mantencion).flat() : [], _extraFotos, _relsArr, _rIdCounter);
             return SECC('    CHECK DE MANTENCIÓN POR COMPONENTE') + SP(0) + chkM + (fotos ? SP(20)+fotos : '') + SP(0);
         })(),
         SP(0), F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
@@ -691,7 +691,7 @@ window.descargarInforme = async (i) => {
         // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
         SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), RESP((d.responsables||{}).med_ok), SP(0),
         tabMedElec(medIng,W), SP(0),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_mediciones_ing||[], _extraFotos, _relsArr); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_mediciones_ing||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+f+SP(0)) : ''; })(),
         tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
         tarCalidad.length>0 ? tabLista(tarCalidad,W) : '',
         F2W('OBSERVACIONES', obs.med_ingreso||'', W), SP(0),
@@ -708,30 +708,43 @@ window.descargarInforme = async (i) => {
         tarMecIng.length>0 ? tabLista(tarMecIng,W) : '',
         (()=>{
             const revItems = [
-                {k:'contratapa_lc', label:'Revisión Contratapa Lado Carga'},
-                {k:'contratapa_ll', label:'Revisión Contratapa Lado Libre'},
-                {k:'slingues_lc',   label:'Revisión de Slingues LC'},
-                {k:'slingues_ll',   label:'Revisión de Slingues LL'},
+                {k:'contratapa_lc', label:'Contratapa Lado Carga'},
+                {k:'contratapa_ll', label:'Contratapa Lado Libre'},
+                {k:'slingues_lc',   label:'Slingues LC'},
+                {k:'slingues_ll',   label:'Slingues LL'},
                 {k:'machon_acople', label:'Machón o Acople'},
                 {k:'eje_acople',    label:'Eje Acople'},
                 {k:'ventilador',    label:'Ventilador'},
                 {k:'otros',         label:'Otros'},
             ];
             const checks = d.metro_revision_checks || {};
-            const hasData = revItems.some(it => checks[it.k]?.obs);
+            const fotosRev = d.fotos_b64_metro_revision || {};
+            const hasData = revItems.some(it => checks[it.k]?.val || checks[it.k]?.obs);
             if (!hasData) return '';
-            const rows = revItems.map(it => {
-                const ch = checks[it.k] || {};
-                return TR([
-                    TC(3500,'',`<w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t>${it.label}</w:t></w:r>`,false),
-                    TC(1000,ch.ok?'C6EFCE':'',`<w:r><w:rPr><w:sz w:val="18"/><w:b/></w:rPr><w:t xml:space="preserve">${ch.ok?'✅ OK':'—'}</w:t></w:r>`,true),
-                    TC(W-4500,'',`<w:r><w:rPr><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">${ch.obs||'—'}</w:t></w:r>`,false),
+            const c = [2500, 1000, W-2500-1000-1600, 1600];
+            const rows = revItems.map((it, ri) => {
+                const ch  = checks[it.k] || {};
+                const val = ch.val || 'na';
+                const esBueno = val==='bueno', esMalo = val==='malo';
+                const bgEst = esBueno?'E8F8F0':esMalo?'FFF5F5':'F5F5F5';
+                const colEst = esBueno?'27AE60':esMalo?'E74C3C':'888888';
+                const txtEst = esBueno?'✅ BUENO':esMalo?'❌ MALO':'— N/A';
+                const bgFila = ri%2===0?'F8FAFF':'FFFFFF';
+                const fk = fotosRev[it.k] || [];
+                const filaData = TR([
+                    TC(c[0], bgFila, R(it.label, 11, '2C3E50'), false),
+                    TC(c[1], bgEst,  R(txtEst, 11, colEst, true), true),
+                    TC(c[2], bgFila, R(ch.obs||'—', 11, '555555'), false),
+                    TC(c[3], 'EAF0FF', R(ch.tecnico||'—', 11, '1a2a6a'), false),
                 ]);
+                const fotaRows = fk.length > 0 ? _bloqFotos(fk, _extraFotos, _relsArr, _rIdCounter) : '';
+                return filaData + fotaRows;
             }).join('');
-            return SECC('    LISTA DE REVISIÓN VISUAL DE INGRESO') +
-                `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="4" w:color="BFBFBF"/><w:left w:val="single" w:sz="4" w:color="BFBFBF"/><w:bottom w:val="single" w:sz="4" w:color="BFBFBF"/><w:right w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideH w:val="single" w:sz="4" w:color="BFBFBF"/><w:insideV w:val="single" w:sz="4" w:color="BFBFBF"/></w:tblBorders></w:tblPr>` +
-                TR([TH('Ítem de Revisión',3500),TH('Estado',1000),TH('Observación',W-4500)]) +
-                rows + `</w:tbl>`;
+            return SECC('    CHECK DE REVISIÓN VISUAL DE INGRESO') + SP(0) +
+                TABLA(c, [
+                    TR([TC(c[0],'1A3A5C',R('COMPONENTE',11,'FFFFFF',true),false),TC(c[1],'1A3A5C',R('ESTADO',11,'FFFFFF',true),true),TC(c[2],'1A3A5C',R('OBSERVACIÓN',11,'FFFFFF',true),false),TC(c[3],'1A3A5C',R('TÉCNICO',11,'FFFFFF',true),false)]),
+                    rows
+                ]) + SP(0);
         })(),
         RESP((d.responsables||{}).mec_fin),
         (()=>{
@@ -748,7 +761,7 @@ window.descargarInforme = async (i) => {
                 if(v.fotos_b64) allFotos = allFotos.concat(v.fotos_b64);
             });
             const tabla = TABLA(c, rows);
-            const fotos = _bloqFotos(allFotos, _extraFotos, _relsArr);
+            const fotos = _bloqFotos(allFotos, _extraFotos, _relsArr, _rIdCounter);
             return SECC('    TRABAJOS MECÁNICA — TÉCNICOS') + SP(0) + tabla + (fotos?SP(20)+fotos:'') + SP(0);
         })(),
         tarMec.length>0 ? SECC('    TAREAS MECÁNICA FINAL') : '',
@@ -770,10 +783,11 @@ window.descargarInforme = async (i) => {
         // ── 9. RODAMIENTOS Y ARMADO ──
         SECC('9.  RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
         tabRodamientos(d,W), SP(0),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_balanceo||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS BALANCEO')+SP(0)+f+SP(0)) : ''; })(),
         (()=>{
             const chkA = tabCheckComponentes(d.check_desarme, d.check_armado, d.check_armado_obs, d.check_armado_resp, 'Armado', W);
             if (!chkA) return '';
-            const fotos = _bloqFotos(d.fotos_b64_armado ? Object.values(d.fotos_b64_armado).flat() : [], _extraFotos, _relsArr);
+            const fotos = _bloqFotos(d.fotos_b64_armado ? Object.values(d.fotos_b64_armado).flat() : [], _extraFotos, _relsArr, _rIdCounter);
             return SECC('    CHECK DE ARMADO POR COMPONENTE') + SP(0) + chkA + (fotos ? SP(20)+fotos : '') + SP(0);
         })(),
         tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
@@ -789,7 +803,7 @@ window.descargarInforme = async (i) => {
         tabPruebas(d,W), SP(0),
         tarPruebas.length>0 ? SECC('    TAREAS DE PRUEBAS DINÁMICAS') : '',
         tarPruebas.length>0 ? tabLista(tarPruebas,W) : '',
-        (()=>{ const f=_bloqFotos(d.fotos_b64_pruebas||[], _extraFotos, _relsArr); return f ? (SECC('    FOTOGRAFÍAS PRUEBAS DINÁMICAS')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotos(d.fotos_b64_pruebas||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS PRUEBAS DINÁMICAS')+SP(0)+f+SP(0)) : ''; })(),
         F2W('OBSERVACIONES PRUEBAS', obs.pruebas||'', W), SP(0),
 
         // ── 12. REGISTRO DE TEMPERATURAS ──
