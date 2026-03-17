@@ -316,55 +316,84 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             ]);
         };
 
-        // ── Helper: genera párrafos de fotos 2 por fila (inline en sección) ──
-        // fotosArray: [{b64, ext}] — rIdRef: {val:N} — extraFilesRef y relsArrRef para acumular
-        const _bloqFotos = (fotosArray, extraFilesRef, relsArrRef, rIdRef) => {
-            if (!fotosArray || fotosArray.length === 0) return '';
-            const cx = Math.round(8.94 * 360000); // Bug1 fix: 360000 EMU/cm
-            const cy = Math.round(6.69 * 360000);
-            // Bug3 fix: mkImgRun devuelve solo <w:r> sin <w:p> exterior,
-            // porque TC() ya envuelve el contenido en <w:p>. Anidar <w:p> dentro
-            // de <w:p> es XML inválido para Word.
-            const mkImgRun = (rid) =>
-                `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
-                `<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
-                `<wp:extent cx="${cx}" cy="${cy}"/>` +
-                `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
-                `<wp:docPr id="${rid + 1000}" name="foto${rid}"/>` +
-                `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
-                `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
-                `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
-                `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
-                `<pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr>` +
-                `<pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
-                `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
-                `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
-                `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+        // ── Helper: genera imagen inline para Word ──
+        const _mkImgWordRun = (rid, cxEmu, cyEmu) =>
+            `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
+            `<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
+            `<wp:extent cx="${cxEmu}" cy="${cyEmu}"/>` +
+            `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
+            `<wp:docPr id="${rid + 1000}" name="foto${rid}"/>` +
+            `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
+            `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
+            `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+            `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
+            `<pic:nvPicPr><pic:cNvPr id="${rid}" name="foto${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr>` +
+            `<pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
+            `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cxEmu}" cy="${cyEmu}"/></a:xfrm>` +
+            `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
+            `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
 
-            const halfW = Math.round(9026 / 2);
+        // ── Helper: registrar foto en extras y rels ──
+        const _regFoto = (f, extraFilesRef, relsArrRef, rIdRef) => {
+            const rid = rIdRef.val++;
+            const fn = 'foto_' + rid + '.' + (f.ext || 'jpeg');
+            extraFilesRef[`word/media/${fn}`] = Uint8Array.from(atob(f.b64), c2 => c2.charCodeAt(0));
+            relsArrRef.push(`<Relationship Id="rId${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn}"/>`);
+            return rid;
+        };
+
+        // ── Fotos de COMPONENTES: 3 por fila, 5.5cm x 4cm, con pie de foto ──
+        const _bloqFotos = (fotosArray, extraFilesRef, relsArrRef, rIdRef, labelFn) => {
+            if (!fotosArray || fotosArray.length === 0) return '';
+            const cx = Math.round(5.5 * 360000);
+            const cy = Math.round(4.0 * 360000);
+            const colW = Math.round(9026 / 3);  // ~3008 twips cada columna
             let html = '';
-            for (let fi = 0; fi < fotosArray.length; fi += 2) {
-                const f1 = fotosArray[fi];
-                const f2 = fotosArray[fi + 1];
-                if (!f1 || !f1.b64) continue;
-                const rId1 = rIdRef.val++;
-                const fn1 = 'foto_' + rId1 + '.' + (f1.ext || 'jpeg');
-                extraFilesRef[`word/media/${fn1}`] = Uint8Array.from(atob(f1.b64), c2 => c2.charCodeAt(0));
-                relsArrRef.push(`<Relationship Id="rId${rId1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn1}"/>`);
-                // 2 fotos por fila usando tabla de 2 columnas
-                let cell2 = `<w:tc><w:tcPr><w:tcW w:w="${halfW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`;
-                if (f2 && f2.b64) {
-                    const rId2 = rIdRef.val++;
-                    const fn2 = 'foto_' + rId2 + '.' + (f2.ext || 'jpeg');
-                    extraFilesRef[`word/media/${fn2}`] = Uint8Array.from(atob(f2.b64), c2 => c2.charCodeAt(0));
-                    relsArrRef.push(`<Relationship Id="rId${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn2}"/>`);
-                    cell2 = TC(halfW, 'FFFFFF', mkImgRun(rId2), false);
+            for (let fi = 0; fi < fotosArray.length; fi += 3) {
+                const grupo = fotosArray.slice(fi, fi + 3);
+                // Fila de imágenes
+                const imgCells = [];
+                const lblCells = [];
+                for (let gi = 0; gi < 3; gi++) {
+                    const f = grupo[gi];
+                    if (f && f.b64) {
+                        const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
+                        const label = labelFn ? xE(labelFn(fi + gi)) : `Foto ${fi + gi + 1}`;
+                        imgCells.push(TC(colW, 'FFFFFF', _mkImgWordRun(rid, cx, cy), true));
+                        lblCells.push(TC(colW, 'F5F6F7',
+                            `<w:r><w:rPr>${CAL(10,'555555',false)}</w:rPr><w:t xml:space="preserve">${label}</w:t></w:r>`,
+                            true));
+                    } else {
+                        imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p></w:tc>`);
+                        lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p></w:tc>`);
+                    }
                 }
-                html += TABLA([halfW, halfW], [TR([TC(halfW, 'FFFFFF', mkImgRun(rId1), false), cell2])]);
+                html += TABLA([colW, colW, colW], [
+                    TR(imgCells, Math.round(4.0 * 567)),  // altura fila ~4cm
+                    TR(lblCells, 280),
+                ]);
                 html += SP(20);
             }
             return html;
         };
+
+        // ── Fotos GENERALES: 1 por fila, 15cm, con pie de foto ──
+        const _bloqFotosGenerales = (fotosArray, extraFilesRef, relsArrRef, rIdRef, labelFn) => {
+            if (!fotosArray || fotosArray.length === 0) return '';
+            const cx = Math.round(15.0 * 360000);
+            const cy = Math.round(10.0 * 360000);
+            const W = 9026;
+            let html = '';
+            fotosArray.forEach((f, fi) => {
+                if (!f || !f.b64) return;
+                const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
+                const label = labelFn ? xE(labelFn(fi)) : `Foto ${fi + 1}`;
+                html += `<w:p><w:pPr><w:spacing w:before="40" w:after="0"/><w:jc w:val="center"/></w:pPr>${_mkImgWordRun(rid, cx, cy)}</w:p>`;
+                html += `<w:p><w:pPr><w:spacing w:before="0" w:after="60"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${CAL(11,'555555',false)}</w:rPr><w:t>${label}</w:t></w:r></w:p>`;
+            });
+            return html;
+        };
+
 
         // Tabla lista de texto simple (hallazgos, terminaciones)
         const tabLista = (items,W=9026) => {
@@ -652,7 +681,7 @@ window.descargarInforme = async (i) => {
 
         // ── 1. DATOS DE RECEPCIÓN ──
         SECC('1.  DATOS DE RECEPCIÓN'), SP(0),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_ingreso||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DE INGRESO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_ingreso||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DE INGRESO')+SP(0)+f+SP(0)) : ''; })(),
         TABLA([2256,2256,2257,2257],[
             TR([TH('CLIENTE',2256,false),TD(d.empresa,2256),TH('R.U.T.',2257,false),TD(rec.rut,2257)]),
             TR([TH('FECHA RECEPCIÓN',2256,false),TD(rec.fecha?(rec.fecha.split('-').reverse().join('/')):'-',2256),TH('GUÍA DESPACHO',2257,false),TD(rec.guia,2257)]),
@@ -675,7 +704,7 @@ window.descargarInforme = async (i) => {
         (()=>{
             const chk = tabCheckDesarme(d.check_desarme, d.check_desarme_obs, W);
             if (!chk) return '';
-            const fotos = _bloqFotos(d.fotos_b64_desarme ? Object.values(d.fotos_b64_desarme).flat() : [], _extraFotos, _relsArr, _rIdCounter);
+            const fotos = _bloqFotos(d.fotos_b64_desarme ? Object.values(d.fotos_b64_desarme).flat() : [], _extraFotos, _relsArr, _rIdCounter, (n) => 'Foto '+(n+1));
             return SECC('    CHECK DE DESARME') + SP(0) + chk + (fotos ? SP(20)+fotos : '') + SP(0);
         })(),
         tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
@@ -683,11 +712,11 @@ window.descargarInforme = async (i) => {
         tarMant.length>0 ? SECC('    TAREAS DE MANTENCIÓN') : '',
         RESP((d.responsables||{}).mant_ok),
         tarMant.length>0 ? tabLista(tarMant,W) : '',
-        (()=>{ const f=_bloqFotos(d.fotos_b64_mantencion_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES MANTENCIÓN')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mantencion_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES MANTENCIÓN')+SP(0)+f+SP(0)) : ''; })(),
         (()=>{
             const chkM = tabCheckComponentes(d.check_desarme, d.check_mantencion, d.check_mantencion_obs, d.check_mantencion_resp, 'Mantención', W);
             if (!chkM) return '';
-            const fotos = _bloqFotos(d.fotos_b64_mantencion ? Object.values(d.fotos_b64_mantencion).flat() : [], _extraFotos, _relsArr, _rIdCounter);
+            const fotos = _bloqFotos(d.fotos_b64_mantencion ? Object.values(d.fotos_b64_mantencion).flat() : [], _extraFotos, _relsArr, _rIdCounter, (n) => 'Foto '+(n+1));
             return SECC('    CHECK DE MANTENCIÓN POR COMPONENTE') + SP(0) + chkM + (fotos ? SP(20)+fotos : '') + SP(0);
         })(),
         SP(0), F2W('OBSERVACIONES DESARME', obs.desarme||'', W), SP(0),
@@ -695,8 +724,8 @@ window.descargarInforme = async (i) => {
         // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
         SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), RESP((d.responsables||{}).med_ok), SP(0),
         tabMedElec(medIng,W), SP(0),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_mediciones_ing||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+f+SP(0)) : ''; })(),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_mediciones_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES CALIDAD')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mediciones_ing||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mediciones_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES CALIDAD')+SP(0)+f+SP(0)) : ''; })(),
         tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
         tarCalidad.length>0 ? tabLista(tarCalidad,W) : '',
         F2W('OBSERVACIONES', obs.med_ingreso||'', W), SP(0),
@@ -752,7 +781,7 @@ window.descargarInforme = async (i) => {
             revItems.forEach(it => {
                 const fk = fotosRev[it.k] || [];
                 if (fk.length === 0) return;
-                const f = _bloqFotos(fk, _extraFotos, _relsArr, _rIdCounter);
+                const f = _bloqFotos(fk, _extraFotos, _relsArr, _rIdCounter, (n) => it.label + ' — Foto '+(n+1));
                 if (f) fotosRevXml += `<w:p><w:pPr><w:spacing w:before="60" w:after="0"/><w:ind w:left="80"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="004F88"/><w:sz w:val="18"/></w:rPr><w:t xml:space="preserve">📷 ${xE(it.label)}</w:t></w:r></w:p>` + f;
             });
             return SECC('    CHECK DE REVISIÓN VISUAL DE INGRESO') + SP(0) + tablaRevXml + (fotosRevXml ? SP(20)+fotosRevXml : '') + SP(0);
@@ -777,8 +806,8 @@ window.descargarInforme = async (i) => {
         })(),
         tarMec.length>0 ? SECC('    TAREAS MECÁNICA FINAL') : '',
         tarMec.length>0 ? tabLista(tarMec,W) : '',
-        (()=>{ const f=_bloqFotos(d.fotos_b64_mecanica_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES MECÁNICA')+SP(0)+f+SP(0)) : ''; })(),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_metrologia_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES METROLOGÍA')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mecanica_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES MECÁNICA')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_metrologia_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES METROLOGÍA')+SP(0)+f+SP(0)) : ''; })(),
         SP(0), F2W('OBSERVACIONES', obs.metrologia||'', W), SP(0),
 
         // ── 7. DATOS DE BOBINADO (plana completa) ──
@@ -787,9 +816,9 @@ window.descargarInforme = async (i) => {
         tabBobCompleto(d,W), SP(0),
         `<w:p><w:pPr><w:pageBreakBefore/><w:spacing w:before="0" w:after="0"/></w:pPr></w:p>`,
 
-        (()=>{ const f=_bloqFotos(d.fotos_b64_bobinado_mediciones||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES BOBINADO')+SP(0)+f+SP(0)) : ''; })(),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_bobinado_devanado||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DEVANADO')+SP(0)+f+SP(0)) : ''; })(),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_bobinado_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES BOBINADO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_bobinado_mediciones||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES BOBINADO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_bobinado_devanado||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS DEVANADO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_bobinado_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES BOBINADO')+SP(0)+f+SP(0)) : ''; })(),
         // ── 8. PARTES / PIEZAS / COMPONENTES ──
         SECC('8.  PARTES / PIEZAS / COMPONENTES'), SP(0),
         tabChecks(TRABAJOS_LIST,det,W), SP(0),
@@ -799,12 +828,12 @@ window.descargarInforme = async (i) => {
         // ── 9. RODAMIENTOS Y ARMADO ──
         SECC('9.  RODAMIENTOS Y ARMADO'), RESP((d.responsables||{}).armado_ok), SP(0),
         tabRodamientos(d,W), SP(0),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_balanceo||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS BALANCEO')+SP(0)+f+SP(0)) : ''; })(),
-        (()=>{ const f=_bloqFotos(d.fotos_b64_balanceo_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES BALANCEO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_balanceo||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS BALANCEO')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_balanceo_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES BALANCEO')+SP(0)+f+SP(0)) : ''; })(),
         (()=>{
             const chkA = tabCheckComponentes(d.check_desarme, d.check_armado, d.check_armado_obs, d.check_armado_resp, 'Armado', W);
             if (!chkA) return '';
-            const fotos = _bloqFotos(d.fotos_b64_armado ? Object.values(d.fotos_b64_armado).flat() : [], _extraFotos, _relsArr, _rIdCounter);
+            const fotos = _bloqFotos(d.fotos_b64_armado ? Object.values(d.fotos_b64_armado).flat() : [], _extraFotos, _relsArr, _rIdCounter, (n) => 'Foto '+(n+1));
             return SECC('    CHECK DE ARMADO POR COMPONENTE') + SP(0) + chkA + (fotos ? SP(20)+fotos : '') + SP(0);
         })(),
         tarArmado.length>0 ? SECC('    TAREAS DE ARMADO') : '',
@@ -820,7 +849,7 @@ window.descargarInforme = async (i) => {
         tabPruebas(d,W), SP(0),
         tarPruebas.length>0 ? SECC('    TAREAS DE PRUEBAS DINÁMICAS') : '',
         tarPruebas.length>0 ? tabLista(tarPruebas,W) : '',
-        (()=>{ const f=_bloqFotos(d.fotos_b64_pruebas||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS PRUEBAS DINÁMICAS')+SP(0)+f+SP(0)) : ''; })(),
+        (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_pruebas||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS PRUEBAS DINÁMICAS')+SP(0)+f+SP(0)) : ''; })(),
         F2W('OBSERVACIONES PRUEBAS', obs.pruebas||'', W), SP(0),
 
         // ── 12. REGISTRO DE TEMPERATURAS ──
