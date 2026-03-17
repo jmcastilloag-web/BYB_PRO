@@ -786,15 +786,6 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
-                        <div style="margin:10px 0;padding:10px;background:#f4f8ff;border:1.5px solid #b0c8e8;border-radius:8px;">
-                            <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 Fotografías — Mediciones de Ingreso</div>
-                            ${(()=>{
-                                const fotos = (d.fotos_b64_mediciones_ing||[]);
-                                let html = window._htmlFotosB64 ? window._htmlFotosB64(i,'fotos_b64_mediciones_ing',fotos) : '';
-                                if(fotos.length < 10) html += `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.82em;color:#004F88;font-weight:600;">📷 ${fotos.length>0?fotos.length+'/10 fotos':'Agregar fotos'}<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosSeccion(${i},'fotos_b64_mediciones_ing',this)"></label>`;
-                                return html;
-                            })()}
-                        </div>
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'med_ok')">✅ Guardar e Ingresar</button>`;
                 }
                 else if (d.estado === 'detalle_pendiente') {
@@ -1096,15 +1087,6 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
-                        <div style="margin:10px 0;padding:10px;background:#f4f8ff;border:1.5px solid #b0c8e8;border-radius:8px;">
-                            <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 Fotografías — Pruebas Dinámicas</div>
-                            ${(()=>{
-                                const fotos = (d.fotos_b64_pruebas||[]);
-                                let html = window._htmlFotosB64 ? window._htmlFotosB64(i,'fotos_b64_pruebas',fotos) : '';
-                                if(fotos.length < 10) html += `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.82em;color:#004F88;font-weight:600;">📷 ${fotos.length>0?fotos.length+'/10 fotos':'Agregar fotos'}<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosSeccion(${i},'fotos_b64_pruebas',this)"></label>`;
-                                return html;
-                            })()}
-                        </div>
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'pruebas_ok','terminaciones')">✅ Fin Pruebas → Terminaciones</button>`;
                 }
                 else if (d.estado === 'check_salida') {
@@ -1340,14 +1322,11 @@ window.render = () => {
                                         placeholder="Ingresa medidas, tolerancias, observaciones..."
                                         onblur="window.guardarMecMedidas(${i},'${tw.k}',this.value)">${tj.medidas||''}</textarea>
                                 </div>
-                                <div style="margin:6px 0;">
-                                    ${(()=>{
-                                        const fotosM = (tj.fotos_b64||[]);
-                                        let fhtml = window._htmlFotosB64 ? window._htmlFotosB64(i,'_mec_'+tw.k,fotosM) : '';
-                                        if(fotosM.length < 10) fhtml += '<label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">📷 '+(fotosM.length>0?fotosM.length+'/10':'Fotos')+'<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosMec('+i+',\''+tw.k+'\',this)"></label>';
-                                        return fhtml;
-                                    })()}
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                                    <input type="file" id="mecfile_${i}_${tw.k}" style="font-size:0.8em;">
+                                    <button onclick="window.subirMecArchivo(${i},'${tw.k}')" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:0.82em;">⬆️ Subir archivo</button>
                                 </div>
+                                ${archivos.length ? `<div style="font-size:0.8em;margin-bottom:8px;">${archivos.map(a=>`<a href="${a.url}" target="_blank" style="color:#004F88;margin-right:8px;">📎 ${a.name}</a>`).join('')}</div>` : ''}
                                 <button onclick="window.finalizarTrabajoMec(${i},'${tw.k}')" style="background:#27ae60;color:white;border:none;border-radius:6px;padding:8px 18px;cursor:pointer;font-weight:bold;font-size:0.9em;">✅ Marcar como terminado</button>`
                                 : `<div style="font-size:0.82em;color:#999;font-style:italic;">Solo el técnico asignado puede editar.</div>
                                 ${archivos.length ? `<div style="font-size:0.8em;margin-top:6px;">${archivos.map(a=>`<a href="${a.url}" target="_blank" style="color:#004F88;margin-right:8px;">📎 ${a.name}</a>`).join('')}</div>` : ''}`}
