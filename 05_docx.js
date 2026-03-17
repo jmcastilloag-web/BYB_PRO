@@ -246,7 +246,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             if (items.length === 0) return '';
             const resp = checkResp || {};
             const c = [2500, 1200, W-2500-1200-1600, 1600];
-                    // y el header:
+            const rows = [
+                TR([
                     TC(c[0],'1A3A5C',R('COMPONENTE',12,'FFFFFF',true),false),
                     TC(c[1],'1A3A5C',R('ESTADO',12,'FFFFFF',true),true),
                     TC(c[2],'1A3A5C',R('OBSERVACIÓN',12,'FFFFFF',true),false),
@@ -283,9 +284,9 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                                 lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
                             }
                         }
-                        // Celda de fotos ocupa las 3 columnas de la tabla principal via gridSpan
+                        // Celda de fotos ocupa las 4 columnas de la tabla principal via gridSpan
                         const fotaContent = `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:top w:val="none"/><w:left w:val="none"/><w:bottom w:val="single" w:sz="1" w:color="DDE1E7"/><w:right w:val="none"/><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/><w:gridCol w:w="${colW3}"/></w:tblGrid><w:tr>${imgCells.join('')}</w:tr><w:tr>${lblCells.join('')}</w:tr></w:tbl>`;
-                        rows.push(`<w:tr><w:trPr><w:trHeight w:val="10"/></w:trPr><w:tc><w:tcPr><w:gridSpan w:val="3"/><w:tcW w:w="${W}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F4FF"/></w:tcPr>${fotaContent}</w:tc></w:tr>`);
+                        rows.push(`<w:tr><w:trPr><w:trHeight w:val="10"/></w:trPr><w:tc><w:tcPr><w:gridSpan w:val="4"/><w:tcW w:w="${W}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F4FF"/></w:tcPr>${fotaContent}</w:tc></w:tr>`);
                     }
                 }
             });
