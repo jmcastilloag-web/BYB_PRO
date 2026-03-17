@@ -220,7 +220,7 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
         };
 
         // Tabla Check de Desarme
-        const tabCheckDesarme = (checkData, checkObs, fotosObj, extraFilesRef, relsArrRef, rIdRef, W=9026) => {
+        const tabCheckDesarme = (checkData, checkObs, checkResp, fotosObj, extraFilesRef, relsArrRef, rIdRef, W=9026) => {
             if (!checkData || Object.keys(checkData).length === 0) return '';
             const LABELS = {
                 machon_acople:'Machón / Acople', eje_acople:'Eje Acople',
@@ -244,12 +244,13 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
             const colW3 = Math.round(W / 4);
             const items = Object.entries(checkData).filter(([k,v]) => v && v !== 'na');
             if (items.length === 0) return '';
-            const c = [3200, 1200, W-3200-1200];
-            const rows = [
-                TR([
+            const resp = checkResp || {};
+            const c = [2500, 1200, W-2500-1200-1600, 1600];
+                    // y el header:
                     TC(c[0],'1A3A5C',R('COMPONENTE',12,'FFFFFF',true),false),
                     TC(c[1],'1A3A5C',R('ESTADO',12,'FFFFFF',true),true),
                     TC(c[2],'1A3A5C',R('OBSERVACIÓN',12,'FFFFFF',true),false),
+                    TC(c[3],'1A3A5C',R('TÉCNICO',12,'FFFFFF',true),false),
                 ]),
             ];
             items.forEach(([k,v], ri) => {
@@ -262,6 +263,7 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                     TC(c[0], bgFila, R(LABELS[k]||k, 12, '2C3E50'), false),
                     TC(c[1], bgEstado, R(textoEstado, 12, colorEstado, true), true),
                     TC(c[2], bgFila, R(obs[k]||'—', 12, '555555'), false),
+                    TC(c[3], 'EAF0FF', R(resp[k]||'—', 12, '1a2a6a'), false),
                 ]));
                 // Fila de fotos del componente (3 por fila, 5.5x4cm)
                 const fArr = fotos[k] || [];
@@ -797,8 +799,7 @@ window.descargarInforme = async (i) => {
         SECC('4.  DESARME'), RESP((d.responsables||{}).desarme_ok), SP(0),
         tabLista(hallazgos,W), SP(0),
         (()=>{
-            const chk = tabCheckDesarme(d.check_desarme, d.check_desarme_obs, d.fotos_b64_desarme||{}, _extraFotos, _relsArr, _rIdCounter, W);
-            if (!chk) return '';
+            const chk = tabCheckDesarme(d.check_desarme, d.check_desarme_obs, d.check_desarme_resp, d.fotos_b64_desarme||{}, _extraFotos, _relsArr, _rIdCounter, W)
             return SECC('    CHECK DE DESARME') + SP(0) + chk + SP(0);
         })(),
         tarDesarme.length>0 ? SECC('    TAREAS DE DESARME') : '',
