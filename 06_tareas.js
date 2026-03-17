@@ -104,8 +104,12 @@ window.tomarTrabajoMec = (i, clave) => {
 };
 window.guardarRevisionCheck = (i, clave, campo, valor) => {
     if (!window.data[i].metro_revision_checks) window.data[i].metro_revision_checks = {};
-    if (!window.data[i].metro_revision_checks[clave]) window.data[i].metro_revision_checks[clave] = {ok:false, obs:''};
+    if (!window.data[i].metro_revision_checks[clave]) window.data[i].metro_revision_checks[clave] = {val:'na', obs:'', tecnico:''};
     window.data[i].metro_revision_checks[clave][campo] = valor;
+    // Registrar técnico al marcar estado
+    if (campo === 'val' && valor !== 'na') {
+        window.data[i].metro_revision_checks[clave].tecnico = window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—';
+    }
     window.save();
 };
 window.guardarMecMedidas = (i, clave, valor) => {
