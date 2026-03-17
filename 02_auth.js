@@ -160,9 +160,9 @@ window.actualizarInfoUsuario = () => {
             btnPend.style.cssText = 'display:none;width:100%;text-align:left;padding:10px 16px;border:none;background:rgba(255,140,0,0.18);color:#ffa726;cursor:pointer;font-weight:700;font-size:0.88em;border-radius:6px;margin:4px 0;transition:background 0.2s;';
             btnPend.onmouseover = () => btnPend.style.background = 'rgba(255,140,0,0.32)';
             btnPend.onmouseout  = () => btnPend.style.background = 'rgba(255,140,0,0.18)';
-            // Insertar antes del menuUsuarios o al principio del nav
-            const ref = menuUsu || nav.firstChild;
-            nav.insertBefore(btnPend, ref);
+            // Insertar antes del menuUsuarios (si es hijo directo de nav) o al final
+            const ref = (menuUsu && menuUsu.parentNode === nav) ? menuUsu : null;
+            if (ref) { nav.insertBefore(btnPend, ref); } else { nav.appendChild(btnPend); }
         }
     }
     if (btnPend) {
