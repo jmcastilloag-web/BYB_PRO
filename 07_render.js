@@ -1,3 +1,69 @@
+
+// ── Helper: bloque HTML de fotos simples (sin componentes) ──
+window._htmlFotosSimples = (i, etapa, titulo) => {
+    const d = window.data[i];
+    const key = 'fotos_b64_' + etapa;
+    const fotos = d[key] || [];
+    const max = 20;
+    const grid = fotos.map((f, fi) => `
+        <div style="position:relative;display:inline-block;margin:3px;">
+            <img src="data:image/${f.ext||'jpeg'};base64,${f.b64}"
+                 style="width:90px;height:68px;object-fit:cover;border-radius:4px;border:1px solid #dde1e7;cursor:pointer;"
+                 onclick="window._verFotoSimple('${etapa}',${fi},${i})">
+            <button onclick="window.eliminarFotoSimple(${i},'${etapa}',${fi})"
+                    style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0;">✕</button>
+        </div>`).join('');
+    return \`<div style="margin-top:10px;background:#f8faff;border:1px solid #d0dce8;border-radius:6px;padding:10px;">
+        <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 \${titulo || 'Fotos'} (\${fotos.length}/\${max})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">\${grid || '<span style=\"font-size:0.78em;color:#aaa;\">Sin fotos aún</span>'}</div>
+        \${fotos.length < max ? \`<label style="display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
+            📷 Agregar fotos
+            <input type="file" accept="image/*" multiple style="display:none;"
+                onchange="window.subirFotosSimples(\${i},'\${etapa}',this)">
+        </label>\` : \`<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ \${max}/\${max}</span>\`}
+    </div>\`;
+};
+
+window._verFotoSimple = (etapa, idx, i) => {
+    const d = window.data[i];
+    const fotos = d['fotos_b64_'+etapa] || [];
+    const f = fotos[idx];
+    if (!f) return;
+    const win = window.open('');
+    win.document.write(\`<html><body style="margin:0;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="data:image/\${f.ext||'jpeg'};base64,\${f.b64}" style="max-width:100vw;max-height:100vh;object-fit:contain;"></body></html>\`);
+};
+
+
+// ── Fotos para nueva OT ──
+window._fotosNuevaOT = [];
+window._agregarFotosNuevaOT = async (inputEl) => {
+    const files = Array.from(inputEl.files);
+    for (const file of files) {
+        if (window._fotosNuevaOT.length >= 20) break;
+        const r = new FileReader();
+        await new Promise(res => {
+            r.onload = () => {
+                const b64 = r.result.split(',')[1];
+                const ext = file.name.split('.').pop().toLowerCase();
+                window._fotosNuevaOT.push({ b64, ext: ext === 'jpg' ? 'jpeg' : ext });
+                res();
+            };
+            r.readAsDataURL(file);
+        });
+    }
+    // Update preview
+    const prev = document.getElementById('fotos_nueva_ot_preview');
+    if (prev) {
+        prev.innerHTML = window._fotosNuevaOT.map((f, fi) =>
+            `<div style="position:relative;display:inline-block;margin:2px;">
+                <img src="data:image/${f.ext};base64,${f.b64}" style="width:60px;height:46px;object-fit:cover;border-radius:3px;border:1px solid #dde1e7;">
+                <button onclick="window._fotosNuevaOT.splice(${fi},1);window._agregarFotosNuevaOT({files:[]});"
+                    style="position:absolute;top:-3px;right:-3px;background:#e74c3c;color:white;border:none;border-radius:50%;width:14px;height:14px;font-size:9px;cursor:pointer;line-height:14px;padding:0;">✕</button>
+            </div>`
+        ).join('');
+    }
+};
+
 window.render = () => {
     const v = document.getElementById("vista");
     if (!v) return;
@@ -489,6 +555,15 @@ window.render = () => {
                 <div class="med-campo"><label>Supervisor General</label><input class="med-input" id="nsupervisor" placeholder="Nombre completo"></div>
             </div>
 
+            <div style="margin-bottom:10px;">
+                <div style="font-size:0.85em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 Fotos de Ingreso (opcional)</div>
+                <div id="fotos_nueva_ot_preview" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;"></div>
+                <label style="display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
+                    📷 Agregar fotos de ingreso
+                    <input type="file" accept="image/*" multiple style="display:none;"
+                        onchange="window._agregarFotosNuevaOT(this)">
+                </label>
+            </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn-finish" onclick="window.nuevaOT()">➕ Crear OT y Comenzar</button>
             </div>
@@ -726,6 +801,7 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
+                    ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mantencion_generales','Fotos Generales Mantención') : ''}
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'mant_ok')">✅ Fin Mantención</button>`;
                 }
             }
@@ -786,6 +862,8 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
+                        ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mediciones_ing','Fotos Mediciones Ingreso') : ''}
+                        ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mediciones_generales','Fotos Generales Calidad') : ''}
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'med_ok')">✅ Guardar e Ingresar</button>`;
                 }
                 else if (d.estado === 'detalle_pendiente') {
@@ -1307,6 +1385,7 @@ window.render = () => {
                             </table>
                         </div>`;
                     })()}
+                    ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'metrologia_generales','Fotos Generales Metrología') : ''}
                     <button class="btn-finish" onclick="window.updateFlujo(${i},'met_ok')">✅ Guardar Metrología</button>`;
                 }
                 else if (d.estado === 'ejecucion_trabajos') {
@@ -1405,6 +1484,7 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
+                    ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mecanica_generales','Fotos Generales Mecánica') : ''}
                     <button class="btn-finish" onclick="window.updateFlujo(${i},'mec_fin')">✅ Fin Mecánica</button>`;
                 }
             }
@@ -1525,6 +1605,9 @@ window.render = () => {
                         <h4>⚡ Aislación</h4>
                         <div><input class="med-input" placeholder="MOhm" value="${d.mediciones.aisla||''}" onchange="window.data[${i}].mediciones.aisla=this.value; window.save()"></div>
                     </div>
+                    ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'bobinado_mediciones','Fotos Mediciones Bobinado') : ''}
+                    ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'bobinado_devanado','Fotos Devanado') : ''}
+                    ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'bobinado_generales','Fotos Generales Bobinado') : ''}
                     ${obs('bobinado')}<button class="btn-finish" onclick="window.updateFlujo(${i},'bobinado_fin')">✅ Finalizar Bobinado</button>`;
             }
             else if (window.vistaActual === 'armado_bal') {
@@ -1596,6 +1679,7 @@ window.render = () => {
                         <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 Fotografías de Balanceo</div>
                         ${(()=>{const ft=(d.fotos_b64_balanceo||[]);let h=window._htmlFotosB64?window._htmlFotosB64(i,'fotos_b64_balanceo',ft):'';if(ft.length<10)h+='<label style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.82em;color:#004F88;font-weight:600;">📷 '+(ft.length>0?ft.length+'/10 fotos':'Agregar fotos')+'<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosSeccion('+i+',\'fotos_b64_balanceo\',this)"></label>';return h;})()}
                     </div>
+                    ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'balanceo_generales','Fotos Generales Balanceo') : ''}
                     <button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>${_checkArmadoSection}`;
                     if (rods.length > 0) {
                         UI += `<div class="det-seccion-titulo">🔩 Instalación de Rodamientos</div>
