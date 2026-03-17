@@ -320,15 +320,17 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
         // fotosArray: [{b64, ext}] — rIdRef: {val:N} — extraFilesRef y relsArrRef para acumular
         const _bloqFotos = (fotosArray, extraFilesRef, relsArrRef, rIdRef) => {
             if (!fotosArray || fotosArray.length === 0) return '';
-            const cx = Math.round(8.94 * 360000); // 8.94cm en EMU
-            const cy = Math.round(6.69 * 360000); // 6.69cm en EMU
-            const mkImg = (rid) =>
-                `<w:p><w:pPr><w:spacing w:before="40" w:after="40"/><w:jc w:val="left"/></w:pPr>` +
+            const cx = Math.round(8.94 * 360000); // Bug1 fix: 360000 EMU/cm
+            const cy = Math.round(6.69 * 360000);
+            // Bug3 fix: mkImgRun devuelve solo <w:r> sin <w:p> exterior,
+            // porque TC() ya envuelve el contenido en <w:p>. Anidar <w:p> dentro
+            // de <w:p> es XML inválido para Word.
+            const mkImgRun = (rid) =>
                 `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing>` +
                 `<wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">` +
                 `<wp:extent cx="${cx}" cy="${cy}"/>` +
                 `<wp:effectExtent l="0" t="0" r="0" b="0"/>` +
-                `<wp:docPr id="${rid + 1000}" name="foto${rid}"/>`
+                `<wp:docPr id="${rid + 1000}" name="foto${rid}"/>` +
                 `<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>` +
                 `<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">` +
                 `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
@@ -337,7 +339,7 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                 `<pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
                 `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
                 `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>` +
-                `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+                `</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
 
             const halfW = Math.round(9026 / 2);
             let html = '';
@@ -356,9 +358,9 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                     const fn2 = 'foto_' + rId2 + '.' + (f2.ext || 'jpeg');
                     extraFilesRef[`word/media/${fn2}`] = Uint8Array.from(atob(f2.b64), c2 => c2.charCodeAt(0));
                     relsArrRef.push(`<Relationship Id="rId${rId2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn2}"/>`);
-                    cell2 = TC(halfW, 'FFFFFF', mkImg(rId2), true);
+                    cell2 = TC(halfW, 'FFFFFF', mkImgRun(rId2), false);
                 }
-                html += TABLA([halfW, halfW], [TR([TC(halfW, 'FFFFFF', mkImg(rId1), true), cell2])]);
+                html += TABLA([halfW, halfW], [TR([TC(halfW, 'FFFFFF', mkImgRun(rId1), false), cell2])]);
                 html += SP(20);
             }
             return html;
