@@ -1235,38 +1235,75 @@ window.render = () => {
                         </div>
                     ${(()=>{
                         const items = [
-                            {k:'contratapa_lc', label:'Revisión Contratapa Lado Carga'},
-                            {k:'contratapa_ll', label:'Revisión Contratapa Lado Libre'},
-                            {k:'slingues_lc',   label:'Revisión de Slingues LC'},
-                            {k:'slingues_ll',   label:'Revisión de Slingues LL'},
+                            {k:'contratapa_lc', label:'Contratapa Lado Carga'},
+                            {k:'contratapa_ll', label:'Contratapa Lado Libre'},
+                            {k:'slingues_lc',   label:'Slingues LC'},
+                            {k:'slingues_ll',   label:'Slingues LL'},
                             {k:'machon_acople', label:'Machón o Acople'},
                             {k:'eje_acople',    label:'Eje Acople'},
                             {k:'ventilador',    label:'Ventilador'},
                             {k:'otros',         label:'Otros'},
                         ];
                         const checks = d.metro_revision_checks || {};
-                        return `<div class="det-seccion-titulo" style="margin-top:14px;">🔍 Lista de Revisión Visual de Ingreso</div>
-                        <div style="background:#fff8e8;border:1.5px solid #e8c060;border-radius:8px;padding:12px 14px;margin-bottom:12px;">
-                            <p style="font-size:0.8em;color:#8a6000;margin:0 0 10px 0;">Completar todos los ítems antes de guardar. La observación es obligatoria.</p>
-                            <table style="width:100%;border-collapse:collapse;">
-                                <tr style="background:#f5e8c0;">
-                                    <th style="padding:5px 8px;font-size:0.78em;text-align:left;color:#6b4a00;width:32%;">Ítem</th>
-                                    <th style="padding:5px 8px;font-size:0.78em;text-align:center;color:#6b4a00;width:10%;">OK</th>
-                                    <th style="padding:5px 8px;font-size:0.78em;text-align:left;color:#6b4a00;">Observación (obligatoria)</th>
-                                </tr>
-                                ${items.map(it => {
-                                    const ch = checks[it.k] || {};
-                                    return `<tr style="border-bottom:1px solid #e8d898;">
-                                        <td style="padding:6px 8px;font-size:0.84em;color:#444;font-weight:600;">${it.label}</td>
-                                        <td style="padding:6px 8px;text-align:center;">
-                                            <input type="checkbox" ${ch.ok?'checked':''} style="width:16px;height:16px;cursor:pointer;"
-                                                onchange="window.guardarRevisionCheck(${i},'${it.k}','ok',this.checked)">
+                        const fotosMetro = d.fotos_b64_metro_revision || {};
+                        const nombre = window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—';
+                        return `<div class="det-seccion-titulo" style="margin-top:14px;">🔍 Check de Revisión Visual de Ingreso</div>
+                        <div style="background:#f4f8ff;border:1.5px solid #b0c8e8;border-radius:8px;padding:12px 14px;margin-bottom:12px;overflow-x:auto;">
+                            <p style="font-size:0.8em;color:#555;margin:0 0 10px 0;">Marca cada componente como <b style="color:#27ae60;">BUENO</b>, <b style="color:#e74c3c;">MALO</b> o <b style="color:#888;">N/A</b> y agrega fotos.</p>
+                            <table style="width:100%;border-collapse:collapse;font-size:0.82em;">
+                                <thead><tr style="background:#004F88;color:white;">
+                                    <th style="padding:5px 10px;text-align:left;min-width:150px;">COMPONENTE</th>
+                                    <th style="padding:5px;text-align:center;width:75px;">✅ BUENO</th>
+                                    <th style="padding:5px;text-align:center;width:75px;">❌ MALO</th>
+                                    <th style="padding:5px;text-align:center;width:65px;">— N/A</th>
+                                    <th style="padding:5px 8px;text-align:left;">OBSERVACIÓN</th>
+                                    <th style="padding:5px 8px;text-align:left;min-width:130px;">📷 FOTOS</th>
+                                    <th style="padding:5px 8px;text-align:left;width:100px;">TÉCNICO</th>
+                                </tr></thead><tbody>
+                                ${items.map((it, ci) => {
+                                    const ch  = checks[it.k] || {};
+                                    const val = ch.val || 'na';
+                                    const ftk = fotosMetro[it.k] || [];
+                                    const rowBg = ci%2===0?'#f4f8ff':'white';
+                                    return `<tr style="background:${val==='bueno'?'#eafff2':val==='malo'?'#fff5f5':rowBg};border-bottom:1px solid #dde1e7;">
+                                        <td style="padding:5px 10px;font-weight:600;color:#2c3e50;">${it.label}</td>
+                                        <td style="text-align:center;padding:4px;">
+                                            <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+                                                <input type="radio" name="mrev_${i}_${it.k}" value="bueno" ${val==='bueno'?'checked':''}
+                                                    onchange="window.guardarRevisionCheck(${i},'${it.k}','val','bueno')"
+                                                    style="accent-color:#27ae60;">
+                                                <span style="color:#27ae60;font-weight:700;font-size:0.82em;">BUENO</span>
+                                            </label>
                                         </td>
-                                        <td style="padding:4px 6px;">
-                                            <textarea rows="2" style="width:100%;padding:5px 7px;border:1px solid ${ch.obs?'#b0c8b0':'#e8b060'};border-radius:4px;font-size:0.82em;resize:vertical;background:${ch.obs?'#f8fff8':'#fffbf0'};" placeholder="Ingrese observación..." onblur="window.guardarRevisionCheck(${i},'${it.k}','obs',this.value)">${ch.obs||''}</textarea>
+                                        <td style="text-align:center;padding:4px;">
+                                            <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+                                                <input type="radio" name="mrev_${i}_${it.k}" value="malo" ${val==='malo'?'checked':''}
+                                                    onchange="window.guardarRevisionCheck(${i},'${it.k}','val','malo')"
+                                                    style="accent-color:#e74c3c;">
+                                                <span style="color:#e74c3c;font-weight:700;font-size:0.82em;">MALO</span>
+                                            </label>
                                         </td>
+                                        <td style="text-align:center;padding:4px;">
+                                            <label style="cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;">
+                                                <input type="radio" name="mrev_${i}_${it.k}" value="na" ${val==='na'||!ch.val?'checked':''}
+                                                    onchange="window.guardarRevisionCheck(${i},'${it.k}','val','na')"
+                                                    style="accent-color:#888;">
+                                                <span style="color:#888;font-weight:600;font-size:0.82em;">N/A</span>
+                                            </label>
+                                        </td>
+                                        <td style="padding:4px 8px;">
+                                            <input type="text" value="${(ch.obs||'').replace(/"/g,'&quot;')}" placeholder="Observación..."
+                                                style="width:100%;padding:4px 6px;border:1px solid #dde1e7;border-radius:4px;font-size:0.85em;"
+                                                onblur="window.guardarRevisionCheck(${i},'${it.k}','obs',this.value)">
+                                        </td>
+                                        <td style="padding:4px 8px;">
+                                            ${window._htmlFotosComponente ? window._htmlFotosComponente(i,'metro_revision',it.k,ftk) : ''}
+                                            ${ftk.length < 10 ? '<label style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:0.78em;color:#004F88;font-weight:600;">📷 '+(ftk.length>0?ftk.length+'/10':'Fotos')+'<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosComponente('+i+',\'metro_revision\',\''+it.k+'\',this)"></label>' : '<span style="font-size:0.78em;color:#27ae60;">✅ '+ftk.length+'/10</span>'}
+                                        </td>
+                                        <td style="padding:5px 8px;font-size:0.8em;color:#1a2a6a;font-weight:600;">${ch.tecnico||'—'}</td>
                                     </tr>`;
                                 }).join('')}
+                                </tbody>
                             </table>
                         </div>`;
                     })()}
@@ -1554,7 +1591,12 @@ window.render = () => {
                                </table>
                            </div>`
                         : '';
-                    UI = `<h3>Balanceo</h3>${obs('balanceo')}<button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>${_checkArmadoSection}`;
+                    UI = `<h3>Balanceo</h3>${obs('balanceo')}
+                    <div style="margin:10px 0;padding:10px;background:#f4f8ff;border:1.5px solid #b0c8e8;border-radius:8px;">
+                        <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 Fotografías de Balanceo</div>
+                        ${(()=>{const ft=(d.fotos_b64_balanceo||[]);let h=window._htmlFotosB64?window._htmlFotosB64(i,'fotos_b64_balanceo',ft):'';if(ft.length<10)h+='<label style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.82em;color:#004F88;font-weight:600;">📷 '+(ft.length>0?ft.length+'/10 fotos':'Agregar fotos')+'<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosSeccion('+i+',\'\1\',this)"></label>';return h;})()}
+                    </div>
+                    <button class="btn-primary btn-sm" onclick="window.updateFlujo(${i},'bal_ok')">✅ Balanceo OK</button><hr><h3>Armado</h3>${_checkArmadoSection}`;
                     if (rods.length > 0) {
                         UI += `<div class="det-seccion-titulo">🔩 Instalación de Rodamientos</div>
                         <div style="background:#f8f9fa;border:1px solid #dde1e7;border-radius:6px;padding:10px;margin-bottom:10px;">
