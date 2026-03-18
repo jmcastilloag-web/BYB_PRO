@@ -887,6 +887,7 @@ window.descargarInforme = async (i) => {
         // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
         SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), RESP((d.responsables||{}).med_ok), SP(0),
         tabMedElec(medIng,W), SP(0),
+        (()=>{ const t=window.tabSensoresIngreso?window.tabSensoresIngreso(d,W):''; return t?(SECC('    SENSORES / PROTECCIONES TÉRMICAS INGRESO')+SP(0)+t+SP(0)):''; })(),
         (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mediciones_ing||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+f+SP(0)) : ''; })(),
         (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mediciones_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES CALIDAD')+SP(0)+f+SP(0)) : ''; })(),
         tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
@@ -1005,6 +1006,7 @@ window.descargarInforme = async (i) => {
         // ── 10. MEDICIONES ELÉCTRICAS DE SALIDA ──
         SECC('10. MEDICIONES ELÉCTRICAS DE SALIDA'), RESP((d.responsables||{}).pruebas_ok), SP(0),
         tabMedElec(medSal,W), SP(0),
+        (()=>{ const t=window.tabSensoresSalida?window.tabSensoresSalida(d,W):''; return t?(SECC('    SENSORES / PROTECCIONES TÉRMICAS SALIDA')+SP(0)+t+SP(0)):''; })(),
 
         // ── 11. PRUEBAS DINÁMICAS ──
         SECC('11. PRUEBAS DINÁMICAS'), RESP((d.responsables||{}).pruebas_ok), SP(0),
