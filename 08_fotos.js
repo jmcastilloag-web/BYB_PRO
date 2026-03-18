@@ -339,11 +339,13 @@ window._urlToB64 = async (url) => {
 
 // Prepara array [{ url }|{ b64,ext }] → [{ b64, ext }] para 05_docx.js
 window._prepararFotosParaWord = async (fotos) => {
+    // FIXED: filter invalid entries (b64 undefined, null or too short)
     if (!fotos || fotos.length === 0) return [];
     const result = [];
     for (const f of fotos) {
-        if (f.b64) { result.push(f); continue; }
-        if (f.url) { const b64 = await window._urlToB64(f.url); if (b64) result.push({ b64, ext: 'jpeg' }); }
+        if (!f) continue;
+        if (f.b64 && typeof f.b64 === "string" && f.b64.length > 100) { result.push(f); continue; }
+        if (f.url && typeof f.url === "string") { const b64 = await window._urlToB64(f.url); if (b64 && b64.length > 100) result.push({ b64, ext: "jpeg" }); }
     }
     return result;
 };
