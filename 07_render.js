@@ -867,6 +867,7 @@ window.render = () => {
                         </div>
                         ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mediciones_ing','Fotos Mediciones Ingreso') : ''}
                         ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mediciones_generales','Fotos Generales Calidad') : ''}
+                        ${window.htmlSensoresIngreso ? window.htmlSensoresIngreso(i) : ''}
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'med_ok')">✅ Guardar e Ingresar</button>`;
                 }
                 else if (d.estado === 'detalle_pendiente') {
@@ -1168,6 +1169,7 @@ window.render = () => {
                                     </div>`).join('')}
                             </div>
                         </div>
+                        ${window.htmlSensoresSalida ? window.htmlSensoresSalida(i) : ''}
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'pruebas_ok','terminaciones')">✅ Fin Pruebas → Terminaciones</button>`;
                 }
                 else if (d.estado === 'check_salida') {
