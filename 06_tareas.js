@@ -447,60 +447,9 @@ window.guardarObsCheckArmado = (i, clave, valor) => {
 };
 
 // ── Fotos por componente / etapa ─────────────────────────────
-// Helper: leer archivo como base64
-const _fileToBase64 = (file) => new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result.split(',')[1]); // solo la parte base64
-    r.onerror = rej;
-    r.readAsDataURL(file);
-});
-
-window.subirFotosComponente = async (i, etapa, clave, inputEl) => {
-    const files = Array.from(inputEl.files);
-    if (!files.length) return;
-    const d = window.data[i];
-    // Usar solo base64 — sin Firebase Storage (evita problemas CORS)
-    const fotoB64Key = 'fotos_b64_' + etapa;
-    if (!d[fotoB64Key]) d[fotoB64Key] = {};
-    if (!d[fotoB64Key][clave]) d[fotoB64Key][clave] = [];
-    const actuales = d[fotoB64Key][clave].length;
-    const disponibles = 10 - actuales;
-    if (disponibles <= 0) { alert('Ya tienes 10 fotos en este componente.'); return; }
-    const aSubir = files.slice(0, disponibles);
-    const btnId = 'btn_foto_' + etapa + '_' + i + '_' + clave;
-    const btn = document.getElementById(btnId);
-    if (btn) { btn.textContent = '⏳ Procesando...'; btn.disabled = true; }
-    try {
-        for (const file of aSubir) {
-            const b64 = await _fileToBase64(file);
-            const ext = file.name.split('.').pop().toLowerCase();
-            // Guardar base64 completo para mostrar en app + para el Word
-            d[fotoB64Key][clave].push({ b64, ext: ext === 'jpg' ? 'jpeg' : ext });
-        }
-        window.save();
-        window.render();
-    } catch(e) {
-        alert('Error al procesar foto: ' + e.message);
-        if (btn) { btn.textContent = '📷 Fotos'; btn.disabled = false; }
-    }
-};
-
-// ── Subir fotos simples (etapas sin componentes) ──
-window.subirFotosSimples = async (i, etapa, inputEl) => {
-    const files = Array.from(inputEl.files);
-    if (!files.length) return;
-    const d = window.data[i];
-    const key = 'fotos_b64_' + etapa;
-    if (!d[key]) d[key] = [];
-    for (const file of files) {
-        if (d[key].length >= 20) { alert('Máximo 20 fotos por sección.'); break; }
-        const ext = file.name.split('.').pop().toLowerCase().replace('jpg','jpeg');
-        const b64 = await _fileToBase64(file);
-        d[key].push({ b64, ext: ext === 'jpg' ? 'jpeg' : ext });
-    }
-    window.save();
-    window.render();
-};
+// NOTA: subirFotosSimples, subirFotosComponente, _htmlFotosComponente
+// y _htmlFotosSimples están definidas en 08_fotos.js (Cloudinary).
+// Las funciones de abajo solo se usan si 08_fotos.js no está cargado.
 
 window.eliminarFotoSimple = (i, etapa, idx) => {
     const d = window.data[i];
@@ -519,18 +468,19 @@ window.eliminarFotoComponente = (i, etapa, clave, fi) => {
     window.save();
     window.render();
 };
+// _htmlFotosComponente está definida en 08_fotos.js
+// Este fallback solo se usa si 08_fotos.js no está cargado
+if (!window._htmlFotosComponente) {
 window._htmlFotosComponente = (i, etapa, clave, fotos) => {
     if (!fotos || fotos.length === 0) return '';
     let html = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">';
     fotos.forEach(function(item, fi) {
-        // item puede ser {b64, ext} o string URL (compatibilidad)
-        const src = (item && item.b64)
-            ? 'data:image/' + (item.ext||'jpeg') + ';base64,' + item.b64
-            : (typeof item === 'string' ? item : '');
+        const src = item.url ? item.url
+            : (item.b64 ? 'data:image/' + (item.ext||'jpeg') + ';base64,' + item.b64 : '');
         if (!src) return;
         html += '<div style="position:relative;display:inline-block;">';
         html += '<a href="' + src + '" target="_blank">';
-        html += '<img src="' + src + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;">';
+        html += '<img src="' + src + '" style="width:54px;height:54px;object-fit:cover;border-radius:4px;border:1.5px solid #b0c8e8;cursor:pointer;" loading="lazy">';
         html += '</a>';
         html += '<button onclick="window.eliminarFotoComponente(' + i + ',&quot;' + etapa + '&quot;,&quot;' + clave + '&quot;,' + fi + ')" ';
         html += 'style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:9px;cursor:pointer;line-height:16px;padding:0;text-align:center;">✕</button>';
@@ -539,6 +489,7 @@ window._htmlFotosComponente = (i, etapa, clave, fotos) => {
     html += '</div>';
     return html;
 };
+}
 
 // Lista centralizada de ítems del check de desarme
 window.ITEMS_CHECK_DESARME = [
