@@ -64,90 +64,72 @@ window.sensorGuardarCampo = (i, si, campo, valor) => {
     _saveSensores();
 };
 
-// ── FUNCIONES PÚBLICAS — SALIDA ──────────────────────────────
-
-window.sensorGuardarSalida = (i, si, campo, valor) => {
-    if (!window.data[i].sensores_salida) window.data[i].sensores_salida = {};
-    if (!window.data[i].sensores_salida[si]) window.data[i].sensores_salida[si] = {};
-    window.data[i].sensores_salida[si][campo] = valor;
-    _saveSensores();
-};
-
-// ── SUBIDA DE FOTOS DE SENSORES ──────────────────────────────
-
-window.sensorSubirFoto = async (i, si, etapa, inputEl) => {
-    const files = Array.from(inputEl.files || []);
+// ── FUNCIÓN PARA SUBIR FOTOS A CLOUDINARY ───────────────────
+window.sensorSubirFoto = async (i, si, tipo, input) => {
+    const files = input.files;
     if (!files.length) return;
 
-    const d   = window.data[i];
-    const ot  = d.ot || 'sin_ot';
-    const key = etapa === 'ingreso' ? 'sensores_ingreso' : 'sensores_salida_fotos';
+    // Referencia al array de fotos según sea ingreso o salida
+    let sensor;
+    if (tipo === 'ingreso') {
+        sensor = _getSensoresIng(i)[si];
+    } else {
+        if (!window.data[i].sensores_salida) window.data[i].sensores_salida = {};
+        if (!window.data[i].sensores_salida[si]) window.data[i].sensores_salida[si] = { fotos: [] };
+        sensor = window.data[i].sensores_salida[si];
+    }
 
-    const btn = document.getElementById(`btn_sensor_foto_${etapa}_${i}_${si}`);
-    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+    if (!sensor.fotos) sensor.fotos = [];
+    
+    // Cambiar el texto del botón para mostrar progreso
+    const label = input.parentElement;
+    const originalTexto = label.innerHTML;
+    label.style.opacity = "0.5";
+    label.innerText = "⏳ Subiendo...";
 
-    try {
-        if (etapa === 'ingreso') {
-            const sensores = _getSensoresIng(i);
-            if (!sensores[si]) return;
-            if (!sensores[si].fotos) sensores[si].fotos = [];
-            const disponibles = 5 - sensores[si].fotos.length;
-            if (disponibles <= 0) { alert('Máximo 5 fotos por sensor.'); return; }
-            const aSubir = files.slice(0, disponibles);
-            for (let fi = 0; fi < aSubir.length; fi++) {
-                if (btn) btn.textContent = `⏳ ${fi+1}/${aSubir.length}`;
-                try {
-                    const comprimirImagen = window._comprimirImagen || _comprimirLocal;
-                    const subirFn = window._subirACloudinary || _subirBase64Local;
-                    const blob = await comprimirImagen(aSubir[fi]);
-                    const url  = typeof subirFn === 'function' && window._subirACloudinary
-                        ? await window._subirACloudinary(blob, `byb_norte/ot_${ot}/sensor_ing_${si}`)
-                        : await _b64FromBlob(blob);
-                    sensores[si].fotos.push(typeof url === 'string' && url.startsWith('http')
-                        ? { url, ext: 'jpeg' }
-                        : { b64: url, ext: 'jpeg' });
-                } catch(e) { console.error('Error foto sensor:', e); }
+    for (let file of files) {
+        if (sensor.fotos.length >= 5) break;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', 'fotos_taller'); // Tu preset
+        formData.append('folder', 'byb_norte');           // Tu carpeta
+
+        try {
+            const resp = await fetch('https://api.cloudinary.com/v1_1/dboystolg/image/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            
+            if (data.secure_url) {
+                sensor.fotos.push(data.secure_url);
             }
-        } else {
-            // salida
-            if (!d.sensores_salida_fotos) d.sensores_salida_fotos = {};
-            if (!d.sensores_salida_fotos[si]) d.sensores_salida_fotos[si] = [];
-            const disponibles = 5 - d.sensores_salida_fotos[si].length;
-            if (disponibles <= 0) { alert('Máximo 5 fotos por sensor.'); return; }
-            const aSubir = files.slice(0, disponibles);
-            for (let fi = 0; fi < aSubir.length; fi++) {
-                if (btn) btn.textContent = `⏳ ${fi+1}/${aSubir.length}`;
-                try {
-                    const comprimirImagen = window._comprimirImagen || _comprimirLocal;
-                    const blob = await comprimirImagen(aSubir[fi]);
-                    const url  = window._subirACloudinary
-                        ? await window._subirACloudinary(blob, `byb_norte/ot_${ot}/sensor_sal_${si}`)
-                        : await _b64FromBlob(blob);
-                    d.sensores_salida_fotos[si].push(typeof url === 'string' && url.startsWith('http')
-                        ? { url, ext: 'jpeg' }
-                        : { b64: url, ext: 'jpeg' });
-                } catch(e) { console.error('Error foto sensor salida:', e); }
-            }
+        } catch (err) {
+            console.error("Error subiendo foto:", err);
         }
+    }
+
+    // Guardar y refrescar la vista
+    _saveSensores();
+    window.render();
+};
+
+// Función para eliminar fotos si el trabajador se equivoca
+window.sensorEliminarFoto = (i, si, tipo, fotoIndex) => {
+    let sensor;
+    if (tipo === 'ingreso') {
+        sensor = _getSensoresIng(i)[si];
+    } else {
+        sensor = window.data[i].sensores_salida[si];
+    }
+    
+    if (sensor && sensor.fotos) {
+        sensor.fotos.splice(fotoIndex, 1);
         _saveSensores();
         window.render();
-    } finally {
-        if (btn) { btn.textContent = '📷'; btn.disabled = false; }
-        inputEl.value = '';
     }
 };
-
-window.sensorEliminarFoto = (i, si, fi, etapa) => {
-    if (etapa === 'ingreso') {
-        const sensores = _getSensoresIng(i);
-        if (sensores[si]?.fotos) { sensores[si].fotos.splice(fi, 1); _saveSensores(); window.render(); }
-    } else {
-        if (window.data[i].sensores_salida_fotos?.[si]) {
-            window.data[i].sensores_salida_fotos[si].splice(fi, 1); _saveSensores(); window.render();
-        }
-    }
-};
-
 // Fallback de compresión si 08_fotos.js no está cargado
 const _comprimirLocal = (file) => new Promise((res, rej) => {
     const url = URL.createObjectURL(file);
