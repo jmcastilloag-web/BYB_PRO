@@ -725,7 +725,75 @@ window.descargarDetalle = async (i) => {
 //  INFORME FINAL  —  TODA la información
 // ════════════════════════════════════════════
 window.descargarInforme = async (i) => {
-    const d=window.data[i], m=d.mediciones||{}, obs=d.observaciones||{}, b=d.bobinado||{}, W=9026;
+    // ── Preparar fotos: descargar URLs de Cloudinary → base64 para el Word ──
+    const btnInforme = document.querySelector(`button[onclick*="descargarInforme(${i})"]`)
+                    || document.querySelector(`button[onclick*="descargarInforme(${i},"]`);
+    const btnOrig = btnInforme?.innerHTML || '';
+    if (btnInforme) { btnInforme.innerHTML = '⏳ Preparando informe...'; btnInforme.disabled = true; }
+
+    try {
+    const _pf = window._prepararFotosParaWord     || (async a => a);
+    const _pc = window._prepararFotosCompParaWord || (async o => o);
+
+    const d_raw = window.data[i];
+
+    // Preparar fotos de mecánica por trabajo (mec_trab_usuario)
+    const mecTrabPrep = {};
+    for (const [k, v] of Object.entries(d_raw.mec_trab_usuario || {})) {
+        mecTrabPrep[k] = (v && v.fotos_b64)
+            ? { ...v, fotos_b64: await _pf(v.fotos_b64) }
+            : v;
+    }
+
+    // Descargar todas las fotos en paralelo
+    const [
+        fi_ingreso, fi_desarme, fi_mant_gen, fi_mant,
+        fi_med_ing, fi_med_gen, fi_metro_rev,
+        fi_mec_gen, fi_metro_gen,
+        fi_bob_med, fi_bob_dev, fi_bob_gen,
+        fi_bal, fi_bal_gen, fi_armado, fi_pruebas
+    ] = await Promise.all([
+        _pf(d_raw.fotos_b64_ingreso              || []),
+        _pc(d_raw.fotos_b64_desarme              || {}),
+        _pf(d_raw.fotos_b64_mantencion_generales || []),
+        _pc(d_raw.fotos_b64_mantencion           || {}),
+        _pf(d_raw.fotos_b64_mediciones_ing       || []),
+        _pf(d_raw.fotos_b64_mediciones_generales || []),
+        _pc(d_raw.fotos_b64_metro_revision       || {}),
+        _pf(d_raw.fotos_b64_mecanica_generales   || []),
+        _pf(d_raw.fotos_b64_metrologia_generales || []),
+        _pf(d_raw.fotos_b64_bobinado_mediciones  || []),
+        _pf(d_raw.fotos_b64_bobinado_devanado    || []),
+        _pf(d_raw.fotos_b64_bobinado_generales   || []),
+        _pf(d_raw.fotos_b64_balanceo             || []),
+        _pf(d_raw.fotos_b64_balanceo_generales   || []),
+        _pc(d_raw.fotos_b64_armado               || {}),
+        _pf(d_raw.fotos_b64_pruebas              || []),
+    ]);
+
+    // d = copia con todas las fotos ya en base64 (no modifica Firebase)
+    const d = {
+        ...d_raw,
+        fotos_b64_ingreso:              fi_ingreso,
+        fotos_b64_desarme:              fi_desarme,
+        fotos_b64_mantencion_generales: fi_mant_gen,
+        fotos_b64_mantencion:           fi_mant,
+        fotos_b64_mediciones_ing:       fi_med_ing,
+        fotos_b64_mediciones_generales: fi_med_gen,
+        fotos_b64_metro_revision:       fi_metro_rev,
+        fotos_b64_mecanica_generales:   fi_mec_gen,
+        fotos_b64_metrologia_generales: fi_metro_gen,
+        fotos_b64_bobinado_mediciones:  fi_bob_med,
+        fotos_b64_bobinado_devanado:    fi_bob_dev,
+        fotos_b64_bobinado_generales:   fi_bob_gen,
+        fotos_b64_balanceo:             fi_bal,
+        fotos_b64_balanceo_generales:   fi_bal_gen,
+        fotos_b64_armado:               fi_armado,
+        fotos_b64_pruebas:              fi_pruebas,
+        mec_trab_usuario:               mecTrabPrep,
+    };
+
+    const m=d.mediciones||{}, obs=d.observaciones||{}, b=d.bobinado||{}, W=9026;
     // Mediciones ingreso
     const medIng={res12:m.res12,res13:m.res13,res23:m.res23,ind12:m.ind12,ind13:m.ind13,ind23:m.ind23,sur1:m.sur1,sur2:m.sur2,sur3:m.sur3,aisla:m.aisla,ipdar:m.ipdar};
     // Mediciones salida
@@ -990,6 +1058,10 @@ window.descargarInforme = async (i) => {
     extraFiles['_rels_override'] = relsBase;
 
     await buildDocx(`Informe_OT_${d.ot}_${d.empresa}.docx`, body, 'PROTOCOLO TÉCNICO FINAL', extraFiles);
+
+    } finally {
+        if (btnInforme) { btnInforme.innerHTML = btnOrig; btnInforme.disabled = false; }
+    }
 };
 
         window.nuevaOT = () => {
@@ -1020,7 +1092,7 @@ window.descargarInforme = async (i) => {
         ot, empresa: em, estado: 'desarme', pri: 'normal',
         pasos: {}, observaciones: {}, mediciones: {}, archivos: [],
         recepcion: rec,
-        fotos_b64_ingreso: (window._fotosNuevaOT && window._fotosNuevaOT.length > 0) ? [...window._fotosNuevaOT] : [],
+        fotos_b64_ingreso: [],
         piezas_recepcion: piezas,
         piezas_recepcion_checks: {},
         placa: {
@@ -1039,6 +1111,16 @@ window.descargarInforme = async (i) => {
         tipoTrabajo:''
     };
     window.data.push(nuevaEntrada);
+    // Subir fotos de ingreso a Cloudinary (en paralelo, sin bloquear)
+    if (window._fotosNuevaOT && window._fotosNuevaOT.length > 0 && window._subirFotosNuevaOT) {
+        const idxNuevo = window.data.length - 1;
+        window._subirFotosNuevaOT(ot).then(fotos => {
+            if (fotos.length > 0) {
+                window.data[idxNuevo].fotos_b64_ingreso = fotos;
+                window.save();
+            }
+        }).catch(e => console.error('Error subiendo fotos nueva OT:', e));
+    }
     window.save();
     // Generar Word Guía de Recepción automáticamente
     const idx = window.data.length - 1;
