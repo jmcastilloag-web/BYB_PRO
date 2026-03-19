@@ -1794,6 +1794,18 @@ window.render = () => {
             });
         }, 120);
     }
+
+    // ── Vista Bodega ──
+    else if (window.vistaActual === 'bodega') {
+        v.innerHTML = '<div id="bodega-mount"></div>';
+        import('./10_bodega.js').then(({ renderBodega, inyectarEstilosBodega }) => {
+            inyectarEstilosBodega();
+            const mount = document.getElementById('bodega-mount');
+            if (mount) renderBodega(mount, window.db, window.storage, window.usuarioActual);
+        }).catch(err => {
+            v.innerHTML = `<div class="card"><p style="color:red;">Error cargando bodega: ${err.message}</p></div>`;
+        });
+    }
 };
 
 // ── FUNCIONES GESTIÓN USUARIOS ──
