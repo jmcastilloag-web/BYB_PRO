@@ -198,7 +198,10 @@ window._agregarFotosNuevaOT = async (inputEl) => {
         if (progEl) progEl.textContent = `⏳ ${fi + 1}/${files.length}`;
         try {
             const blob = await comprimirImagen(files[fi]);
-            window._fotosNuevaOT.push({ _blob: blob, nombre: files[fi].name });
+            // Subir a Cloudinary de inmediato (evita que el blob se invalide)
+            // Usamos carpeta temporal; se moverá al número de OT al crearla
+            const url = await subirACloudinary(blob, `byb_norte/nueva_ot_temp`);
+            window._fotosNuevaOT.push({ url, ext: 'jpeg', nombre: files[fi].name });
         } catch(e) { console.error('Error foto nueva OT:', e); }
     }
     if (progEl) progEl.textContent = '';
@@ -210,7 +213,7 @@ window._refrescarPreviewNuevaOT = () => {
     const prev = document.getElementById('fotos_nueva_ot_preview');
     if (!prev) return;
     prev.innerHTML = window._fotosNuevaOT.map((f, fi) => {
-        const src = f.url ? f.url : (f._blob ? URL.createObjectURL(f._blob) : '');
+        const src = f.url || '';
         if (!src) return '';
         return `<div style="position:relative;display:inline-block;margin:2px;">
             <img src="${src}" style="width:60px;height:46px;object-fit:cover;border-radius:3px;border:1px solid #dde1e7;">
@@ -223,15 +226,11 @@ window._refrescarPreviewNuevaOT = () => {
 // Sube las fotos temporales a Cloudinary al crear la OT
 // USAR en window.nuevaOT() después de asignar el número de OT
 window._subirFotosNuevaOT = async (ot) => {
-    const resultado = [];
-    const folder    = `byb_norte/ot_${ot}/ingreso`;
-    for (const f of window._fotosNuevaOT) {
-        if (f.url) { resultado.push({ url: f.url, ext: 'jpeg' }); continue; }
-        try {
-            const url = await subirACloudinary(f._blob, folder);
-            resultado.push({ url, ext: 'jpeg', nombre: f.nombre });
-        } catch(e) { console.error('Error subiendo foto nueva OT:', e); }
-    }
+    // Las fotos ya fueron subidas a Cloudinary en _agregarFotosNuevaOT
+    // Solo devolvemos las URLs guardadas
+    const resultado = window._fotosNuevaOT
+        .filter(f => f.url)
+        .map(f => ({ url: f.url, ext: 'jpeg', nombre: f.nombre || '' }));
     window._fotosNuevaOT = [];
     return resultado;
 };
