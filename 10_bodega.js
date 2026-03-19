@@ -26,7 +26,18 @@ export const BODEGAS = {
     MOTORES:       'motores'
 };
 
-const ROL_BODEGUERO = 'bodeguero';
+// Pueden operar bodega: admin, encargado, y técnicos del área desarme/mantención
+const puedeOperar = (usuario) => {
+    if (!usuario) return false;
+    if (["admin", "encargado", "bodeguero"].includes(usuario.rol)) return true;
+    if (usuario.rol === "tecnico") {
+        const areasGen = usuario.areasGenerales || usuario.areas_generales || [];
+        if (areasGen.includes("desarme_mant")) return true;
+        const asig = usuario.asignaciones || [];
+        if (asig.some(a => a.area === "desarme_mant")) return true;
+    }
+    return false;
+};
 
 // ═══════════════════════════════════════════════════════════
 //  HELPERS
@@ -60,8 +71,8 @@ async function dbUpdate(path, data) {
 //  1. INGRESAR ÍTEM
 // ═══════════════════════════════════════════════════════════
 export async function ingresarItem(bodegaId, datos, fotos = [], usuario) {
-    if (usuario.rol !== ROL_BODEGUERO)
-        throw new Error('Solo el bodeguero puede ingresar ítems.');
+    if (!puedeOperar(usuario))
+        throw new Error('Sin permisos para ingresar ítems.');
 
     const fotosUrls = fotos.length
         ? await subirFotos(fotos, `bodega/${bodegaId}/ingresos`) : [];
@@ -95,8 +106,8 @@ export async function ingresarItem(bodegaId, datos, fotos = [], usuario) {
 //  2. SOLICITAR SALIDA
 // ═══════════════════════════════════════════════════════════
 export async function solicitarSalida(bodegaId, itemId, receptorUid, receptorNombre, otId, usuario) {
-    if (usuario.rol !== ROL_BODEGUERO)
-        throw new Error('Solo el bodeguero puede solicitar una salida.');
+    if (!puedeOperar(usuario))
+        throw new Error('Sin permisos para solicitar una salida.');
     const item = await dbGet(PATH.item(bodegaId, itemId));
     if (!item) throw new Error('Ítem no encontrado.');
     if (item.estado !== 'en_bodega') throw new Error('El ítem no está disponible.');
@@ -239,7 +250,7 @@ export function renderBodega(container, usuario) {
     async function renderContenido(bodegaId) {
         const content = document.getElementById('bodega-content');
         content.innerHTML = `<p style="padding:20px;color:#888;">Cargando...</p>`;
-        const esBodeguero = usuario.rol === ROL_BODEGUERO;
+        const esBodeguero = puedeOperar(usuario);
         const uid = usuario.uid || usuario.usuario;
         const [items, pendientes] = await Promise.all([
             obtenerItems(bodegaId),
