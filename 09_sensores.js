@@ -396,71 +396,116 @@ window.htmlSensoresSalida = (i) => {
 };
 
 // ── GENERADOR DE TABLA WORD PARA SENSORES ────────────────────
-// Para 05_docx.js — genera XML de tabla Word con los sensores
+// Recibe extraFilesRef, relsArrRef, rIdRef para poder insertar fotos
+// Llamar desde 05_docx.js pasando esos objetos
 
-window.tabSensoresIngreso = (d, W = 9026) => {
+const _sensorMkImg = (rid, extraFiles, rels, rIdRef) => {
+    // Imagen 4cm x 3cm en Word
+    const cx = Math.round(4.0 * 360000);
+    const cy = Math.round(3.0 * 360000);
+    return `<w:r><w:rPr><w:noProof/></w:rPr><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="${cx}" cy="${cy}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${rid}" name="img${rid}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="0" name="img${rid}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="rId${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+};
+
+const _sensorRegFoto = (f, extraFilesRef, relsArrRef, rIdRef) => {
+    if (!f || !f.b64 || typeof f.b64 !== 'string' || f.b64.length < 100) return null;
+    try {
+        const rid = rIdRef.val++;
+        const fn  = `sensor_foto_${rid}.jpeg`;
+        extraFilesRef[`word/media/${fn}`] = Uint8Array.from(atob(f.b64), c => c.charCodeAt(0));
+        relsArrRef.push(`<Relationship Id="rId${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn}"/>`);
+        return rid;
+    } catch(e) { console.warn('Foto sensor inválida:', e.message); return null; }
+};
+
+// Genera bloque de fotos de un sensor (3 por fila)
+const _sensorBloqFotos = (fotos, extraFilesRef, relsArrRef, rIdRef, W) => {
+    if (!fotos || fotos.length === 0) return '';
+    const colW = Math.round(W / 3);
+    const xE = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let html = '';
+    for (let fi = 0; fi < fotos.length; fi += 3) {
+        const grupo = fotos.slice(fi, fi + 3);
+        const imgCells = [];
+        const lblCells = [];
+        for (let gi = 0; gi < 3; gi++) {
+            const f = grupo[gi];
+            const rid = f ? _sensorRegFoto(f, extraFilesRef, relsArrRef, rIdRef) : null;
+            if (rid !== null) {
+                imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F6FF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_sensorMkImg(rid)}</w:p></w:tc>`);
+                lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E8EEF6"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr><w:color w:val="555555"/><w:sz w:val="16"/></w:rPr><w:t>Foto ${fi+gi+1}</w:t></w:r></w:p></w:tc>`);
+            } else {
+                imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p></w:tc>`);
+                lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr></w:p></w:tc>`);
+            }
+        }
+        html += `<w:tbl><w:tblPr><w:tblW w:w="${W}" w:type="dxa"/><w:tblBorders><w:insideH w:val="none"/><w:insideV w:val="none"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/><w:gridCol w:w="${colW}"/></w:tblGrid><w:tr><w:trPr><w:trHeight w:val="${Math.round(3.0*567)}"/></w:trPr>${imgCells.join('')}</w:tr><w:tr><w:trPr><w:trHeight w:val="280"/></w:trPr>${lblCells.join('')}</w:tr></w:tbl>`;
+    }
+    return html;
+};
+
+// tabSensoresIngreso — ahora recibe extraFilesRef, relsArrRef, rIdRef para fotos
+window.tabSensoresIngreso = (d, W = 9026, extraFilesRef, relsArrRef, rIdRef) => {
     const sensores = d.sensores_ingreso || [];
     if (sensores.length === 0) return '';
 
-    // Columnas: Tipo | Ubicación | Resistencia | Continuidad | Estado | Observación
-    const c = [1500, 1800, 1000, 900, 1000, W - 1500 - 1800 - 1000 - 900 - 1000];
-
-    // Necesitamos las funciones DOCX del scope de 05_docx.js
-    // Las llamamos a través de window si están disponibles
-    const _R  = window._docx_R  || ((txt, sz, col, b) => `<w:r><w:rPr>${b?'<w:b/>':''}<w:color w:val="${col||'2C3E50'}"/><w:sz w:val="${(sz||11)*2}"/></w:rPr><w:t xml:space="preserve">${(txt||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</w:t></w:r>`);
-    const _TC = window._docx_TC;
-    const _TR = window._docx_TR;
-    const _TH = window._docx_TH;
-    const _TABLA = window._docx_TABLA;
-
-    // Si no están disponibles las funciones DOCX, devolver marcador
-    if (!_TC || !_TR || !_TH || !_TABLA) {
-        // Devolver XML básico manual
-        const xE = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const cell = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t>${xE(txt)}</w:t></w:r></w:p></w:tc>`;
-        const cellL = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${xE(txt)}</w:t></w:r></w:p></w:tc>`;
-        const row = (cells, h) => `<w:tr>${h?`<w:trPr><w:trHeight w:val="${h}"/></w:trPr>`:''}${cells}</w:tr>`;
-
-        const header = row(
-            cell(c[0],'1A3A5C','TIPO',true,'FFFFFF') +
-            cell(c[1],'1A3A5C','UBICACIÓN',true,'FFFFFF') +
-            cell(c[2],'1A3A5C','RES. (Ω)',true,'FFFFFF') +
-            cell(c[3],'1A3A5C','CONT.',true,'FFFFFF') +
-            cell(c[4],'1A3A5C','ESTADO',true,'FFFFFF') +
-            cellL(c[5],'1A3A5C','OBSERVACIÓN',true,'FFFFFF'), 80);
-
-        const rows = sensores.map((s, si) => {
-            const bg = si % 2 === 0 ? 'F8FAFF' : 'FFFFFF';
-            const colEst = s.estado==='bueno'?'27AE60':s.estado==='malo'?'E74C3C':'888888';
-            const bgEst  = s.estado==='bueno'?'E8F8F0':s.estado==='malo'?'FFF5F5':'F5F5F5';
-            const txtEst = s.estado==='bueno'?'✅ BUENO':s.estado==='malo'?'❌ MALO':'— N/A';
-            const txtCont = s.continuidad==='si'?'✓ SI':s.continuidad==='no'?'✗ NO':'—';
-            return row(
-                cellL(c[0], bg, s.tipo||'—', true, '2C3E50') +
-                cellL(c[1], bg, s.ubicacion||'—', false, '555555') +
-                cell(c[2], bg, s.resistencia||'—', false, '2C3E50') +
-                cell(c[3], bg, txtCont, false, s.continuidad==='si'?'27AE60':s.continuidad==='no'?'E74C3C':'888888') +
-                cell(c[4], bgEst, txtEst, true, colEst) +
-                cellL(c[5], bg, s.obs||'—', false, '555555')
-            );
-        }).join('');
-
-        const tot = c.reduce((a,b)=>a+b,0);
-        return `<w:tbl><w:tblPr><w:tblW w:w="${tot}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="2" w:color="B0C8E8"/><w:left w:val="single" w:sz="2" w:color="B0C8E8"/><w:bottom w:val="single" w:sz="2" w:color="B0C8E8"/><w:right w:val="single" w:sz="2" w:color="B0C8E8"/><w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/></w:tblBorders></w:tblPr><w:tblGrid>${c.map(col=>`<w:gridCol w:w="${col}"/>`).join('')}</w:tblGrid>${header}${rows}</w:tbl>`;
-    }
-    return '';
-};
-
-window.tabSensoresSalida = (d, W = 9026) => {
-    const sensoresIng = d.sensores_ingreso || [];
-    const datosSal    = d.sensores_salida  || {};
-    if (sensoresIng.length === 0) return '';
-
-    const c = [1500, 1700, 900, 900, 1000, W - 1500 - 1700 - 900 - 900 - 1000];
-    const xE = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const xE    = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const c     = [1400, 1700, 950, 850, 950, W - 1400 - 1700 - 950 - 850 - 950];
     const cell  = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t>${xE(txt)}</w:t></w:r></w:p></w:tc>`;
     const cellL = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${xE(txt)}</w:t></w:r></w:p></w:tc>`;
     const row   = (cells, h) => `<w:tr>${h?`<w:trPr><w:trHeight w:val="${h}"/></w:trPr>`:''}${cells}</w:tr>`;
+    const tot   = c.reduce((a,b)=>a+b,0);
+
+    const header = row(
+        cell(c[0],'1A3A5C','TIPO',true,'FFFFFF') +
+        cell(c[1],'1A3A5C','UBICACIÓN',true,'FFFFFF') +
+        cell(c[2],'1A3A5C','RES. (Ω)',true,'FFFFFF') +
+        cell(c[3],'1A3A5C','CONT.',true,'FFFFFF') +
+        cell(c[4],'1A3A5C','ESTADO',true,'FFFFFF') +
+        cellL(c[5],'1A3A5C','OBSERVACIÓN',true,'FFFFFF'), 80);
+
+    let result = `<w:tbl><w:tblPr><w:tblW w:w="${tot}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="2" w:color="B0C8E8"/><w:left w:val="single" w:sz="2" w:color="B0C8E8"/><w:bottom w:val="single" w:sz="2" w:color="B0C8E8"/><w:right w:val="single" w:sz="2" w:color="B0C8E8"/><w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/></w:tblBorders></w:tblPr><w:tblGrid>${c.map(col=>`<w:gridCol w:w="${col}"/>`).join('')}</w:tblGrid>${header}`;
+
+    sensores.forEach((s, si) => {
+        const bg     = si % 2 === 0 ? 'F8FAFF' : 'FFFFFF';
+        const colEst = s.estado==='bueno'?'27AE60':s.estado==='malo'?'E74C3C':'888888';
+        const bgEst  = s.estado==='bueno'?'E8F8F0':s.estado==='malo'?'FFF5F5':'F5F5F5';
+        const txtEst = s.estado==='bueno'?'BUENO':s.estado==='malo'?'MALO':'N/A';
+        const txtCont = s.continuidad==='si'?'SI':s.continuidad==='no'?'NO':'—';
+        result += row(
+            cellL(c[0], bg, s.tipo||'—', true, '2C3E50') +
+            cellL(c[1], bg, s.ubicacion||'—', false, '555555') +
+            cell(c[2], bg, s.resistencia||'—', false, '2C3E50') +
+            cell(c[3], bg, txtCont, false, s.continuidad==='si'?'27AE60':s.continuidad==='no'?'E74C3C':'888888') +
+            cell(c[4], bgEst, txtEst, true, colEst) +
+            cellL(c[5], bg, s.obs||'—', false, '555555')
+        );
+        // Agregar fila de fotos si hay fotos y tenemos acceso al sistema de fotos
+        const fotos = s.fotos || [];
+        if (fotos.length > 0 && extraFilesRef && relsArrRef && rIdRef) {
+            const fotosXml = _sensorBloqFotos(fotos, extraFilesRef, relsArrRef, rIdRef, tot);
+            if (fotosXml) {
+                result += `<w:tr><w:trPr><w:trHeight w:val="10"/></w:trPr><w:tc><w:tcPr><w:gridSpan w:val="${c.length}"/><w:tcW w:w="${tot}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F6FF"/></w:tcPr>${fotosXml}</w:tc></w:tr>`;
+            }
+        }
+    });
+
+    result += '</w:tbl>';
+    return result;
+};
+
+// tabSensoresSalida — también recibe extraFilesRef, relsArrRef, rIdRef
+window.tabSensoresSalida = (d, W = 9026, extraFilesRef, relsArrRef, rIdRef) => {
+    const sensoresIng = d.sensores_ingreso    || [];
+    const datosSal    = d.sensores_salida     || {};
+    const fotosSal    = d.sensores_salida_fotos || {};
+    if (sensoresIng.length === 0) return '';
+
+    const xE    = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const c     = [1400, 1700, 950, 850, 950, W - 1400 - 1700 - 950 - 850 - 950];
+    const cell  = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t>${xE(txt)}</w:t></w:r></w:p></w:tc>`;
+    const cellL = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${xE(txt)}</w:t></w:r></w:p></w:tc>`;
+    const row   = (cells, h) => `<w:tr>${h?`<w:trPr><w:trHeight w:val="${h}"/></w:trPr>`:''}${cells}</w:tr>`;
+    const tot   = c.reduce((a,b)=>a+b,0);
 
     const header = row(
         cellL(c[0],'1A6B2E','TIPO',true,'FFFFFF') +
@@ -470,14 +515,16 @@ window.tabSensoresSalida = (d, W = 9026) => {
         cell(c[4],'1A6B2E','ESTADO SAL.',true,'FFFFFF') +
         cellL(c[5],'1A6B2E','OBS. SALIDA',true,'FFFFFF'), 80);
 
-    const rows = sensoresIng.map((s, si) => {
-        const sal = datosSal[si] || {};
-        const bg = si % 2 === 0 ? 'F4FFF6' : 'FFFFFF';
+    let result = `<w:tbl><w:tblPr><w:tblW w:w="${tot}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="2" w:color="A0D8B0"/><w:left w:val="single" w:sz="2" w:color="A0D8B0"/><w:bottom w:val="single" w:sz="2" w:color="A0D8B0"/><w:right w:val="single" w:sz="2" w:color="A0D8B0"/><w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/></w:tblBorders></w:tblPr><w:tblGrid>${c.map(col=>`<w:gridCol w:w="${col}"/>`).join('')}</w:tblGrid>${header}`;
+
+    sensoresIng.forEach((s, si) => {
+        const sal    = datosSal[si] || {};
+        const bg     = si % 2 === 0 ? 'F4FFF6' : 'FFFFFF';
         const colEst = sal.estado==='bueno'?'27AE60':sal.estado==='malo'?'E74C3C':'888888';
         const bgEst  = sal.estado==='bueno'?'E8F8F0':sal.estado==='malo'?'FFF5F5':'F5F5F5';
-        const txtEst = sal.estado==='bueno'?'✅ BUENO':sal.estado==='malo'?'❌ MALO':'— N/A';
-        const txtCont = sal.continuidad==='si'?'✓ SI':sal.continuidad==='no'?'✗ NO':'—';
-        return row(
+        const txtEst = sal.estado==='bueno'?'BUENO':sal.estado==='malo'?'MALO':'N/A';
+        const txtCont = sal.continuidad==='si'?'SI':sal.continuidad==='no'?'NO':'—';
+        result += row(
             cellL(c[0], bg, s.tipo||'—', true, '1A6B2E') +
             cellL(c[1], bg, s.ubicacion||'—', false, '555555') +
             cell(c[2], bg, sal.resistencia||'—', false, '2C3E50') +
@@ -485,10 +532,18 @@ window.tabSensoresSalida = (d, W = 9026) => {
             cell(c[4], bgEst, txtEst, true, colEst) +
             cellL(c[5], bg, sal.obs||'—', false, '555555')
         );
-    }).join('');
+        // Fotos de salida
+        const fotos = fotosSal[si] || [];
+        if (fotos.length > 0 && extraFilesRef && relsArrRef && rIdRef) {
+            const fotosXml = _sensorBloqFotos(fotos, extraFilesRef, relsArrRef, rIdRef, tot);
+            if (fotosXml) {
+                result += `<w:tr><w:trPr><w:trHeight w:val="10"/></w:trPr><w:tc><w:tcPr><w:gridSpan w:val="${c.length}"/><w:tcW w:w="${tot}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0FFF4"/></w:tcPr>${fotosXml}</w:tc></w:tr>`;
+            }
+        }
+    });
 
-    const tot = c.reduce((a,b)=>a+b,0);
-    return `<w:tbl><w:tblPr><w:tblW w:w="${tot}" w:type="dxa"/><w:tblBorders><w:top w:val="single" w:sz="2" w:color="A0D8B0"/><w:left w:val="single" w:sz="2" w:color="A0D8B0"/><w:bottom w:val="single" w:sz="2" w:color="A0D8B0"/><w:right w:val="single" w:sz="2" w:color="A0D8B0"/><w:insideH w:val="single" w:sz="1" w:color="DDE1E7"/><w:insideV w:val="single" w:sz="1" w:color="DDE1E7"/></w:tblBorders></w:tblPr><w:tblGrid>${c.map(col=>`<w:gridCol w:w="${col}"/>`).join('')}</w:tblGrid>${header}${rows}</w:tbl>`;
+    result += '</w:tbl>';
+    return result;
 };
 
 console.log('✅ 09_sensores.js cargado');
