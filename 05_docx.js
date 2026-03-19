@@ -392,18 +392,11 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
 
         // ── Helper: registrar foto en extras y rels ──
         const _regFoto = (f, extraFilesRef, relsArrRef, rIdRef) => {
-            // Validar que b64 sea string real y no undefined/null/vacío
-            if (!f || !f.b64 || typeof f.b64 !== 'string' || f.b64.length < 100) return null;
-            try {
-                const rid = rIdRef.val++;
-                const fn = 'foto_' + rid + '.' + (f.ext || 'jpeg');
-                extraFilesRef[`word/media/${fn}`] = Uint8Array.from(atob(f.b64), c2 => c2.charCodeAt(0));
-                relsArrRef.push(`<Relationship Id="rId${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn}"/>`);
-                return rid;
-            } catch(e) {
-                console.warn('Foto inválida ignorada:', e.message);
-                return null;
-            }
+            const rid = rIdRef.val++;
+            const fn = 'foto_' + rid + '.' + (f.ext || 'jpeg');
+            extraFilesRef[`word/media/${fn}`] = Uint8Array.from(atob(f.b64), c2 => c2.charCodeAt(0));
+            relsArrRef.push(`<Relationship Id="rId${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${fn}"/>`);
+            return rid;
         };
 
         // ── Fotos de COMPONENTES: 3 por fila, 5.5cm x 4cm, con pie de foto ──
@@ -420,8 +413,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                 const lblCells = [];
                 for (let gi = 0; gi < 3; gi++) {
                     const f = grupo[gi];
-                    const rid = (f && f.b64) ? _regFoto(f, extraFilesRef, relsArrRef, rIdRef) : null;
-                    if (rid !== null) {
+                    if (f && f.b64) {
+                        const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
                         const label = labelFn ? xE(labelFn(fi + gi)) : `Foto ${fi + gi + 1}`;
                         imgCells.push(TC(colW, 'FFFFFF', _mkImgWordRun(rid, cx, cy), true));
                         lblCells.push(TC(colW, 'F5F6F7',
@@ -455,8 +448,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                 const lblCells = [];
                 for (let gi = 0; gi < 4; gi++) {
                     const f = grupo[gi];
-                    const rid = (f && f.b64) ? _regFoto(f, extraFilesRef, relsArrRef, rIdRef) : null;
-                    if (rid !== null) {
+                    if (f && f.b64) {
+                        const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
                         const lbl = labelFn ? xE(labelFn(fi+gi)) : `Foto ${fi+gi+1}`;
                         imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx, cy)}</w:p></w:tc>`);
                         lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(9,'555555',false)}</w:rPr><w:t>${lbl}</w:t></w:r></w:p></w:tc>`);
@@ -485,8 +478,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                 const lblCells = [];
                 for (let gi = 0; gi < 5; gi++) {
                     const f = grupo[gi];
-                    const rid = (f && f.b64) ? _regFoto(f, extraFilesRef, relsArrRef, rIdRef) : null;
-                    if (rid !== null) {
+                    if (f && f.b64) {
+                        const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
                         imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx, cy)}</w:p></w:tc>`);
                         lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(8,'555555',false)}</w:rPr><w:t>Foto ${fi+gi+1}</w:t></w:r></w:p></w:tc>`);
                     } else {
@@ -908,7 +901,7 @@ window.descargarInforme = async (i) => {
         // ── 5. MEDICIONES ELÉCTRICAS DE INGRESO ──
         SECC('5.  MEDICIONES ELÉCTRICAS DE INGRESO'), RESP((d.responsables||{}).med_ok), SP(0),
         tabMedElec(medIng,W), SP(0),
-        (()=>{ const t=window.tabSensoresIngreso?window.tabSensoresIngreso(d,W):''; return t?(SECC('    SENSORES / PROTECCIONES TÉRMICAS INGRESO')+SP(0)+t+SP(0)):''; })(),
+        (()=>{ const t=window.tabSensoresIngreso?window.tabSensoresIngreso(d,W,_extraFotos,_relsArr,_rIdCounter):''; return t?(SECC('    SENSORES / PROTECCIONES TÉRMICAS INGRESO')+SP(0)+t+SP(0)):''; })(),
         (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mediciones_ing||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS MEDICIONES INGRESO')+SP(0)+f+SP(0)) : ''; })(),
         (()=>{ const f=_bloqFotosGenerales(d.fotos_b64_mediciones_generales||[], _extraFotos, _relsArr, _rIdCounter); return f ? (SECC('    FOTOGRAFÍAS GENERALES CALIDAD')+SP(0)+f+SP(0)) : ''; })(),
         tarCalidad.length>0 ? SECC('    TAREAS DE CALIDAD / MEDICIONES') : '',
@@ -1027,7 +1020,7 @@ window.descargarInforme = async (i) => {
         // ── 10. MEDICIONES ELÉCTRICAS DE SALIDA ──
         SECC('10. MEDICIONES ELÉCTRICAS DE SALIDA'), RESP((d.responsables||{}).pruebas_ok), SP(0),
         tabMedElec(medSal,W), SP(0),
-        (()=>{ const t=window.tabSensoresSalida?window.tabSensoresSalida(d,W):''; return t?(SECC('    SENSORES / PROTECCIONES TÉRMICAS SALIDA')+SP(0)+t+SP(0)):''; })(),
+        (()=>{ const t=window.tabSensoresSalida?window.tabSensoresSalida(d,W,_extraFotos,_relsArr,_rIdCounter):''; return t?(SECC('    SENSORES / PROTECCIONES TÉRMICAS SALIDA')+SP(0)+t+SP(0)):''; })(),
 
         // ── 11. PRUEBAS DINÁMICAS ──
         SECC('11. PRUEBAS DINÁMICAS'), RESP((d.responsables||{}).pruebas_ok), SP(0),
