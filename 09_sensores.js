@@ -98,9 +98,8 @@ window.sensorSubirFoto = async (i, si, etapa, inputEl) => {
                 if (btn) btn.textContent = `⏳ ${fi+1}/${aSubir.length}`;
                 try {
                     const comprimirImagen = window._comprimirImagen || _comprimirLocal;
-                    const subirFn = window._subirACloudinary || _subirBase64Local;
                     const blob = await comprimirImagen(aSubir[fi]);
-                    const url  = typeof subirFn === 'function' && window._subirACloudinary
+                    const url  = window._subirACloudinary
                         ? await window._subirACloudinary(blob, `byb_norte/ot_${ot}/sensor_ing_${si}`)
                         : await _b64FromBlob(blob);
                     sensores[si].fotos.push(typeof url === 'string' && url.startsWith('http')
