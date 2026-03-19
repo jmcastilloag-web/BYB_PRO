@@ -450,8 +450,8 @@ window.tabSensoresIngreso = (d, W = 9026, extraFilesRef, relsArrRef, rIdRef) => 
 
     const xE    = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const c     = [1400, 1700, 950, 850, 950, W - 1400 - 1700 - 950 - 850 - 950];
-    const cell  = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t>${xE(txt)}</w:t></w:r></w:p></w:tc>`;
-    const cellL = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="20"/></w:rPr><w:t xml:space="preserve">${xE(txt)}</w:t></w:r></w:p></w:tc>`;
+    const cell  = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="13"/></w:rPr><w:t>${xE(txt)}</w:t></w:r></w:p></w:tc>`;
+    const cellL = (w, bg, txt, bold, color) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="${bg||'FFFFFF'}"/></w:tcPr><w:p><w:pPr><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${bold?'<w:b/>':''}<w:color w:val="${color||'2C3E50'}"/><w:sz w:val="13"/></w:rPr><w:t xml:space="preserve">${xE(txt)}</w:t></w:r></w:p></w:tc>`;
     const row   = (cells, h) => `<w:tr>${h?`<w:trPr><w:trHeight w:val="${h}"/></w:trPr>`:''}${cells}</w:tr>`;
     const tot   = c.reduce((a,b)=>a+b,0);
 
