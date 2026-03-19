@@ -1794,8 +1794,9 @@ window.render = () => {
             });
         }, 120);
     }
+
     // ── Vista Bodega ──
-    else if (window.vistaActual === 'bodega') {
+    if (window.vistaActual === 'bodega') {
         v.innerHTML = '<div id="bodega-mount"></div>';
         import('./10_bodega.js').then(({ renderBodega, inyectarEstilosBodega }) => {
             inyectarEstilosBodega();
