@@ -745,6 +745,18 @@ window.descargarInforme = async (i) => {
             : v;
     }
 
+    // Preparar fotos de sensores (ingreso y salida)
+    const sensoresIngPrep = JSON.parse(JSON.stringify(d_raw.sensores_ingreso || []));
+    for (let si = 0; si < sensoresIngPrep.length; si++) {
+        if (sensoresIngPrep[si]?.fotos?.length > 0) {
+            sensoresIngPrep[si].fotos = await _pf(sensoresIngPrep[si].fotos);
+        }
+    }
+    const sensorSalFotosPrep = {};
+    for (const [k, v] of Object.entries(d_raw.sensores_salida_fotos || {})) {
+        sensorSalFotosPrep[k] = await _pf(Array.isArray(v) ? v : []);
+    }
+
     // Descargar todas las fotos en paralelo
     const [
         fi_ingreso, fi_desarme, fi_mant_gen, fi_mant,
@@ -791,6 +803,8 @@ window.descargarInforme = async (i) => {
         fotos_b64_armado:               fi_armado,
         fotos_b64_pruebas:              fi_pruebas,
         mec_trab_usuario:               mecTrabPrep,
+        sensores_ingreso:               sensoresIngPrep,
+        sensores_salida_fotos:          sensorSalFotosPrep,
     };
 
     const m=d.mediciones||{}, obs=d.observaciones||{}, b=d.bobinado||{}, W=9026;
