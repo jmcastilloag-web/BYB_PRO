@@ -460,7 +460,6 @@ window.renderAreaCalidad = (d, i, obs) => {
                             : `<p style="color:#e67e22;font-weight:600;font-size:0.85em;">⚠️ Debes verificar todas las piezas y terminaciones antes de dar el check de salida.</p>`
                         }`;
                 }
-            }
 
     return UI;
 };
