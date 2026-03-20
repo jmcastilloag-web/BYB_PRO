@@ -18,49 +18,38 @@ const _inyectarEstilosCamara = () => {
     const style = document.createElement('style');
     style.id = 'camara-styles';
     style.textContent = `
-        /* ── Overlay fondo negro full screen ── */
+        /* ── Overlay base ── */
         #camara-overlay {
             position: fixed;
             inset: 0;
             background: #000;
             z-index: 99999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             overflow: hidden;
         }
 
-        /* ── Visor SIEMPRE 4:3 landscape ── */
-        #camara-visor-wrap {
-            position: relative;
-            width: 100%;
-            /* padding-top 75% = ratio 4:3 (height = 75% of width) */
-            padding-top: 75%;
-            max-height: 70vh;
-            overflow: hidden;
-            background: #111;
-            flex-shrink: 0;
-        }
-        /* Cuando el visor en 4:3 sería más alto que 70vh, lo limitamos por altura */
-        @media (max-aspect-ratio: 4/3) {
-            #camara-visor-wrap {
-                width: calc(70vh * 4 / 3);
-                padding-top: 0;
-                height: 70vh;
-                max-width: 100%;
-            }
-        }
-
-        #camara-video {
+        /* ── Contenedor interior ── */
+        #camara-inner {
             position: absolute;
             inset: 0;
+            display: flex;
+            flex-direction: column;
+            background: #000;
+        }
+
+        /* ── Video ocupa todo el espacio disponible ── */
+        #camara-visor-wrap {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #111;
+            min-height: 0;
+        }
+        #camara-video {
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
-            transform-origin: center center;
         }
 
         /* Líneas de guía */
@@ -107,6 +96,7 @@ const _inyectarEstilosCamara = () => {
             opacity: 0;
             transition: opacity 0.25s;
             white-space: nowrap;
+            z-index: 2;
         }
         #camara-toast.visible { opacity: 1; }
 
@@ -117,9 +107,10 @@ const _inyectarEstilosCamara = () => {
             align-items: center;
             justify-content: space-between;
             padding: 10px 14px;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.92);
             box-sizing: border-box;
             flex-shrink: 0;
+            gap: 8px;
         }
         #camara-titulo {
             color: #fff;
@@ -130,10 +121,9 @@ const _inyectarEstilosCamara = () => {
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            padding: 0 8px;
         }
         #camara-contador {
-            background: rgba(0,79,136,0.9);
+            background: #004F88;
             color: #fff;
             border-radius: 20px;
             padding: 3px 10px;
@@ -142,13 +132,13 @@ const _inyectarEstilosCamara = () => {
             white-space: nowrap;
         }
         #camara-btn-cerrar {
-            background: rgba(255,255,255,0.12);
+            background: rgba(255,255,255,0.15);
             border: none;
             color: #fff;
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
-            font-size: 1em;
+            font-size: 0.95em;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -159,8 +149,8 @@ const _inyectarEstilosCamara = () => {
         /* ── Controles inferiores ── */
         #camara-controles {
             width: 100%;
-            padding: 12px 16px 16px;
-            background: rgba(0,0,0,0.9);
+            padding: 10px 16px 14px;
+            background: rgba(0,0,0,0.92);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -169,7 +159,7 @@ const _inyectarEstilosCamara = () => {
             flex-shrink: 0;
         }
 
-        /* Strip miniaturas */
+        /* Strip miniaturas 4:3 */
         #camara-preview-strip {
             display: flex;
             gap: 5px;
@@ -180,35 +170,35 @@ const _inyectarEstilosCamara = () => {
         }
         #camara-preview-strip::-webkit-scrollbar { display: none; }
         .camara-thumb {
-            width: 48px;
-            height: 36px;   /* 4:3 */
+            width: 53px;
+            height: 40px;
             border-radius: 4px;
             object-fit: cover;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.35);
             flex-shrink: 0;
             cursor: pointer;
         }
 
         /* Botón capturar */
         #camara-btn-capturar {
-            width: 62px;
-            height: 62px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             border: 4px solid #fff;
             background: rgba(255,255,255,0.15);
             cursor: pointer;
             flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.1s, background 0.1s;
             position: relative;
+            transition: transform 0.1s, background 0.1s;
         }
-        #camara-btn-capturar:active { transform: scale(0.91); background: rgba(255,255,255,0.35); }
+        #camara-btn-capturar:active { transform: scale(0.91); }
         #camara-btn-capturar::after {
             content: '';
-            width: 46px;
-            height: 46px;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             background: #fff;
         }
@@ -219,15 +209,15 @@ const _inyectarEstilosCamara = () => {
             background: rgba(255,255,255,0.12);
             border: none;
             color: #fff;
-            width: 42px;
-            height: 42px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
-            font-size: 1.2em;
+            font-size: 1.1em;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.15s, transform 0.3s;
+            transition: transform 0.3s;
             flex-shrink: 0;
         }
         #camara-btn-girar.girando { transform: rotate(180deg); }
@@ -237,10 +227,10 @@ const _inyectarEstilosCamara = () => {
             background: #004F88;
             border: none;
             color: #fff;
-            padding: 0 14px;
-            height: 42px;
-            border-radius: 21px;
-            font-size: 0.82em;
+            padding: 0 12px;
+            height: 40px;
+            border-radius: 20px;
+            font-size: 0.8em;
             font-weight: 700;
             cursor: pointer;
             flex-shrink: 0;
@@ -250,7 +240,7 @@ const _inyectarEstilosCamara = () => {
         }
         #camara-btn-guardar:disabled { background: rgba(255,255,255,0.15); cursor: not-allowed; }
 
-        /* Botón inline junto a "Agregar fotos" */
+        /* Botón inline junto a Agregar fotos */
         .camara-btn-inline {
             display: inline-flex;
             align-items: center;
@@ -264,7 +254,6 @@ const _inyectarEstilosCamara = () => {
             color: #fff;
             font-weight: 600;
             font-family: inherit;
-            transition: background 0.15s;
             white-space: nowrap;
         }
         .camara-btn-inline:hover { background: #243550; }
@@ -287,10 +276,18 @@ const _ctx    = _canvas.getContext('2d');
 // ── ABRIR MODAL DE CÁMARA ─────────────────────────────────────
 window._abrirCamara = async (titulo, maxFotos, callbackSubir) => {
     _inyectarEstilosCamara();
-    _tituloModal    = titulo || 'Cámara';
-    _maxFotos       = maxFotos || 20;
-    _callbackSubir  = callbackSubir;
+    _tituloModal     = titulo || 'Cámara';
+    _maxFotos        = maxFotos || 20;
+    _callbackSubir   = callbackSubir;
     _fotosCapturadas = [];
+
+    // Bloquear orientación landscape al abrir
+    try {
+        await screen.orientation.lock('landscape');
+    } catch(e) {
+        // No todos los navegadores lo soportan — continuar igual
+        console.log('orientation lock no soportado:', e.message);
+    }
 
     // Crear overlay
     let overlay = document.getElementById('camara-overlay');
@@ -299,36 +296,36 @@ window._abrirCamara = async (titulo, maxFotos, callbackSubir) => {
     overlay = document.createElement('div');
     overlay.id = 'camara-overlay';
     overlay.innerHTML = `
-        <div id="camara-header">
-            <button id="camara-btn-cerrar" title="Cerrar">✕</button>
-            <div id="camara-titulo">${_tituloModal}</div>
-            <div id="camara-contador">0 / ${_maxFotos}</div>
-        </div>
-        <div id="camara-visor-wrap">
-            <video id="camara-video" autoplay playsinline muted></video>
-            <div id="camara-guia">
-                <div class="camara-guia-v"></div>
-                <div class="camara-guia-v"></div>
+        <div id="camara-inner">
+            <div id="camara-header">
+                <button id="camara-btn-cerrar" title="Cerrar">✕</button>
+                <div id="camara-titulo">${_tituloModal}</div>
+                <div id="camara-contador">0 / ${_maxFotos}</div>
             </div>
-            <div id="camara-flash"></div>
-            <div id="camara-toast"></div>
-        </div>
-        <div id="camara-controles">
-            <div id="camara-preview-strip"></div>
-            <button id="camara-btn-capturar" title="Capturar foto"></button>
-            <button id="camara-btn-girar" title="Cambiar cámara">🔄</button>
-            <button id="camara-btn-guardar" disabled>✅ Guardar<br><small id="camara-n-fotos">0 fotos</small></button>
+            <div id="camara-visor-wrap">
+                <video id="camara-video" autoplay playsinline muted></video>
+                <div id="camara-guia">
+                    <div class="camara-guia-v"></div>
+                    <div class="camara-guia-v"></div>
+                </div>
+                <div id="camara-flash"></div>
+                <div id="camara-toast"></div>
+            </div>
+            <div id="camara-controles">
+                <div id="camara-preview-strip"></div>
+                <button id="camara-btn-capturar" title="Capturar foto"></button>
+                <button id="camara-btn-girar" title="Cambiar cámara">🔄</button>
+                <button id="camara-btn-guardar" disabled>✅ Guardar<br><small id="camara-n-fotos">0 fotos</small></button>
+            </div>
         </div>
     `;
     document.body.appendChild(overlay);
 
-    // Eventos
-    document.getElementById('camara-btn-cerrar').onclick  = _cerrarCamara;
+    document.getElementById('camara-btn-cerrar').onclick   = _cerrarCamara;
     document.getElementById('camara-btn-capturar').onclick = _capturarFoto;
-    document.getElementById('camara-btn-girar').onclick   = _girarCamara;
+    document.getElementById('camara-btn-girar').onclick    = _girarCamara;
     document.getElementById('camara-btn-guardar').onclick  = _guardarYCerrar;
 
-    // Iniciar stream
     await _iniciarStream();
 };
 
@@ -347,23 +344,6 @@ const _iniciarStream = async () => {
             audio: false
         });
         video.srcObject = _stream;
-
-        // Cuando el video arranca, detectar si llegó portrait y rotarlo por CSS
-        video.onloadedmetadata = () => {
-            if (video.videoHeight > video.videoWidth) {
-                // El stream llegó portrait — rotarlo 90° visualmente con CSS
-                const wrap = document.getElementById('camara-visor-wrap');
-                if (wrap) {
-                    const wrapW = wrap.offsetWidth || window.innerWidth;
-                    const wrapH = wrap.offsetHeight || wrapW * 0.75;
-                    // Rotar el video y ajustar escala para que llene el visor 4:3
-                    const escala = Math.max(wrapW / video.videoHeight, wrapH / video.videoWidth);
-                    video.style.transform = `rotate(90deg) scale(${escala})`;
-                }
-            } else {
-                video.style.transform = '';
-            }
-        };
     } catch (err) {
         console.error('Error cámara:', err);
         _mostrarToast('⚠ No se pudo acceder a la cámara. Verifica permisos.', 4000);
@@ -491,6 +471,8 @@ const _cerrarCamara = () => {
     _fotosCapturadas = [];
     const overlay = document.getElementById('camara-overlay');
     if (overlay) overlay.remove();
+    // Restaurar orientación libre
+    try { screen.orientation.unlock(); } catch(e) {}
 };
 
 // ── TOAST ─────────────────────────────────────────────────────
