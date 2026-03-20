@@ -616,33 +616,7 @@ window.render = () => {
             let UI = ""; let p = d.pasos || {}; if(!d.mediciones) d.mediciones = {}; if(!d.placa) d.placa = {};
             const obs = (k) => `<textarea id="obs_${k}_${i}" onchange="window.guardarObs(${i},'${k}')" placeholder="Notas...">${d.observaciones?.[k]||''}</textarea>`;
 
-    else {
-        let html = `<div class="card"><h2>${window.vistaActual.replace(/_/g,' ').toUpperCase()}</h2></div>`;
-        let hay = false;
-
-        // ── Filtro por área para técnicos ──
-        const _vistasConFiltroArea = {
-            desarme_mant: 'desarme_mant',
-            calidad:      'calidad',
-            mecanica:     'mecanica',
-        };
-        const _areaIdVista  = _vistasConFiltroArea[window.vistaActual];
-        const _areasUsuario = window.getAreasGenerales();
-        const _filtrarPorArea = _areaIdVista && _areasUsuario.length > 0 && !window.puedeEditar();
-        const _otsPorArea = _filtrarPorArea
-            ? new Set(window.getOTsPendientesPorArea(_areaIdVista).map(d => String(d.ot)))
-            : null;
-
-        window.data.forEach((d, i) => {
-            if (_filtrarPorArea && !_otsPorArea.has(String(d.ot))) return;
-            let UI = "";
-            let p = d.pasos || {};
-            if (!d.mediciones) d.mediciones = {};
-            if (!d.placa)      d.placa      = {};
-
-            const obs = (k) => `<textarea id="obs_${k}_${i}" onchange="window.guardarObs(${i},'${k}')" placeholder="Notas...">${d.observaciones?.[k]||''}</textarea>`;
-
-            // ── Despachar a la función del área correspondiente ──
+            // ── Despachar al módulo del área correspondiente ──
             if (window.vistaActual === 'desarme_mant' && window.renderAreaDesarme) {
                 UI = window.renderAreaDesarme(d, i, obs);
             }
@@ -662,10 +636,17 @@ window.render = () => {
                 UI = window.renderAreaDespacho(d, i, obs);
             }
 
-        }, 120);
-    }
+            // Renderizar UI en la tarjeta
+            if (UI) {
+                hay = true;
+                html += `<div class="card">${UI}</div>`;
+            }
+        });
 
-    // ── Vista Bodega ──
+        if (!hay) html += `<div class="card"><p style="color:#aaa;text-align:center;padding:20px;">Sin OTs en esta área.</p></div>`;
+        v.innerHTML = html;
+        return;
+    }
     if (window.vistaActual === 'bodega') {
         v.innerHTML = '<div id="bodega-mount"></div>';
         import('./bodega.js').then(({ renderBodega, inyectarEstilosBodega }) => {
