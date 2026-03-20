@@ -18,6 +18,7 @@ const _inyectarEstilosCamara = () => {
     const style = document.createElement('style');
     style.id = 'camara-styles';
     style.textContent = `
+        /* ── Overlay fondo negro full screen ── */
         #camara-overlay {
             position: fixed;
             inset: 0;
@@ -26,101 +27,60 @@ const _inyectarEstilosCamara = () => {
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
-            overflow: hidden;
+            justify-content: center;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        }
-        #camara-header {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 16px;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(6px);
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            flex-shrink: 0;
-            box-sizing: border-box;
-        }
-        #camara-titulo {
-            color: #fff;
-            font-size: 0.92em;
-            font-weight: 600;
-            letter-spacing: 0.01em;
-            max-width: 55%;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
         }
-        #camara-contador {
-            background: rgba(0,79,136,0.85);
-            color: #fff;
-            border-radius: 20px;
-            padding: 3px 12px;
-            font-size: 0.8em;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-        }
-        #camara-btn-cerrar {
-            background: rgba(255,255,255,0.12);
-            border: none;
-            color: #fff;
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            font-size: 1.1em;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.15s;
-            flex-shrink: 0;
-        }
-        #camara-btn-cerrar:hover { background: rgba(255,255,255,0.22); }
 
-        #camara-video-wrap {
-            flex: 1;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* ── Visor SIEMPRE 4:3 landscape ── */
+        #camara-visor-wrap {
             position: relative;
+            width: 100%;
+            /* padding-top 75% = ratio 4:3 (height = 75% of width) */
+            padding-top: 75%;
+            max-height: 70vh;
             overflow: hidden;
-            min-height: 0;
+            background: #111;
+            flex-shrink: 0;
         }
+        /* Cuando el visor en 4:3 sería más alto que 70vh, lo limitamos por altura */
+        @media (max-aspect-ratio: 4/3) {
+            #camara-visor-wrap {
+                width: calc(70vh * 4 / 3);
+                padding-top: 0;
+                height: 70vh;
+                max-width: 100%;
+            }
+        }
+
         #camara-video {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
+            transform-origin: center center;
         }
-        /* Líneas de guía en el visor */
+
+        /* Líneas de guía */
         #camara-guia {
             position: absolute;
             inset: 0;
             pointer-events: none;
         }
-        #camara-guia::before,
-        #camara-guia::after {
+        #camara-guia::before, #camara-guia::after {
             content: '';
             position: absolute;
-            background: rgba(255,255,255,0.18);
+            background: rgba(255,255,255,0.15);
         }
-        #camara-guia::before {
-            top: 33.33%; left: 0; right: 0; height: 1px;
-        }
-        #camara-guia::after {
-            top: 66.66%; left: 0; right: 0; height: 1px;
-        }
-        .camara-guia-v {
-            position: absolute;
-            top: 0; bottom: 0; width: 1px;
-            background: rgba(255,255,255,0.18);
-        }
-        .camara-guia-v:first-child  { left: 33.33%; }
-        .camara-guia-v:last-child   { left: 66.66%; }
+        #camara-guia::before { top: 33.33%; left: 0; right: 0; height: 1px; }
+        #camara-guia::after  { top: 66.66%; left: 0; right: 0; height: 1px; }
+        .camara-guia-v { position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.15); }
+        .camara-guia-v:first-child { left: 33.33%; }
+        .camara-guia-v:last-child  { left: 66.66%; }
 
-        /* Flash de captura */
+        /* Flash */
         #camara-flash {
             position: absolute;
             inset: 0;
@@ -131,48 +91,108 @@ const _inyectarEstilosCamara = () => {
         }
         #camara-flash.activo { opacity: 0.75; }
 
-        /* Controles inferiores */
-        #camara-controles {
+        /* Toast */
+        #camara-toast {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.78);
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.25s;
+            white-space: nowrap;
+        }
+        #camara-toast.visible { opacity: 1; }
+
+        /* ── Barra superior ── */
+        #camara-header {
             width: 100%;
-            padding: 16px 20px 22px;
-            background: rgba(0,0,0,0.88);
-            backdrop-filter: blur(6px);
-            border-top: 1px solid rgba(255,255,255,0.08);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
-            flex-shrink: 0;
+            padding: 10px 14px;
+            background: rgba(0,0,0,0.9);
             box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        #camara-titulo {
+            color: #fff;
+            font-size: 0.88em;
+            font-weight: 600;
+            flex: 1;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 8px;
+        }
+        #camara-contador {
+            background: rgba(0,79,136,0.9);
+            color: #fff;
+            border-radius: 20px;
+            padding: 3px 10px;
+            font-size: 0.78em;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        #camara-btn-cerrar {
+            background: rgba(255,255,255,0.12);
+            border: none;
+            color: #fff;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 1em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
-        /* Miniaturas de fotos capturadas */
+        /* ── Controles inferiores ── */
+        #camara-controles {
+            width: 100%;
+            padding: 12px 16px 16px;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        /* Strip miniaturas */
         #camara-preview-strip {
             display: flex;
-            gap: 6px;
+            gap: 5px;
             overflow-x: auto;
             flex: 1;
             min-width: 0;
-            padding-bottom: 2px;
             scrollbar-width: none;
         }
         #camara-preview-strip::-webkit-scrollbar { display: none; }
         .camara-thumb {
-            width: 52px;
-            height: 52px;
-            border-radius: 6px;
+            width: 48px;
+            height: 36px;   /* 4:3 */
+            border-radius: 4px;
             object-fit: cover;
             border: 2px solid rgba(255,255,255,0.3);
             flex-shrink: 0;
             cursor: pointer;
-            transition: border-color 0.15s;
         }
-        .camara-thumb:hover { border-color: #fff; }
 
         /* Botón capturar */
         #camara-btn-capturar {
-            width: 68px;
-            height: 68px;
+            width: 62px;
+            height: 62px;
             border-radius: 50%;
             border: 4px solid #fff;
             background: rgba(255,255,255,0.15);
@@ -184,30 +204,25 @@ const _inyectarEstilosCamara = () => {
             transition: transform 0.1s, background 0.1s;
             position: relative;
         }
-        #camara-btn-capturar:active {
-            transform: scale(0.91);
-            background: rgba(255,255,255,0.35);
-        }
+        #camara-btn-capturar:active { transform: scale(0.91); background: rgba(255,255,255,0.35); }
         #camara-btn-capturar::after {
             content: '';
-            width: 50px;
-            height: 50px;
+            width: 46px;
+            height: 46px;
             border-radius: 50%;
             background: #fff;
         }
-        #camara-btn-capturar.procesando::after {
-            background: #aaa;
-        }
+        #camara-btn-capturar.procesando::after { background: #aaa; }
 
-        /* Botón girar cámara */
+        /* Botón girar */
         #camara-btn-girar {
             background: rgba(255,255,255,0.12);
             border: none;
             color: #fff;
-            width: 46px;
-            height: 46px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
-            font-size: 1.3em;
+            font-size: 1.2em;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -215,51 +230,27 @@ const _inyectarEstilosCamara = () => {
             transition: background 0.15s, transform 0.3s;
             flex-shrink: 0;
         }
-        #camara-btn-girar:hover { background: rgba(255,255,255,0.22); }
         #camara-btn-girar.girando { transform: rotate(180deg); }
 
-        /* Botón guardar y cerrar */
+        /* Botón guardar */
         #camara-btn-guardar {
             background: #004F88;
             border: none;
             color: #fff;
-            padding: 0 18px;
-            height: 46px;
-            border-radius: 23px;
-            font-size: 0.85em;
+            padding: 0 14px;
+            height: 42px;
+            border-radius: 21px;
+            font-size: 0.82em;
             font-weight: 700;
             cursor: pointer;
-            transition: background 0.15s, transform 0.1s;
             flex-shrink: 0;
             white-space: nowrap;
+            line-height: 1.2;
+            text-align: center;
         }
-        #camara-btn-guardar:hover { background: #0068b5; }
-        #camara-btn-guardar:active { transform: scale(0.96); }
-        #camara-btn-guardar:disabled {
-            background: rgba(255,255,255,0.15);
-            cursor: not-allowed;
-        }
+        #camara-btn-guardar:disabled { background: rgba(255,255,255,0.15); cursor: not-allowed; }
 
-        /* Toast de mensaje */
-        #camara-toast {
-            position: absolute;
-            bottom: 110px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.78);
-            color: #fff;
-            padding: 8px 18px;
-            border-radius: 20px;
-            font-size: 0.82em;
-            font-weight: 600;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.25s;
-            white-space: nowrap;
-        }
-        #camara-toast.visible { opacity: 1; }
-
-        /* Botón de cámara inline (el que aparece junto a "Agregar fotos") */
+        /* Botón inline junto a "Agregar fotos" */
         .camara-btn-inline {
             display: inline-flex;
             align-items: center;
@@ -313,7 +304,7 @@ window._abrirCamara = async (titulo, maxFotos, callbackSubir) => {
             <div id="camara-titulo">${_tituloModal}</div>
             <div id="camara-contador">0 / ${_maxFotos}</div>
         </div>
-        <div id="camara-video-wrap">
+        <div id="camara-visor-wrap">
             <video id="camara-video" autoplay playsinline muted></video>
             <div id="camara-guia">
                 <div class="camara-guia-v"></div>
@@ -352,15 +343,27 @@ const _iniciarStream = async () => {
 
     try {
         _stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: _facingMode,
-                width:  { ideal: 1280 },   // forzar landscape 4:3
-                height: { ideal: 960 },
-                aspectRatio: { ideal: 4/3 }
-            },
+            video: { facingMode: _facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
             audio: false
         });
         video.srcObject = _stream;
+
+        // Cuando el video arranca, detectar si llegó portrait y rotarlo por CSS
+        video.onloadedmetadata = () => {
+            if (video.videoHeight > video.videoWidth) {
+                // El stream llegó portrait — rotarlo 90° visualmente con CSS
+                const wrap = document.getElementById('camara-visor-wrap');
+                if (wrap) {
+                    const wrapW = wrap.offsetWidth || window.innerWidth;
+                    const wrapH = wrap.offsetHeight || wrapW * 0.75;
+                    // Rotar el video y ajustar escala para que llene el visor 4:3
+                    const escala = Math.max(wrapW / video.videoHeight, wrapH / video.videoWidth);
+                    video.style.transform = `rotate(90deg) scale(${escala})`;
+                }
+            } else {
+                video.style.transform = '';
+            }
+        };
     } catch (err) {
         console.error('Error cámara:', err);
         _mostrarToast('⚠ No se pudo acceder a la cámara. Verifica permisos.', 4000);
