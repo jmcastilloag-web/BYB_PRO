@@ -346,6 +346,9 @@ export function renderBodega(container, usuario) {
             </div>
             <label style="margin-top:12px;">📷 Fotos de recepción</label>
             <input id="inp-fotos-ing" type="file" multiple accept="image/*" style="margin-top:6px;">
+            <button type="button" class="camara-btn-inline" style="margin-top:6px;"
+                onclick="window.abrirCamaraBodega('inp-fotos-ing','prev-fotos-ing',10)">📸 Cámara</button>
+            <div id="prev-fotos-ing" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
             <button id="btn-guardar-ingreso" class="btn-primary" style="margin-top:16px;width:100%;">💾 Guardar ingreso</button>
         `);
 
@@ -367,7 +370,9 @@ export function renderBodega(container, usuario) {
                 nivel: r.querySelector('.inp-nivel').value.toUpperCase().trim(),
                 fila:  r.querySelector('.inp-fila').value.trim()
             })).filter(u => u.nivel && u.fila);
-            const fotos = Array.from(document.getElementById('inp-fotos-ing').files || []);
+            const fotosFile = Array.from(document.getElementById('inp-fotos-ing').files || []);
+            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-ing') : [];
+            const fotos = [...fotosFile, ...fotosCam];
             const btn = document.getElementById('btn-guardar-ingreso');
             btn.disabled = true; btn.textContent = 'Guardando...';
             try {
@@ -435,10 +440,15 @@ export function renderBodega(container, usuario) {
             <p style="color:#555;">Al confirmar quedará registrado que recibiste este ítem.</p>
             <label>📷 Fotos de entrega (opcional)</label>
             <input id="inp-fotos-entrega" type="file" multiple accept="image/*" style="margin-top:6px;">
+            <button type="button" class="camara-btn-inline" style="margin-top:6px;"
+                onclick="window.abrirCamaraBodega('inp-fotos-entrega','prev-fotos-entrega',10)">📸 Cámara</button>
+            <div id="prev-fotos-entrega" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
             <button id="btn-confirmar-recepcion" class="btn-primary" style="margin-top:16px;width:100%;">✅ Confirmar recepción</button>
         `);
         document.getElementById('btn-confirmar-recepcion').addEventListener('click', async () => {
-            const fotos = Array.from(document.getElementById('inp-fotos-entrega').files || []);
+            const fotosFile = Array.from(document.getElementById('inp-fotos-entrega').files || []);
+            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-entrega') : [];
+            const fotos = [...fotosFile, ...fotosCam];
             const btn = document.getElementById('btn-confirmar-recepcion');
             btn.disabled = true; btn.textContent = 'Guardando...';
             try {
@@ -523,6 +533,9 @@ export function renderBodega(container, usuario) {
                     <textarea id="inp-obs-texto" rows="2" placeholder="Nueva observación..."
                         style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;"></textarea>
                     <input id="inp-obs-fotos" type="file" multiple accept="image/*" style="margin:6px 0;display:block;">
+                    <button type="button" class="camara-btn-inline" style="margin-bottom:6px;"
+                        onclick="window.abrirCamaraBodega('inp-obs-fotos','prev-obs-fotos',5)">📸 Cámara</button>
+                    <div id="prev-obs-fotos" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;"></div>
                     <button id="btn-guardar-obs" class="btn-primary" style="margin-top:4px;">💬 Guardar observación</button>
                 </div>
             </div>
@@ -530,7 +543,9 @@ export function renderBodega(container, usuario) {
 
         document.getElementById('btn-guardar-obs').addEventListener('click', async () => {
             const texto = document.getElementById('inp-obs-texto').value.trim();
-            const fotos = Array.from(document.getElementById('inp-obs-fotos').files || []);
+            const fotosFile = Array.from(document.getElementById('inp-obs-fotos').files || []);
+            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-obs-fotos') : [];
+            const fotos = [...fotosFile, ...fotosCam];
             if (!texto && !fotos.length) { alert('Escribe algo o adjunta una foto.'); return; }
             const btn = document.getElementById('btn-guardar-obs');
             btn.disabled = true; btn.textContent = 'Guardando...';
