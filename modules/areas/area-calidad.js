@@ -215,10 +215,6 @@ window.renderAreaCalidad = (d, i, obs) => {
                         <div class="det-seccion-titulo" style="margin-top:14px;">📝 Observaciones</div>
                         ${obs('detalle')}
 
-                        <div style="background:#f0f7ff; padding:10px; border-radius:5px; margin-bottom:12px;">
-                            <strong>📎 Subir Archivos (Fotos/Docs):</strong><br>
-                            <input type="file" id="file_input_${i}"> <button id="btn_file_${i}" onclick="window.subirArchivo(${i})">Subir</button>
-                        </div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="btn-sm" style="background:#8e44ad;color:white;padding:10px 16px;font-weight:bold;border-radius:6px;border:none;cursor:pointer;" onclick="window.descargarDetalle(${i})">📋 Descargar Detalle Word</button>
                             <button class="btn-finish" onclick="window.updateFlujo(${i},'detalle_ok','espera_fecha')">🏭 Enviar a Taller</button>
