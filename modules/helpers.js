@@ -1,4 +1,4 @@
-import { set, dbRef, storage, sRef, uploadBytes, getDownloadURL } from "../config/firebase.js";
+import { set, dbRef } from "../config/firebase.js";
 
 window.agregarTarea = (area, i) => {
     const input = document.getElementById(`tarea_${area}_${i}`);
@@ -63,22 +63,9 @@ window.toggleMenu = () => {
     btn.textContent = abierto ? '✕' : '☰';
 }
 
+// Subida de archivos desactivada (requiere Firebase Storage)
 window.subirArchivo = async (i) => {
-    const input = document.getElementById(`file_input_${i}`);
-    const file = input.files[0];
-    if (!file) return alert("Selecciona un archivo");
-    const btn = document.getElementById(`btn_file_${i}`);
-    btn.innerText = "Subiendo..."; btn.disabled = true;
-    try {
-        const storagePath = sRef(storage, `ot_${window.data[i].ot}/${Date.now()}_${file.name}`);
-        await uploadBytes(storagePath, file);
-        const url = await getDownloadURL(storagePath);
-        if (!window.data[i].archivos) window.data[i].archivos = [];
-        window.data[i].archivos.push({ name: file.name, url: url });
-        window.save();
-        alert("Archivo subido correctamente");
-    } catch (e) { alert("Error al subir archivo"); }
-    finally { btn.innerText = "Subir"; btn.disabled = false; input.value = ""; }
+    alert("La subida de archivos no está disponible.");
 };
 
 window.verDetalle = (i) => {
