@@ -336,6 +336,45 @@ const _iniciarStream = async () => {
             audio: false
         });
         video.srcObject = _stream;
+
+        // Cuando arranca el video, corregir visualmente si llega rotado
+        video.onloadedmetadata = () => {
+            const vW = video.videoWidth;
+            const vH = video.videoHeight;
+            const wrap = document.getElementById('camara-visor-wrap');
+            if (!wrap) return;
+
+            if (vH > vW) {
+                // Stream portrait — rotar 90° para que se vea landscape
+                // El video tiene dimensiones vW x vH (ej: 720x1280)
+                // El wrap tiene dimensiones wrapW x wrapH (ej: 400x300)
+                // Al rotar, el video ocupa vH x vW visualmente
+                // Necesitamos escalar para que llene el wrap
+                const wrapW = wrap.clientWidth;
+                const wrapH = wrap.clientHeight || wrapW * 0.75;
+                const scaleX = wrapW / vH;  // cuánto escalar el ancho rotado
+                const scaleY = wrapH / vW;  // cuánto escalar el alto rotado
+                const escala = Math.max(scaleX, scaleY);
+
+                video.style.position       = 'absolute';
+                video.style.top            = '50%';
+                video.style.left           = '50%';
+                video.style.width          = vW + 'px';
+                video.style.height         = vH + 'px';
+                video.style.transformOrigin = 'center center';
+                video.style.transform      = `translate(-50%, -50%) rotate(90deg) scale(${escala})`;
+                video.style.objectFit      = 'cover';
+            } else {
+                // Stream ya landscape — mostrar normal
+                video.style.position  = 'absolute';
+                video.style.top       = '0';
+                video.style.left      = '0';
+                video.style.width     = '100%';
+                video.style.height    = '100%';
+                video.style.transform = 'none';
+                video.style.objectFit = 'cover';
+            }
+        };
     } catch (err) {
         console.error('Error cámara:', err);
         _mostrarToast('⚠ No se pudo acceder a la cámara. Verifica permisos.', 4000);
