@@ -281,14 +281,6 @@ window._abrirCamara = async (titulo, maxFotos, callbackSubir) => {
     _callbackSubir   = callbackSubir;
     _fotosCapturadas = [];
 
-    // Bloquear orientación landscape al abrir
-    try {
-        await screen.orientation.lock('landscape');
-    } catch(e) {
-        // No todos los navegadores lo soportan — continuar igual
-        console.log('orientation lock no soportado:', e.message);
-    }
-
     // Crear overlay
     let overlay = document.getElementById('camara-overlay');
     if (overlay) overlay.remove();
@@ -378,25 +370,16 @@ const _capturarFoto = async () => {
         setTimeout(() => flash.classList.remove('activo'), 120);
     }
 
-    // Capturar siempre en landscape 4:3 — rotar si el video llega portrait
+    // SIEMPRE rotar 90° → la foto sale landscape sin importar cómo esté el celular
     const vW = video.videoWidth;
     const vH = video.videoHeight;
-
-    if (vH > vW) {
-        // Video portrait → rotar 90° para obtener landscape
-        _canvas.width  = vH;
-        _canvas.height = vW;
-        _ctx.save();
-        _ctx.translate(vH / 2, vW / 2);
-        _ctx.rotate(Math.PI / 2);
-        _ctx.drawImage(video, -vW / 2, -vH / 2, vW, vH);
-        _ctx.restore();
-    } else {
-        // Ya es landscape, capturar directo
-        _canvas.width  = vW;
-        _canvas.height = vH;
-        _ctx.drawImage(video, 0, 0);
-    }
+    _canvas.width  = vH;   // ancho del canvas = alto del video
+    _canvas.height = vW;   // alto del canvas  = ancho del video
+    _ctx.save();
+    _ctx.translate(vH / 2, vW / 2);
+    _ctx.rotate(Math.PI / 2);
+    _ctx.drawImage(video, -vW / 2, -vH / 2, vW, vH);
+    _ctx.restore();
 
     // Convertir a Blob comprimido
     _canvas.toBlob(blob => {
@@ -471,8 +454,6 @@ const _cerrarCamara = () => {
     _fotosCapturadas = [];
     const overlay = document.getElementById('camara-overlay');
     if (overlay) overlay.remove();
-    // Restaurar orientación libre
-    try { screen.orientation.unlock(); } catch(e) {}
 };
 
 // ── TOAST ─────────────────────────────────────────────────────
@@ -599,113 +580,34 @@ const CLOUDINARY_URL_CAM = `https://api.cloudinary.com/v1_1/${CLOUD_NAME_CAM}/im
 const COMP_MAX_PX_CAM   = 1200;
 const COMP_QUALITY_CAM  = 0.72;
 
-// Lee orientación EXIF del blob (devuelve 1-8, o 1 si no hay)
-const _leerOrientacionExif = (blob) => new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const view = new DataView(e.target.result);
-        // Verificar marcador JPEG
-        if (view.getUint16(0, false) !== 0xFFD8) { resolve(1); return; }
-        let offset = 2;
-        while (offset < view.byteLength) {
-            const marker = view.getUint16(offset, false);
-            offset += 2;
-            if (marker === 0xFFE1) { // APP1 — puede contener EXIF
-                if (view.getUint32(offset + 2, false) !== 0x45786966) { resolve(1); return; }
-                const little = view.getUint16(offset + 8, false) === 0x4949;
-                const ifdOffset = view.getUint32(offset + 14, little);
-                const entries  = view.getUint16(offset + 8 + ifdOffset, little);
-                for (let i = 0; i < entries; i++) {
-                    const tag = view.getUint16(offset + 8 + ifdOffset + 2 + (i * 12), little);
-                    if (tag === 0x0112) { // Orientation tag
-                        resolve(view.getUint16(offset + 8 + ifdOffset + 2 + (i * 12) + 8, little));
-                        return;
-                    }
-                }
-                resolve(1); return;
-            } else if ((marker & 0xFF00) !== 0xFF00) { break; }
-            else { offset += view.getUint16(offset, false); }
+const _comprimirBlob = (blob) => new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+        URL.revokeObjectURL(url);
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > COMP_MAX_PX_CAM || h > COMP_MAX_PX_CAM) {
+            const r = Math.min(COMP_MAX_PX_CAM / w, COMP_MAX_PX_CAM / h);
+            w = Math.round(w * r);
+            h = Math.round(h * r);
         }
-        resolve(1);
+        const cv = document.createElement('canvas');
+        cv.width  = w;
+        cv.height = h;
+        const c = cv.getContext('2d');
+        c.fillStyle = '#ffffff';
+        c.fillRect(0, 0, w, h);
+        c.drawImage(img, 0, 0, w, h);
+        cv.toBlob(b => {
+            if (!b) { reject(new Error('No se pudo comprimir')); return; }
+            console.log(`📸 ${Math.round(blob.size/1024)}KB → ${Math.round(b.size/1024)}KB | ${w}x${h}`);
+            resolve(b);
+        }, 'image/jpeg', COMP_QUALITY_CAM);
     };
-    reader.onerror = () => resolve(1);
-    // Solo leer los primeros 64KB (el EXIF siempre está al inicio)
-    reader.readAsArrayBuffer(blob.slice(0, 65536));
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Imagen inválida')); };
+    img.src = url;
 });
-
-// Comprime blob, corrige rotación EXIF, y FUERZA landscape (ancho > alto)
-const _comprimirBlob = async (blob) => {
-    const orientacion = await _leerOrientacionExif(blob);
-
-    return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => {
-            URL.revokeObjectURL(url);
-
-            // Dimensiones originales
-            let srcW = img.naturalWidth;
-            let srcH = img.naturalHeight;
-
-            // ¿Hay que rotar 90° o 270° por EXIF?
-            // orientaciones 5,6,7,8 implican rotación de 90/270°
-            const rotar90 = [5, 6, 7, 8].includes(orientacion);
-
-            // Si hay rotación EXIF, el ancho/alto "real" se invierte
-            let realW = rotar90 ? srcH : srcW;
-            let realH = rotar90 ? srcW : srcH;
-
-            // Si sigue portrait tras corrección EXIF → rotar 90° para forzar landscape
-            const forzarGiro = realH > realW;
-            if (forzarGiro) { [realW, realH] = [realH, realW]; }
-
-            // Escalar si supera el máximo
-            let outW = realW, outH = realH;
-            if (outW > COMP_MAX_PX_CAM || outH > COMP_MAX_PX_CAM) {
-                const r = Math.min(COMP_MAX_PX_CAM / outW, COMP_MAX_PX_CAM / outH);
-                outW = Math.round(outW * r);
-                outH = Math.round(outH * r);
-            }
-
-            const cv = document.createElement('canvas');
-            cv.width  = outW;
-            cv.height = outH;
-            const c = cv.getContext('2d');
-            c.fillStyle = '#ffffff';
-            c.fillRect(0, 0, outW, outH);
-
-            // Aplicar transformación combinada: corrección EXIF + forzar landscape
-            c.save();
-            c.translate(outW / 2, outH / 2);
-
-            // Ángulo de rotación total
-            let angulo = 0;
-            if (orientacion === 3)           angulo = Math.PI;          // 180°
-            else if (orientacion === 6)      angulo = Math.PI / 2;      // 90° CW
-            else if (orientacion === 8)      angulo = -Math.PI / 2;     // 90° CCW
-            else if (orientacion === 5)      angulo = -Math.PI / 2;
-            else if (orientacion === 7)      angulo = Math.PI / 2;
-            if (forzarGiro) angulo += Math.PI / 2; // +90° para forzar landscape
-
-            c.rotate(angulo);
-
-            // Volteo horizontal para orientaciones 2,4,5,7
-            if ([2, 4, 5, 7].includes(orientacion)) c.scale(-1, 1);
-
-            // Dibujar centrando la imagen original
-            c.drawImage(img, -srcW / 2, -srcH / 2, srcW, srcH);
-            c.restore();
-
-            cv.toBlob(b => {
-                if (!b) { reject(new Error('No se pudo comprimir')); return; }
-                console.log(`📸 Cámara: ${Math.round(blob.size/1024)}KB → ${Math.round(b.size/1024)}KB | orientación EXIF:${orientacion} landscape:${outW}x${outH}`);
-                resolve(b);
-            }, 'image/jpeg', COMP_QUALITY_CAM);
-        };
-        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Imagen inválida')); };
-        img.src = url;
-    });
-};
 
 const _subirBlobACloudinary = async (blob, carpeta) => {
     const fd = new FormData();
