@@ -1,4 +1,8 @@
-import { storage, sRef, uploadBytes, getDownloadURL } from "./01_firebase.js";
+
+
+
+
+// tareas.js - sin dependencias de Firebase Storage
 
 window.agregarHallazgo = (i) => {
     const input = document.getElementById(`des_input_${i}`);
