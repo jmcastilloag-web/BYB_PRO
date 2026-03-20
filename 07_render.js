@@ -566,6 +566,7 @@ window.render = () => {
                     <input type="file" accept="image/*" multiple style="display:none;"
                         onchange="window._agregarFotosNuevaOT(this)">
                 </label>
+                ${window._btnCamaraNuevaOT ? window._btnCamaraNuevaOT() : ''}
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn-finish" onclick="window.nuevaOT()">➕ Crear OT y Comenzar</button>
@@ -713,7 +714,7 @@ window.render = () => {
                                                 📷 ${fotos.length > 0 ? fotos.length+'/10' : 'Fotos'}
                                                 <input type="file" accept="image/*" multiple style="display:none;"
                                                     onchange="window.subirFotosComponente(${i},'desarme','${item.k}',this)">
-                                            </label>` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
+                                            </label> ${window._btnCamaraComponente ? window._btnCamaraComponente(i,'desarme',item.k) : ''}` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
                                         </td>
                                     </tr>`;
                                 }).join('')}
@@ -772,7 +773,7 @@ window.render = () => {
                                            <td style="padding:4px 8px;">
                                                ${(window._htmlFotosComponente||function(){return '';})(i,'mantencion',it.k,fotos)}
                                                ${fotos.length < 10
-                                                   ? `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">📷 ${fotos.length>0?fotos.length+'/10':'Fotos'}<input type="file" accept="image/*" multiple style="display:none" onchange="window.subirFotosComponente(${i},'mantencion','${it.k}',this)"></label>`
+                                                   ? `<label style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">📷 ${fotos.length>0?fotos.length+'/10':'Fotos'}<input type="file" accept="image/*" multiple style="display:none" onchange="window.subirFotosComponente(${i},'mantencion','${it.k}',this)"></label> ${window._btnCamaraComponente ? window._btnCamaraComponente(i,'mantencion',it.k) : ''}`
                                                    : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
                                            </td>
                                        </tr>`;
@@ -1381,7 +1382,7 @@ window.render = () => {
                                         </td>
                                         <td style="padding:4px 8px;">
                                             ${window._htmlFotosComponente ? window._htmlFotosComponente(i,'metro_revision',it.k,ftk) : ''}
-                                            ${ftk.length < 10 ? '<label style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:0.78em;color:#004F88;font-weight:600;">📷 '+(ftk.length>0?ftk.length+'/10':'Fotos')+'<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosComponente('+i+',\'metro_revision\',\''+it.k+'\',this)"></label>' : '<span style="font-size:0.78em;color:#27ae60;">✅ '+ftk.length+'/10</span>'}
+                                            ${ftk.length < 10 ? '<label style="display:inline-flex;align-items:center;gap:3px;margin-top:3px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:0.78em;color:#004F88;font-weight:600;">📷 '+(ftk.length>0?ftk.length+'/10':'Fotos')+'<input type="file" accept="image/*" multiple style="display:none;" onchange="window.subirFotosComponente('+i+',\'metro_revision\',\''+it.k+'\',this)"></label> '+(window._btnCamaraComponente ? window._btnCamaraComponente(i,'metro_revision',it.k) : '') : '<span style="font-size:0.78em;color:#27ae60;">✅ '+ftk.length+'/10</span>'}
                                         </td>
                                         <td style="padding:5px 8px;font-size:0.8em;color:#1a2a6a;font-weight:600;">${ch.tecnico||'—'}</td>
                                     </tr>`;
@@ -1671,7 +1672,7 @@ window.render = () => {
                                                    📷 ${fotos.length>0?fotos.length+'/10':'Fotos'}
                                                    <input type="file" accept="image/*" multiple style="display:none;"
                                                        onchange="window.subirFotosComponente(${i},'armado','${it.k}',this)">
-                                               </label>` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
+                                               </label> ${window._btnCamaraComponente ? window._btnCamaraComponente(i,'armado',it.k) : ''}` : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${fotos.length}/10</span>`}
                                            </td>
                                        </tr>`;
                                    }).join('')}
