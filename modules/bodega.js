@@ -4,14 +4,11 @@
 
 import { getDatabase, ref, push, update, get }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL }
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { getApps }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 
 // ─── Reutilizar la app Firebase ya inicializada ────────────
 function getDB()  { return getDatabase(getApps()[0]); }
-function getSTG() { return getStorage(getApps()[0]); }
 
 // ─── Rutas en Realtime Database ───────────────────────────
 const PATH = {
@@ -42,15 +39,10 @@ const puedeOperar = (usuario) => {
 // ═══════════════════════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════════════════════
+// Fotos en bodega desactivadas (requiere Firebase Storage)
 async function subirFotos(files, carpeta) {
-    const stg = getSTG();
-    const urls = [];
-    for (const file of files) {
-        const r = sRef(stg, `${carpeta}/${Date.now()}_${file.name}`);
-        await uploadBytes(r, file);
-        urls.push(await getDownloadURL(r));
-    }
-    return urls;
+    console.warn("Firebase Storage no disponible - fotos de bodega desactivadas");
+    return [];
 }
 
 async function dbGet(path) {
