@@ -370,16 +370,25 @@ const _capturarFoto = async () => {
         setTimeout(() => flash.classList.remove('activo'), 120);
     }
 
-    // SIEMPRE rotar 90° → la foto sale landscape sin importar cómo esté el celular
+    // REGLA SIMPLE: ancho siempre > alto
     const vW = video.videoWidth;
     const vH = video.videoHeight;
-    _canvas.width  = vH;   // ancho del canvas = alto del video
-    _canvas.height = vW;   // alto del canvas  = ancho del video
-    _ctx.save();
-    _ctx.translate(vH / 2, vW / 2);
-    _ctx.rotate(Math.PI / 2);
-    _ctx.drawImage(video, -vW / 2, -vH / 2, vW, vH);
-    _ctx.restore();
+
+    if (vW >= vH) {
+        // Ya es landscape — capturar directo
+        _canvas.width  = vW;
+        _canvas.height = vH;
+        _ctx.drawImage(video, 0, 0);
+    } else {
+        // Es portrait — rotar 90° para que quede landscape
+        _canvas.width  = vH;
+        _canvas.height = vW;
+        _ctx.save();
+        _ctx.translate(vH / 2, vW / 2);
+        _ctx.rotate(Math.PI / 2);
+        _ctx.drawImage(video, -vW / 2, -vH / 2, vW, vH);
+        _ctx.restore();
+    }
 
     // Convertir a Blob comprimido
     _canvas.toBlob(blob => {
@@ -585,23 +594,41 @@ const _comprimirBlob = (blob) => new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
         URL.revokeObjectURL(url);
-        let w = img.naturalWidth;
-        let h = img.naturalHeight;
-        if (w > COMP_MAX_PX_CAM || h > COMP_MAX_PX_CAM) {
-            const r = Math.min(COMP_MAX_PX_CAM / w, COMP_MAX_PX_CAM / h);
-            w = Math.round(w * r);
-            h = Math.round(h * r);
+        let srcW = img.naturalWidth;
+        let srcH = img.naturalHeight;
+
+        // REGLA: ancho siempre > alto
+        const necesitaRotar = srcH > srcW;
+        let outW = necesitaRotar ? srcH : srcW;
+        let outH = necesitaRotar ? srcW : srcH;
+
+        // Escalar si supera el máximo
+        if (outW > COMP_MAX_PX_CAM || outH > COMP_MAX_PX_CAM) {
+            const r = Math.min(COMP_MAX_PX_CAM / outW, COMP_MAX_PX_CAM / outH);
+            outW = Math.round(outW * r);
+            outH = Math.round(outH * r);
         }
+
         const cv = document.createElement('canvas');
-        cv.width  = w;
-        cv.height = h;
+        cv.width  = outW;
+        cv.height = outH;
         const c = cv.getContext('2d');
         c.fillStyle = '#ffffff';
-        c.fillRect(0, 0, w, h);
-        c.drawImage(img, 0, 0, w, h);
+        c.fillRect(0, 0, outW, outH);
+
+        if (necesitaRotar) {
+            c.save();
+            c.translate(outW / 2, outH / 2);
+            c.rotate(Math.PI / 2);
+            c.drawImage(img, -srcW / 2, -srcH / 2, srcW, srcH);
+            c.restore();
+        } else {
+            c.drawImage(img, 0, 0, outW, outH);
+        }
+
         cv.toBlob(b => {
             if (!b) { reject(new Error('No se pudo comprimir')); return; }
-            console.log(`📸 ${Math.round(blob.size/1024)}KB → ${Math.round(b.size/1024)}KB | ${w}x${h}`);
+            console.log(`📸 ${srcW}x${srcH} → ${outW}x${outH}`);
             resolve(b);
         }, 'image/jpeg', COMP_QUALITY_CAM);
     };
