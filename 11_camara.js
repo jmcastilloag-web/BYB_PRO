@@ -354,8 +354,9 @@ const _iniciarStream = async () => {
         _stream = await navigator.mediaDevices.getUserMedia({
             video: {
                 facingMode: _facingMode,
-                width:  { ideal: 1920 },
-                height: { ideal: 1080 }
+                width:  { ideal: 1280 },   // forzar landscape 4:3
+                height: { ideal: 960 },
+                aspectRatio: { ideal: 4/3 }
             },
             audio: false
         });
@@ -394,13 +395,12 @@ const _capturarFoto = async () => {
         setTimeout(() => flash.classList.remove('activo'), 120);
     }
 
-    // Capturar frame — siempre en landscape (ancho > alto)
+    // Capturar siempre en landscape 4:3 — rotar si el video llega portrait
     const vW = video.videoWidth;
     const vH = video.videoHeight;
-    const esPortrait = vH > vW;
 
-    if (esPortrait) {
-        // Rotar 90° para que quede landscape
+    if (vH > vW) {
+        // Video portrait → rotar 90° para obtener landscape
         _canvas.width  = vH;
         _canvas.height = vW;
         _ctx.save();
@@ -409,6 +409,7 @@ const _capturarFoto = async () => {
         _ctx.drawImage(video, -vW / 2, -vH / 2, vW, vH);
         _ctx.restore();
     } else {
+        // Ya es landscape, capturar directo
         _canvas.width  = vW;
         _canvas.height = vH;
         _ctx.drawImage(video, 0, 0);
@@ -669,7 +670,7 @@ const _comprimirBlob = async (blob) => {
             let realW = rotar90 ? srcH : srcW;
             let realH = rotar90 ? srcW : srcH;
 
-            // Forzar landscape: si sigue siendo portrait, rotar 90° adicional
+            // Si sigue portrait tras corrección EXIF → rotar 90° para forzar landscape
             const forzarGiro = realH > realW;
             if (forzarGiro) { [realW, realH] = [realH, realW]; }
 
