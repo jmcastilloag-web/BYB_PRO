@@ -4,7 +4,7 @@
 // para que funcionen offline correctamente
 // ============================================================
 
-const CACHE = 'byb-north-v2';
+const CACHE = 'byb-north-v5';
 
 const ARCHIVOS = [
     '/',
