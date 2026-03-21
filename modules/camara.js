@@ -3,104 +3,73 @@
 //  BYB Norte | Taller de Motores
 //
 //  CARACTERÍSTICAS:
-//    • Pantalla siempre en landscape (gira el UI si el teléfono está vertical)
+//    • Foto final SIEMPRE en 4:3 landscape sin importar orientación
 //    • Selector de relación de aspecto: 4:3 · 16:9 · 1:1
-//    • Foto final SIEMPRE landscape (ancho > alto)
 //    • Botón girar cámara (frontal ↔ trasera)
-//    • Compatible con Samsung S23 y similares
 // ════════════════════════════════════════════════════════════
 
-// ── ESTILOS ───────────────────────────────────────────────────
 const _inyectarEstilosCamara = () => {
     if (document.getElementById('camara-styles')) return;
     const style = document.createElement('style');
     style.id = 'camara-styles';
     style.textContent = `
         #camara-overlay {
-            position: fixed;
-            inset: 0;
-            background: #000;
+            position: fixed; inset: 0; background: #000;
             z-index: 99999;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             overflow: hidden;
         }
         #camara-inner {
-            position: absolute;
-            background: #000;
-            display: flex;
-            flex-direction: column;
+            position: absolute; inset: 0;
+            background: #000; display: flex; flex-direction: column;
         }
         #camara-visor-wrap {
-            position: relative;
-            overflow: hidden;
-            background: #111;
-            flex: 1;
-            min-height: 0;
+            position: relative; overflow: hidden;
+            background: #111; flex: 1; min-height: 0;
         }
         #camara-video {
-            position: absolute;
-            top: 50%;
-            left: 50%;
+            position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+            width: 100%; height: 100%; object-fit: cover;
         }
         #camara-crop-frame {
-            position: absolute;
-            top: 50%;
-            left: 50%;
+            position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             border: 2px solid rgba(255,255,255,0.65);
             box-shadow: 0 0 0 9999px rgba(0,0,0,0.42);
-            pointer-events: none;
-            z-index: 2;
+            pointer-events: none; z-index: 2;
             transition: width 0.22s, height 0.22s;
         }
         #camara-crop-frame::before, #camara-crop-frame::after {
-            content: '';
-            position: absolute;
+            content: ''; position: absolute;
             width: 18px; height: 18px;
             border-color: #fff; border-style: solid;
         }
         #camara-crop-frame::before { top:-2px; left:-2px; border-width:3px 0 0 3px; }
         #camara-crop-frame::after  { bottom:-2px; right:-2px; border-width:0 3px 3px 0; }
-        #camara-guia {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-            z-index: 3;
-        }
-        .camara-guia-h, .camara-guia-v {
-            position: absolute;
-            background: rgba(255,255,255,0.13);
-        }
+        #camara-guia { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+        .camara-guia-h, .camara-guia-v { position: absolute; background: rgba(255,255,255,0.13); }
         .camara-guia-h { left:0; right:0; height:1px; }
         .camara-guia-v { top:0; bottom:0; width:1px; }
         #camara-flash {
-            position: absolute; inset: 0;
-            background: #fff; opacity: 0;
-            pointer-events: none;
+            position: absolute; inset: 0; background: #fff;
+            opacity: 0; pointer-events: none;
             transition: opacity 0.06s; z-index: 10;
         }
         #camara-flash.activo { opacity: 0.8; }
         #camara-toast {
-            position: absolute;
-            bottom: 14px; left: 50%;
+            position: absolute; bottom: 14px; left: 50%;
             transform: translateX(-50%);
-            background: rgba(0,0,0,0.82);
-            color: #fff; padding: 6px 18px;
-            border-radius: 20px; font-size: 0.8em;
-            font-weight: 600; pointer-events: none;
-            opacity: 0; transition: opacity 0.25s;
-            white-space: nowrap; z-index: 11;
+            background: rgba(0,0,0,0.82); color: #fff;
+            padding: 6px 18px; border-radius: 20px;
+            font-size: 0.8em; font-weight: 600;
+            pointer-events: none; opacity: 0;
+            transition: opacity 0.25s; white-space: nowrap; z-index: 11;
         }
         #camara-toast.visible { opacity: 1; }
         #camara-header {
-            width: 100%;
-            display: flex; align-items: center;
-            justify-content: space-between;
-            padding: 8px 14px;
+            width: 100%; display: flex; align-items: center;
+            justify-content: space-between; padding: 8px 14px;
             background: rgba(0,0,0,0.95);
             box-sizing: border-box; flex-shrink: 0; gap: 8px;
         }
@@ -118,13 +87,11 @@ const _inyectarEstilosCamara = () => {
             background: rgba(255,255,255,0.15); border: none;
             color: #fff; width: 30px; height: 30px;
             border-radius: 50%; font-size: 0.95em; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
         #camara-aspectos {
-            display: flex; justify-content: center;
-            gap: 8px; padding: 6px 14px;
-            background: rgba(0,0,0,0.88); flex-shrink: 0;
+            display: flex; justify-content: center; gap: 8px;
+            padding: 6px 14px; background: rgba(0,0,0,0.88); flex-shrink: 0;
         }
         .camara-aspecto-btn {
             background: rgba(255,255,255,0.1);
@@ -132,13 +99,9 @@ const _inyectarEstilosCamara = () => {
             color: rgba(255,255,255,0.75);
             border-radius: 6px; padding: 4px 14px;
             font-size: 0.78em; font-weight: 700;
-            cursor: pointer; letter-spacing: 0.03em;
-            transition: all 0.15s;
+            cursor: pointer; transition: all 0.15s;
         }
-        .camara-aspecto-btn.activo {
-            background: #004F88;
-            border-color: #2288cc; color: #fff;
-        }
+        .camara-aspecto-btn.activo { background: #004F88; border-color: #2288cc; color: #fff; }
         #camara-controles {
             width: 100%; padding: 10px 14px 14px;
             background: rgba(0,0,0,0.95);
@@ -147,66 +110,55 @@ const _inyectarEstilosCamara = () => {
             gap: 10px; box-sizing: border-box; flex-shrink: 0;
         }
         #camara-preview-strip {
-            display: flex; gap: 5px;
-            overflow-x: auto; flex: 1;
-            min-width: 0; scrollbar-width: none;
+            display: flex; gap: 5px; overflow-x: auto;
+            flex: 1; min-width: 0; scrollbar-width: none;
         }
         #camara-preview-strip::-webkit-scrollbar { display: none; }
         .camara-thumb {
-            width: 52px; height: 39px;
-            border-radius: 4px; object-fit: cover;
-            border: 2px solid rgba(255,255,255,0.3);
+            width: 52px; height: 39px; border-radius: 4px;
+            object-fit: cover; border: 2px solid rgba(255,255,255,0.3);
             flex-shrink: 0; cursor: pointer;
         }
         #camara-btn-capturar {
-            width: 64px; height: 64px;
-            border-radius: 50%; border: 4px solid #fff;
-            background: rgba(255,255,255,0.12);
-            cursor: pointer; flex-shrink: 0;
-            position: relative; transition: transform 0.1s;
+            width: 64px; height: 64px; border-radius: 50%;
+            border: 4px solid #fff; background: rgba(255,255,255,0.12);
+            cursor: pointer; flex-shrink: 0; position: relative;
+            transition: transform 0.1s;
         }
         #camara-btn-capturar:active { transform: scale(0.88); }
         #camara-btn-capturar::after {
-            content: '';
-            position: absolute; top: 50%; left: 50%;
+            content: ''; position: absolute; top: 50%; left: 50%;
             transform: translate(-50%,-50%);
-            width: 48px; height: 48px;
-            border-radius: 50%; background: #fff;
+            width: 48px; height: 48px; border-radius: 50%; background: #fff;
         }
         #camara-btn-capturar.procesando::after { background: #aaa; }
         #camara-btn-girar {
-            background: rgba(255,255,255,0.12); border: none;
-            color: #fff; width: 42px; height: 42px;
-            border-radius: 50%; font-size: 1.2em;
-            cursor: pointer; display: flex;
-            align-items: center; justify-content: center;
-            transition: transform 0.35s; flex-shrink: 0;
+            background: rgba(255,255,255,0.12); border: none; color: #fff;
+            width: 42px; height: 42px; border-radius: 50%; font-size: 1.2em;
+            cursor: pointer; display: flex; align-items: center;
+            justify-content: center; transition: transform 0.35s; flex-shrink: 0;
         }
         #camara-btn-girar.girando { transform: rotate(180deg); }
         #camara-btn-guardar {
             background: #004F88; border: none; color: #fff;
-            padding: 0 12px; height: 42px;
-            border-radius: 21px; font-size: 0.78em;
-            font-weight: 700; cursor: pointer;
-            flex-shrink: 0; white-space: nowrap;
-            line-height: 1.2; text-align: center;
+            padding: 0 12px; height: 42px; border-radius: 21px;
+            font-size: 0.78em; font-weight: 700; cursor: pointer;
+            flex-shrink: 0; white-space: nowrap; line-height: 1.2; text-align: center;
         }
-        #camara-btn-guardar:disabled {
-            background: rgba(255,255,255,0.12); cursor: not-allowed;
-        }
+        #camara-btn-guardar:disabled { background: rgba(255,255,255,0.12); cursor: not-allowed; }
         .camara-btn-inline {
             display: inline-flex; align-items: center; gap: 4px;
             background: #1a2a3a; border: 1px solid #2a3f55;
-            border-radius: 4px; padding: 4px 10px;
-            cursor: pointer; font-size: 0.8em; color: #fff;
-            font-weight: 600; font-family: inherit; white-space: nowrap;
+            border-radius: 4px; padding: 4px 10px; cursor: pointer;
+            font-size: 0.8em; color: #fff; font-weight: 600;
+            font-family: inherit; white-space: nowrap;
         }
         .camara-btn-inline:hover { background: #243550; }
     `;
     document.head.appendChild(style);
 };
 
-// ── ESTADO INTERNO ────────────────────────────────────────────
+// ── ESTADO ────────────────────────────────────────────────────
 let _stream          = null;
 let _facingMode      = 'environment';
 let _aspectoActual   = '4:3';
@@ -282,90 +234,42 @@ window._abrirCamara = async (titulo, maxFotos, callbackSubir) => {
             document.querySelectorAll('.camara-aspecto-btn')
                 .forEach(b => b.classList.remove('activo'));
             btn.classList.add('activo');
-            _actualizarMarcoAspecto();
+            _actualizarMarco();
         };
     });
 
-    window.addEventListener('orientationchange', _onOrientacionChange);
-    window.addEventListener('resize', _onOrientacionChange);
-
-    _ajustarLayoutOrientacion();
     await _iniciarStream();
 };
 
-// ── ORIENTACIÓN — gira el UI a landscape si el teléfono está vertical ──
-const _onOrientacionChange = () => {
-    setTimeout(() => {
-        _ajustarLayoutOrientacion();
-        _actualizarMarcoAspecto();
-    }, 150);
-};
-
-const _ajustarLayoutOrientacion = () => {
-    const inner = document.getElementById('camara-inner');
-    if (!inner) return;
-
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const esPortrait = vh > vw;
-
-    if (esPortrait) {
-        // Rotar el contenedor 90°: el dispositivo está vertical,
-        // queremos que la cámara se vea horizontal
-        inner.style.width           = vh + 'px';
-        inner.style.height          = vw + 'px';
-        inner.style.top             = '50%';
-        inner.style.left            = '50%';
-        inner.style.transformOrigin = 'center center';
-        inner.style.transform       = 'translate(-50%, -50%) rotate(90deg)';
-    } else {
-        inner.style.width     = '100%';
-        inner.style.height    = '100%';
-        inner.style.top       = '0';
-        inner.style.left      = '0';
-        inner.style.transform = 'none';
-    }
-};
-
-// ── MARCO DE ASPECTO (ventana visual de recorte) ──────────────
-const _actualizarMarcoAspecto = () => {
+// ── MARCO VISUAL DE ASPECTO ───────────────────────────────────
+const _actualizarMarco = () => {
     const wrap  = document.getElementById('camara-visor-wrap');
     const frame = document.getElementById('camara-crop-frame');
     if (!wrap || !frame) return;
-
-    const wrapW = wrap.clientWidth;
-    const wrapH = wrap.clientHeight;
-    const asp   = _ASPECTOS[_aspectoActual] || _ASPECTOS['4:3'];
-
-    // Marco en landscape: asp.w > asp.h siempre
-    let fw = wrapW * 0.94;
+    const asp = _ASPECTOS[_aspectoActual] || _ASPECTOS['4:3'];
+    // Marco siempre landscape: asp.w > asp.h
+    let fw = wrap.clientWidth * 0.94;
     let fh = fw * asp.h / asp.w;
-    if (fh > wrapH * 0.90) {
-        fh = wrapH * 0.90;
+    if (fh > wrap.clientHeight * 0.90) {
+        fh = wrap.clientHeight * 0.90;
         fw = fh * asp.w / asp.h;
     }
-
     frame.style.width  = Math.round(fw) + 'px';
     frame.style.height = Math.round(fh) + 'px';
 };
 
-// ── INICIAR STREAM ────────────────────────────────────────────
+// ── STREAM ────────────────────────────────────────────────────
 const _iniciarStream = async () => {
     if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
     const video = document.getElementById('camara-video');
     if (!video) return;
-
     try {
         _stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: _facingMode,
-                width:  { ideal: 1920 },
-                height: { ideal: 1080 }
-            },
+            video: { facingMode: _facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
             audio: false
         });
         video.srcObject = _stream;
-        video.onloadedmetadata = () => { _actualizarMarcoAspecto(); };
+        video.onloadedmetadata = () => _actualizarMarco();
     } catch (err) {
         console.error('Error cámara:', err);
         _mostrarToast('⚠ No se pudo acceder a la cámara.', 4000);
@@ -382,91 +286,98 @@ const _girarCamara = async () => {
 };
 
 // ── CAPTURAR FOTO ─────────────────────────────────────────────
+// LÓGICA SIMPLE:
+//   1. Capturar el frame del video tal como viene
+//   2. Si videoHeight > videoWidth → está girado → rotar 90°
+//   3. Recortar al aspecto seleccionado (siempre landscape)
+//   4. Guardar como JPEG
 const _capturarFoto = async () => {
     if (_fotosCapturadas.length >= _maxFotos) {
-        _mostrarToast(`Máximo ${_maxFotos} fotos alcanzado.`); return;
+        _mostrarToast(`Máximo ${_maxFotos} fotos.`); return;
     }
     const video = document.getElementById('camara-video');
     if (!video || !video.videoWidth) return;
 
     const btn = document.getElementById('camara-btn-capturar');
     if (btn) btn.classList.add('procesando');
-
     const flash = document.getElementById('camara-flash');
     if (flash) { flash.classList.add('activo'); setTimeout(() => flash.classList.remove('activo'), 120); }
 
-    const vW  = video.videoWidth;
-    const vH  = video.videoHeight;
+    const vW = video.videoWidth;
+    const vH = video.videoHeight;
+
+    // Paso 1: volcar el video en un canvas temporal sin rotar
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width  = vW;
+    tmpCanvas.height = vH;
+    tmpCanvas.getContext('2d').drawImage(video, 0, 0);
+
+    // Paso 2: si el video vino en portrait (vH > vW), rotarlo 90° para dejarlo landscape
+    let srcW, srcH;
+    const rotado = vH > vW;
+
+    if (rotado) {
+        srcW = vH; srcH = vW;
+        _canvas.width  = srcW;
+        _canvas.height = srcH;
+        _ctx.save();
+        _ctx.translate(srcW / 2, srcH / 2);
+        _ctx.rotate(Math.PI / 2);
+        _ctx.drawImage(tmpCanvas, -vW / 2, -vH / 2, vW, vH);
+        _ctx.restore();
+    } else {
+        srcW = vW; srcH = vH;
+        _canvas.width  = srcW;
+        _canvas.height = srcH;
+        _ctx.drawImage(tmpCanvas, 0, 0);
+    }
+
+    // Paso 3: recortar al aspecto seleccionado (landscape garantizado)
     const asp = _ASPECTOS[_aspectoActual] || _ASPECTOS['4:3'];
-
-    // Si el stream llegó en portrait (vH > vW), rotamos 90°
-    const streamPortrait = vH > vW;
-    // Dimensiones "landscape" del stream
-    const srcW = streamPortrait ? vH : vW;
-    const srcH = streamPortrait ? vW : vH;
-
     const targetRatio = asp.w / asp.h;
     const srcRatio    = srcW / srcH;
 
-    // Calcular crop centrado
     let cropW, cropH;
     if (srcRatio >= targetRatio) {
-        cropH = srcH;
-        cropW = Math.round(cropH * targetRatio);
+        cropH = srcH; cropW = Math.round(cropH * targetRatio);
     } else {
-        cropW = srcW;
-        cropH = Math.round(cropW / targetRatio);
+        cropW = srcW; cropH = Math.round(cropW / targetRatio);
     }
     const cropX = Math.round((srcW - cropW) / 2);
     const cropY = Math.round((srcH - cropH) / 2);
 
-    _canvas.width  = cropW;
-    _canvas.height = cropH;
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width  = cropW;
+    outCanvas.height = cropH;
+    outCanvas.getContext('2d').drawImage(_canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
-    if (streamPortrait) {
-        // Rotar 90° al dibujar
-        _ctx.save();
-        _ctx.translate(cropW / 2, cropH / 2);
-        _ctx.rotate(Math.PI / 2);
-        // En espacio original portrait: x=cropY, y=cropX, w=cropH, h=cropW
-        _ctx.drawImage(video,
-            cropY, cropX, cropH, cropW,
-            -cropH / 2, -cropW / 2, cropH, cropW
-        );
-        _ctx.restore();
-    } else {
-        _ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-    }
-
-    _canvas.toBlob(blob => {
+    outCanvas.toBlob(blob => {
         if (!blob) { if (btn) btn.classList.remove('procesando'); return; }
         _fotosCapturadas.push(blob);
         _actualizarUI();
         if (btn) btn.classList.remove('procesando');
-        _mostrarToast(`📸 Foto ${_fotosCapturadas.length} capturada`);
+        _mostrarToast(`📸 ${_fotosCapturadas.length} foto${_fotosCapturadas.length > 1 ? 's' : ''}`);
     }, 'image/jpeg', 0.86);
 };
 
-// ── ACTUALIZAR UI ─────────────────────────────────────────────
+// ── UI ────────────────────────────────────────────────────────
 const _actualizarUI = () => {
     const n = _fotosCapturadas.length;
     const cont = document.getElementById('camara-contador');
     if (cont) cont.textContent = `${n} / ${_maxFotos}`;
-
     const btnG = document.getElementById('camara-btn-guardar');
     if (btnG) {
         btnG.disabled = n === 0;
         const span = document.getElementById('camara-n-fotos');
         if (span) span.textContent = `${n} foto${n !== 1 ? 's' : ''}`;
     }
-
     const strip = document.getElementById('camara-preview-strip');
     if (strip && n > 0) {
         const blob = _fotosCapturadas[n - 1];
         const url  = URL.createObjectURL(blob);
         const img  = document.createElement('img');
         img.className = 'camara-thumb';
-        img.src   = url;
+        img.src = url;
         img.title = `Foto ${n} — click para eliminar`;
         img.onclick = () => {
             const idx = _fotosCapturadas.indexOf(blob);
@@ -482,40 +393,33 @@ const _actualizarUI = () => {
     }
 };
 
-// ── GUARDAR Y CERRAR ─────────────────────────────────────────
+// ── GUARDAR / CERRAR ─────────────────────────────────────────
 const _guardarYCerrar = async () => {
     if (_fotosCapturadas.length === 0) return;
     const btnG = document.getElementById('camara-btn-guardar');
     if (btnG) { btnG.disabled = true; btnG.innerHTML = '⏳ Subiendo...'; }
-    if (typeof _callbackSubir === 'function') {
-        await _callbackSubir(_fotosCapturadas.slice());
-    }
+    if (typeof _callbackSubir === 'function') await _callbackSubir(_fotosCapturadas.slice());
     _cerrarCamara();
 };
 
-// ── CERRAR ────────────────────────────────────────────────────
 const _cerrarCamara = () => {
-    window.removeEventListener('orientationchange', _onOrientacionChange);
-    window.removeEventListener('resize', _onOrientacionChange);
     if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
     _fotosCapturadas = [];
     const overlay = document.getElementById('camara-overlay');
     if (overlay) overlay.remove();
 };
 
-// ── TOAST ─────────────────────────────────────────────────────
 let _toastTimer = null;
 const _mostrarToast = (msg, ms = 2000) => {
     const t = document.getElementById('camara-toast');
     if (!t) return;
-    t.textContent = msg;
-    t.classList.add('visible');
+    t.textContent = msg; t.classList.add('visible');
     clearTimeout(_toastTimer);
     _toastTimer = setTimeout(() => t?.classList.remove('visible'), ms);
 };
 
 // ════════════════════════════════════════════════════════════
-//  HELPERS — Compresión y subida a Cloudinary
+//  HELPERS — Compresión y Cloudinary
 // ════════════════════════════════════════════════════════════
 const CLOUD_NAME_CAM     = 'dboystolg';
 const UPLOAD_PRESET_CAM  = 'fotos_taller';
@@ -530,16 +434,14 @@ const _comprimirBlob = (blob) => new Promise((resolve, reject) => {
         URL.revokeObjectURL(url);
         let W = img.naturalWidth;
         let H = img.naturalHeight;
-        // Garantizar landscape
+        // El blob ya viene landscape desde _capturarFoto, pero por si acaso:
         if (H > W) { [W, H] = [H, W]; }
         if (W > COMP_MAX_PX_CAM) { H = Math.round(H * COMP_MAX_PX_CAM / W); W = COMP_MAX_PX_CAM; }
-
         const cv = document.createElement('canvas');
         cv.width = W; cv.height = H;
         const c = cv.getContext('2d');
         c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
         c.drawImage(img, 0, 0, W, H);
-
         cv.toBlob(b => {
             if (!b) { reject(new Error('No se pudo comprimir')); return; }
             resolve(b);
@@ -564,14 +466,13 @@ const _subirBlobACloudinary = async (blob, carpeta) => {
 };
 
 // ════════════════════════════════════════════════════════════
-//  INTEGRACIONES CON 08_fotos.js
+//  INTEGRACIONES
 // ════════════════════════════════════════════════════════════
 window.abrirCamaraSimples = (i, etapa, titulo) => {
     const d = window.data[i];
     const key = 'fotos_b64_' + etapa;
     const disp = 20 - (d[key] || []).length;
     if (disp <= 0) { alert('Ya tienes 20 fotos en esta sección.'); return; }
-
     window._abrirCamara(titulo || `📷 ${etapa}`, disp, async (blobs) => {
         const folder = `byb_norte/ot_${d.ot || 'sin_ot'}/${etapa}`;
         if (!d[key]) d[key] = [];
@@ -594,7 +495,6 @@ window.abrirCamaraComponente = (i, etapa, clave) => {
     if (!d[keyP][clave]) d[keyP][clave] = [];
     const disp = 10 - d[keyP][clave].length;
     if (disp <= 0) { alert('Ya tienes 10 fotos en este componente.'); return; }
-
     window._abrirCamara(`📷 ${clave}`, disp, async (blobs) => {
         const folder = `byb_norte/ot_${d.ot || 'sin_ot'}/${etapa}/${clave}`;
         for (const blob of blobs) {
@@ -626,7 +526,6 @@ window.abrirCamaraNuevaOT = () => {
     });
 };
 
-// ── PATCH _htmlFotosSimples ───────────────────────────────────
 setTimeout(() => {
     const _orig = window._htmlFotosSimples;
     if (!_orig) return;
@@ -644,34 +543,29 @@ setTimeout(() => {
     console.log('✅ 11_camara.js — _htmlFotosSimples parchado');
 }, 200);
 
-// ── HELPERS PÚBLICOS ─────────────────────────────────────────
 window._btnCamaraComponente = (i, etapa, clave) =>
     `<button class="camara-btn-inline"
         onclick="window.abrirCamaraComponente(${i},'${etapa}','${clave}')">
         📸 Cámara</button>`;
 
 window._btnCamaraNuevaOT = () =>
-    `<button class="camara-btn-inline" onclick="window.abrirCamaraNuevaOT()">
-        📸 Cámara</button>`;
+    `<button class="camara-btn-inline" onclick="window.abrirCamaraNuevaOT()">📸 Cámara</button>`;
 
 console.log('✅ 11_camara.js — Módulo de cámara integrado');
 
-// ════════════════════════════════════════════════════════════
-//  INTEGRACIÓN 09_sensores.js
-// ════════════════════════════════════════════════════════════
+// ── Sensores ─────────────────────────────────────────────────
 window.abrirCamaraSensorIngreso = (i, si) => {
     const sensores = window.data[i]?.sensores_ingreso || [];
     const disp = 5 - (sensores[si]?.fotos || []).length;
     if (disp <= 0) { alert('Máximo 5 fotos por sensor.'); return; }
     window._abrirCamara(`Sensor ${si + 1} — Ingreso`, disp, async (blobs) => {
         const d = window.data[i];
-        const ot = d.ot || 'sin_ot';
         if (!d.sensores_ingreso[si].fotos) d.sensores_ingreso[si].fotos = [];
         for (const blob of blobs) {
             blob.name = `camara_sensor_ing_${si}_${Date.now()}.jpg`;
             try {
                 const c = await _comprimirBlob(blob);
-                const url = await _subirBlobACloudinary(c, `byb_norte/ot_${ot}/sensor_ing_${si}`);
+                const url = await _subirBlobACloudinary(c, `byb_norte/ot_${d.ot||'sin_ot'}/sensor_ing_${si}`);
                 d.sensores_ingreso[si].fotos.push({ url, ext: 'jpeg' });
             } catch (e) { alert('Error al subir foto: ' + e.message); }
         }
@@ -684,14 +578,13 @@ window.abrirCamaraSensorSalida = (i, si) => {
     const disp = 5 - (d.sensores_salida_fotos?.[si] || []).length;
     if (disp <= 0) { alert('Máximo 5 fotos por sensor.'); return; }
     window._abrirCamara(`Sensor ${si + 1} — Salida`, disp, async (blobs) => {
-        const ot = d.ot || 'sin_ot';
         if (!d.sensores_salida_fotos) d.sensores_salida_fotos = {};
         if (!d.sensores_salida_fotos[si]) d.sensores_salida_fotos[si] = [];
         for (const blob of blobs) {
             blob.name = `camara_sensor_sal_${si}_${Date.now()}.jpg`;
             try {
                 const c = await _comprimirBlob(blob);
-                const url = await _subirBlobACloudinary(c, `byb_norte/ot_${ot}/sensor_sal_${si}`);
+                const url = await _subirBlobACloudinary(c, `byb_norte/ot_${d.ot||'sin_ot'}/sensor_sal_${si}`);
                 d.sensores_salida_fotos[si].push({ url, ext: 'jpeg' });
             } catch (e) { alert('Error al subir foto: ' + e.message); }
         }
@@ -704,8 +597,7 @@ setTimeout(() => {
     if (!_origIng) return;
     window.htmlSensoresIngreso = (i) => {
         let html = _origIng(i);
-        const sensores = window.data[i]?.sensores_ingreso || [];
-        sensores.forEach((s, si) => {
+        (window.data[i]?.sensores_ingreso || []).forEach((s, si) => {
             if ((s.fotos || []).length < 5) {
                 const id  = `btn_sensor_foto_ingreso_${i}_${si}`;
                 const btn = `<button class="camara-btn-inline" style="font-size:0.72em;padding:2px 6px;margin-left:3px;" onclick="window.abrirCamaraSensorIngreso(${i},${si})">📸</button>`;
@@ -722,9 +614,8 @@ setTimeout(() => {
     if (!_origSal) return;
     window.htmlSensoresSalida = (i) => {
         let html = _origSal(i);
-        const sensoresIng = window.data[i]?.sensores_ingreso || [];
-        const fotosSal    = window.data[i]?.sensores_salida_fotos || {};
-        sensoresIng.forEach((s, si) => {
+        const fotosSal = window.data[i]?.sensores_salida_fotos || {};
+        (window.data[i]?.sensores_ingreso || []).forEach((s, si) => {
             if ((fotosSal[si] || []).length < 5) {
                 const id  = `btn_sensor_foto_salida_${i}_${si}`;
                 const btn = `<button class="camara-btn-inline" style="font-size:0.72em;padding:2px 6px;margin-left:3px;" onclick="window.abrirCamaraSensorSalida(${i},${si})">📸</button>`;
@@ -736,9 +627,7 @@ setTimeout(() => {
     console.log('✅ 11_camara.js — htmlSensoresSalida parchado');
 }, 400);
 
-// ════════════════════════════════════════════════════════════
-//  INTEGRACIÓN 10_bodega.js
-// ════════════════════════════════════════════════════════════
+// ── Bodega ───────────────────────────────────────────────────
 window._bodegaCamaraBlobs = {};
 
 window.abrirCamaraBodega = (inputId, previewId, max = 10) => {
@@ -760,8 +649,7 @@ window._refrescarPreviewBodegaPublic = (inputId, previewId) => {
     if (!previewId) return;
     const prev = document.getElementById(previewId);
     if (!prev) return;
-    const blobs = window._bodegaCamaraBlobs[inputId] || [];
-    prev.innerHTML = blobs.map((blob, bi) => {
+    prev.innerHTML = (window._bodegaCamaraBlobs[inputId] || []).map((blob, bi) => {
         const url = URL.createObjectURL(blob);
         return `<div style="position:relative;display:inline-block;margin:2px;">
             <img src="${url}" style="width:54px;height:40px;object-fit:cover;border-radius:5px;border:1.5px solid #b0c8e8;">
