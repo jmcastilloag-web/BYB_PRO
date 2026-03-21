@@ -636,10 +636,28 @@ window.render = () => {
                 UI = window.renderAreaDespacho(d, i, obs);
             }
 
-            // Renderizar UI en la tarjeta
+            // Renderizar cada OT como acordeón (minimizado por defecto)
             if (UI) {
                 hay = true;
-                html += `<div class="card">${UI}</div>`;
+                const estadoActual = d.estado.replace(/_/g, ' ').toUpperCase();
+                const estaAbierto  = window.acordeonesAbiertos?.has(String(d.ot));
+                html += `
+                    <div class="ot-accordion-container">
+                        <button class="accordion${estaAbierto ? ' active' : ''}" data-ot-id="${d.ot}" onclick="toggleAccordion(event)">
+                            <span class="ot-accordion-header">
+                                <span class="ot-num">OT ${d.ot}</span>
+                                <span class="ot-empresa">${d.empresa || '—'}</span>
+                                <span class="ot-estado">${estadoActual}</span>
+                            </span>
+                            <span class="accordion-arrow">▾</span>
+                        </button>
+                        <div class="panel${estaAbierto ? ' show' : ''}">
+                            <div class="panel-content">
+                                ${UI}
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
         });
 
