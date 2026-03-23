@@ -25,35 +25,82 @@ const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/uplo
 const COMP_MAX_PX  = 1200;
 const COMP_QUALITY = 0.72;
 
-// ── 1. COMPRESOR ─────────────────────────────────────────────
-const comprimirImagen = (file) => new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        let w = img.naturalWidth;
-        let h = img.naturalHeight;
-        if (w > COMP_MAX_PX || h > COMP_MAX_PX) {
-            const ratio = Math.min(COMP_MAX_PX / w, COMP_MAX_PX / h);
-            w = Math.round(w * ratio);
-            h = Math.round(h * ratio);
+// ── 1. LECTOR EXIF (orientación de celular) ──────────────────
+const _leerOrientacionExif = (file) => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const view = new DataView(e.target.result);
+        if (view.getUint16(0, false) !== 0xFFD8) { resolve(1); return; }
+        const length = view.byteLength;
+        let offset = 2;
+        while (offset < length) {
+            const marker = view.getUint16(offset, false);
+            offset += 2;
+            if (marker === 0xFFE1) {
+                if (view.getUint32(offset += 2, false) !== 0x45786966) { resolve(1); return; }
+                const little = view.getUint16(offset += 6, false) === 0x4949;
+                offset += view.getUint32(offset + 4, little);
+                const tags = view.getUint16(offset, little);
+                offset += 2;
+                for (let i = 0; i < tags; i++) {
+                    if (view.getUint16(offset + (i * 12), little) === 0x0112) {
+                        resolve(view.getUint16(offset + (i * 12) + 8, little));
+                        return;
+                    }
+                }
+            } else if ((marker & 0xFF00) !== 0xFF00) break;
+            else offset += view.getUint16(offset, false);
         }
-        const canvas = document.createElement('canvas');
-        canvas.width  = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob(blob => {
-            if (!blob) { reject(new Error('No se pudo comprimir la imagen')); return; }
-            console.log(`📷 ${file.name}: ${Math.round(file.size/1024)}KB → ${Math.round(blob.size/1024)}KB`);
-            resolve(blob);
-        }, 'image/jpeg', COMP_QUALITY);
+        resolve(1);
     };
-    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Imagen inválida')); };
-    img.src = objectUrl;
+    reader.onerror = () => resolve(1);
+    reader.readAsArrayBuffer(file.slice(0, 64 * 1024));
 });
+
+// ── 1. COMPRESOR (con corrección de rotación EXIF) ────────────
+const comprimirImagen = async (file) => {
+    const orientation = await _leerOrientacionExif(file);
+    return new Promise((resolve, reject) => {
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            let w = img.naturalWidth;
+            let h = img.naturalHeight;
+            if (w > COMP_MAX_PX || h > COMP_MAX_PX) {
+                const ratio = Math.min(COMP_MAX_PX / w, COMP_MAX_PX / h);
+                w = Math.round(w * ratio);
+                h = Math.round(h * ratio);
+            }
+            // Para orientaciones 5-8 el ancho y alto se intercambian
+            const rotar = [5, 6, 7, 8].includes(orientation);
+            const canvas = document.createElement('canvas');
+            canvas.width  = rotar ? h : w;
+            canvas.height = rotar ? w : h;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Aplicar transformación según orientación EXIF
+            ctx.save();
+            if      (orientation === 2) { ctx.transform(-1,  0,  0,  1, canvas.width, 0); }
+            else if (orientation === 3) { ctx.transform(-1,  0,  0, -1, canvas.width, canvas.height); }
+            else if (orientation === 4) { ctx.transform( 1,  0,  0, -1, 0, canvas.height); }
+            else if (orientation === 5) { ctx.transform( 0,  1,  1,  0, 0, 0); }
+            else if (orientation === 6) { ctx.transform( 0,  1, -1,  0, canvas.height, 0); }
+            else if (orientation === 7) { ctx.transform( 0, -1, -1,  0, canvas.height, canvas.width); }
+            else if (orientation === 8) { ctx.transform( 0, -1,  1,  0, 0, canvas.width); }
+            ctx.drawImage(img, 0, 0, w, h);
+            ctx.restore();
+            canvas.toBlob(blob => {
+                if (!blob) { reject(new Error('No se pudo comprimir la imagen')); return; }
+                console.log(`📷 ${file.name}: ${Math.round(file.size/1024)}KB → ${Math.round(blob.size/1024)}KB (ori:${orientation})`);
+                resolve(blob);
+            }, 'image/jpeg', COMP_QUALITY);
+        };
+        img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Imagen inválida')); };
+        img.src = objectUrl;
+    });
+};
 
 // ── 2. SUBIDA A CLOUDINARY ───────────────────────────────────
 const subirACloudinary = async (blob, carpeta) => {
@@ -348,15 +395,25 @@ window._urlToB64 = async (url) => {
     }
 };
 
-// Prepara array [{ url }|{ b64,ext }] → [{ b64, ext }] para 05_docx.js
+// Prepara array [{ url }|{ b64,ext }] → [{ b64, ext, usuario }] para 05_docx.js
 window._prepararFotosParaWord = async (fotos) => {
-    // FIXED: filter invalid entries (b64 undefined, null or too short)
     if (!fotos || fotos.length === 0) return [];
     const result = [];
     for (const f of fotos) {
         if (!f) continue;
-        if (f.b64 && typeof f.b64 === "string" && f.b64.length > 100) { result.push(f); continue; }
-        if (f.url && typeof f.url === "string") { const b64 = await window._urlToB64(f.url); if (b64 && b64.length > 100) result.push({ b64, ext: "jpeg" }); }
+        // Ya tiene b64 (foto antigua): conservar tal cual
+        if (f.b64 && typeof f.b64 === "string" && f.b64.length > 100) {
+            result.push(f);
+            continue;
+        }
+        // Tiene URL (foto nueva de Cloudinary): descargar y convertir
+        if (f.url && typeof f.url === "string") {
+            const b64 = await window._urlToB64(f.url);
+            if (b64 && b64.length > 100) {
+                // Preservar usuario y otros campos junto al b64
+                result.push({ b64, ext: "jpeg", usuario: f.usuario || '', nombre: f.nombre || '' });
+            }
+        }
     }
     return result;
 };
