@@ -193,5 +193,6 @@ window.renderAreaDesarme = function(i, d, obs, p) {
                         </div>
                     ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mantencion_generales','Fotos Generales Mantención') : ''}
                         <button class="btn-finish" onclick="window.updateFlujo(${i},'mant_ok')">✅ Fin Mantención</button>`;
+            }
     return UI;
 };
