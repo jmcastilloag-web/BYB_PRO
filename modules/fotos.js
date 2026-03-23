@@ -316,20 +316,32 @@ window._urlToB64 = async (url) => {
     if (!url) return null;
     if (url.startsWith('data:')) return url.split(',')[1] || null;
     if (_cacheB64.has(url)) return _cacheB64.get(url);
+
+    const _fetchBlob = async (u) => {
+        const resp = await fetch(u, { mode: 'cors' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        return resp.blob();
+    };
+    const _blobToB64 = (blob) => new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload  = () => { const b64 = reader.result.split(',')[1]; _cacheB64.set(url, b64); res(b64); };
+        reader.onerror = rej;
+        reader.readAsDataURL(blob);
+    });
+
     try {
-        // Versión optimizada para Word: 1000px ancho, calidad 70
         const urlWord = url.includes('cloudinary.com')
             ? url.replace('/upload/', '/upload/w_1000,q_70,f_jpg/')
             : url;
-        const resp = await fetch(urlWord);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const blob = await resp.blob();
-        return new Promise((res, rej) => {
-            const reader = new FileReader();
-            reader.onload  = () => { const b64 = reader.result.split(',')[1]; _cacheB64.set(url, b64); res(b64); };
-            reader.onerror = rej;
-            reader.readAsDataURL(blob);
-        });
+        let blob;
+        try {
+            blob = await _fetchBlob(urlWord);
+        } catch(e) {
+            // Si la transformacion falla (Strict Transformations activado), usa URL original
+            console.warn('Transformacion Cloudinary fallo, usando URL original:', e.message);
+            blob = await _fetchBlob(url);
+        }
+        return await _blobToB64(blob);
     } catch(e) {
         console.warn('No se pudo descargar foto para Word:', url, e.message);
         return null;
