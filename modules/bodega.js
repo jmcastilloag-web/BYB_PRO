@@ -2,28 +2,25 @@
 // 10_bodega.js — Módulo de Bodega (Realtime Database)
 // ============================================================
 
-import { getDatabase, ref, push, update, get }
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL }
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-import { getApps }
-    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 
 // ─── Reutilizar la app Firebase ya inicializada ────────────
-function getDB()  { return getDatabase(getApps()[0]); }
+function getDB() { return getDatabase(getApps()[0]); }
 function getSTG() { return getStorage(getApps()[0]); }
 
 // ─── Rutas en Realtime Database ───────────────────────────
 const PATH = {
-    items:         (b) => `bodega/${b}/items`,
-    item:          (b, id) => `bodega/${b}/items/${id}`,
-    movimientos:   (b) => `bodega/${b}/movimientos`,
+    items: (b) => `bodega/${b}/items`,
+    item: (b, id) => `bodega/${b}/items/${id}`,
+    movimientos: (b) => `bodega/${b}/movimientos`,
     observaciones: (b) => `bodega/${b}/observaciones`
 };
 
 export const BODEGAS = {
     PERNOS_PIEZAS: 'pernos_piezas',
-    MOTORES:       'motores'
+    MOTORES: 'motores'
 };
 
 // Pueden operar bodega: admin, encargado, y técnicos del área desarme/mantención
@@ -79,17 +76,17 @@ export async function ingresarItem(bodegaId, datos, fotos = [], usuario) {
 
     const item = {
         bodegaId,
-        nombre:          datos.nombre,
-        descripcion:     datos.descripcion || '',
-        cantidad:        Number(datos.cantidad),
-        ubicaciones:     datos.ubicaciones || [],
-        estado:          'en_bodega',
-        otId:            datos.otId || '',
-        fotosIngreso:    fotosUrls,
-        fotosEntrega:    [],
-        bodegueroId:     usuario.uid || usuario.usuario,
+        nombre: datos.nombre,
+        descripcion: datos.descripcion || '',
+        cantidad: Number(datos.cantidad),
+        ubicaciones: datos.ubicaciones || [],
+        estado: 'en_bodega',
+        otId: datos.otId || '',
+        fotosIngreso: fotosUrls,
+        fotosEntrega: [],
+        bodegueroId: usuario.uid || usuario.usuario,
         bodegueroNombre: usuario.nombre,
-        fechaIngreso:    Date.now()
+        fechaIngreso: Date.now()
     };
 
     const itemId = await dbPush(PATH.items(bodegaId), item);
@@ -115,11 +112,11 @@ export async function solicitarSalida(bodegaId, itemId, receptorUid, receptorNom
         estado: 'reservado',
         solicitudSalida: {
             receptorUid, receptorNombre,
-            otId:            otId || item.otId || '',
-            bodegueroId:     usuario.uid || usuario.usuario,
+            otId: otId || item.otId || '',
+            bodegueroId: usuario.uid || usuario.usuario,
             bodegueroNombre: usuario.nombre,
-            fechaSolicitud:  Date.now(),
-            autorizado:      false
+            fechaSolicitud: Date.now(),
+            autorizado: false
         }
     });
 }
@@ -147,7 +144,7 @@ export async function autorizarSalida(bodegaId, itemId, fotos = [], usuario) {
     await dbPush(PATH.movimientos(bodegaId), {
         itemId, tipo: 'salida', cantidad: item.cantidad, otId: sol.otId || '',
         fotos: fotosUrls,
-        receptor:  { uid: uid, nombre: usuario.nombre }, // Quién recibe
+        receptor: { uid: uid, nombre: usuario.nombre }, // Quién recibe
         bodeguero: { uid: sol.bodegueroId, nombre: sol.bodegueroNombre }, // Quién solicitó
         fecha: Date.now()
     });
@@ -325,7 +322,7 @@ export function renderBodega(container, usuario) {
     }
 
     function estadoLabel(e) {
-        return { en_bodega:'✅ En Bodega', reservado:'⏳ Reservado', entregado:'📤 Entregado' }[e] || e;
+        return { en_bodega: '✅ En Bodega', reservado: '⏳ Reservado', entregado: '📤 Entregado' }[e] || e;
     }
 
     // ── MODAL INGRESO ──
@@ -372,10 +369,10 @@ export function renderBodega(container, usuario) {
             if (!nombre) { alert('Ingresa un nombre.'); return; }
             const ubicaciones = [...document.querySelectorAll('.ubicacion-row')].map(r => ({
                 nivel: r.querySelector('.inp-nivel').value.toUpperCase().trim(),
-                fila:  r.querySelector('.inp-fila').value.trim()
+                fila: r.querySelector('.inp-fila').value.trim()
             })).filter(u => u.nivel && u.fila);
             const fotosFile = Array.from(document.getElementById('inp-fotos-ing').files || []);
-            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-ing') : [];
+            const fotosCam = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-ing') : [];
             const fotos = [...fotosFile, ...fotosCam];
             const btn = document.getElementById('btn-guardar-ingreso');
             btn.disabled = true; btn.textContent = 'Guardando...';
@@ -383,13 +380,13 @@ export function renderBodega(container, usuario) {
                 await ingresarItem(bodegaId, {
                     nombre,
                     descripcion: document.getElementById('inp-desc').value,
-                    cantidad:    document.getElementById('inp-cantidad').value,
-                    otId:        document.getElementById('inp-ot').value || '',
+                    cantidad: document.getElementById('inp-cantidad').value,
+                    otId: document.getElementById('inp-ot').value || '',
                     ubicaciones
                 }, fotos, usuario);
                 cerrarModal();
                 renderContenido(bodegaId);
-            } catch(e) {
+            } catch (e) {
                 alert('Error: ' + e.message);
                 btn.disabled = false; btn.textContent = '💾 Guardar ingreso';
             }
@@ -401,7 +398,7 @@ export function renderBodega(container, usuario) {
         const usuariosLista = window.usuarios || [];
         const opts = usuariosLista
             .filter(u => u.activo !== false)
-            .map(u => `<option value="${u.uid||u.usuario}">${u.nombre}</option>`).join('');
+            .map(u => `<option value="${u.uid || u.usuario}">${u.nombre}</option>`).join('');
 
         abrirModal(`
             <h3>📤 Solicitar Entrega</h3>
@@ -430,7 +427,7 @@ export function renderBodega(container, usuario) {
                     document.getElementById('inp-ot-salida').value || '', usuario);
                 cerrarModal();
                 renderContenido(bodegaId);
-            } catch(e) {
+            } catch (e) {
                 alert('Error: ' + e.message);
                 btn.disabled = false; btn.textContent = '📤 Enviar solicitud';
             }
@@ -451,14 +448,14 @@ export function renderBodega(container, usuario) {
         `);
         document.getElementById('btn-confirmar-recepcion').addEventListener('click', async () => {
             const fotosFile = Array.from(document.getElementById('inp-fotos-entrega').files || []);
-            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-entrega') : [];
+            const fotosCam = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-entrega') : [];
             const fotos = [...fotosFile, ...fotosCam];
             const btn = document.getElementById('btn-confirmar-recepcion');
             btn.disabled = true; btn.textContent = 'Guardando...';
             try {
                 await autorizarSalida(bodegaId, itemId, fotos, usuario);
                 cerrarModal(); renderContenido(bodegaId);
-            } catch(e) {
+            } catch (e) {
                 alert('Error: ' + e.message);
                 btn.disabled = false; btn.textContent = '✅ Confirmar recepción';
             }
@@ -474,7 +471,7 @@ export function renderBodega(container, usuario) {
             .map(u => `<img src="${u}" class="informe-foto" onclick="window.open('${u}')">`)
             .join('');
 
-        const ubicHtml = (item.ubicaciones||[])
+        const ubicHtml = (item.ubicaciones || [])
             .map(u => `<span class="ubicacion-badge grande">${u.nivel}−${u.fila}</span>`).join(' ');
 
         actualizarModal(`
@@ -490,22 +487,22 @@ export function renderBodega(container, usuario) {
                 <p style="margin:0;">
                     Cantidad: <strong>${item.cantidad}</strong> &nbsp;|&nbsp;
                     Estado: <strong>${estadoLabel(item.estado)}</strong> &nbsp;|&nbsp;
-                    OT: <strong>${item.otId||'—'}</strong>
+                    OT: <strong>${item.otId || '—'}</strong>
                 </p>
                 ${item.descripcion ? `<p style="color:#555;margin:6px 0 0;">${item.descripcion}</p>` : ''}
             </div>
 
-            ${(item.fotosIngreso||[]).length ? `
+            ${(item.fotosIngreso || []).length ? `
             <div class="informe-seccion">
                 <h4>📷 Fotos de Recepción</h4>
                 <div class="informe-fotos">${fotosHtml(item.fotosIngreso)}</div>
             </div>` : ''}
 
-            ${(item.fotosEntrega||[]).length ? `
+            ${(item.fotosEntrega || []).length ? `
             <div class="informe-seccion">
                 <h4>📷 Fotos de Entrega</h4>
                 <div class="informe-fotos">${fotosHtml(item.fotosEntrega)}</div>
-                <p style="font-size:0.85em;margin:6px 0 0;">Entregado a: <strong>${item.solicitudSalida?.receptorNombre||'—'}</strong></p>
+                <p style="font-size:0.85em;margin:6px 0 0;">Entregado a: <strong>${item.solicitudSalida?.receptorNombre || '—'}</strong></p>
             </div>` : ''}
 
             <div class="informe-seccion">
@@ -513,12 +510,12 @@ export function renderBodega(container, usuario) {
                 ${movimientos.length === 0 ? '<p style="color:#aaa;">Sin movimientos.</p>'
                     : movimientos.map(m => `
                         <div class="movimiento-row">
-                            <span class="mov-tipo ${m.tipo}">${m.tipo==='ingreso'?'📥 Ingreso':'📤 Salida'}</span>
+                            <span class="mov-tipo ${m.tipo}">${m.tipo === 'ingreso' ? '📥 Ingreso' : '📤 Salida'}</span>
                             <span>${fmtFecha(m.fecha)}</span>
-                            <span>${m.tipo==='salida'
-                                ?`Receptor: ${m.receptor?.nombre||'—'}`
-                                :`Bodeguero: ${m.usuario?.nombre||'—'}`}</span>
-                            <span>OT: ${m.otId||'—'}</span>
+                            <span>${m.tipo === 'salida'
+                                ? `Receptor: ${m.receptor?.nombre || '—'}`
+                                : `Bodeguero: ${m.usuario?.nombre || '—'}`}</span>
+                            <span>OT: ${m.otId || '—'}</span>
                         </div>`).join('')}
             </div>
 
@@ -530,7 +527,7 @@ export function renderBodega(container, usuario) {
                             <div class="obs-row">
                                 <p style="margin:0 0 4px;">${o.texto}</p>
                                 <small style="color:#888;">${o.usuario?.nombre} — ${fmtFecha(o.fecha)}</small>
-                                ${(o.fotos||[]).length?`<div class="informe-fotos" style="margin-top:6px;">${fotosHtml(o.fotos)}</div>`:''}
+                                ${(o.fotos || []).length ? `<div class="informe-fotos" style="margin-top:6px;">${fotosHtml(o.fotos)}</div>` : ''}
                             </div>`).join('')}
                 </div>
                 <div style="margin-top:12px;">
@@ -548,7 +545,7 @@ export function renderBodega(container, usuario) {
         document.getElementById('btn-guardar-obs').addEventListener('click', async () => {
             const texto = document.getElementById('inp-obs-texto').value.trim();
             const fotosFile = Array.from(document.getElementById('inp-obs-fotos').files || []);
-            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-obs-fotos') : [];
+            const fotosCam = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-obs-fotos') : [];
             const fotos = [...fotosFile, ...fotosCam];
             if (!texto && !fotos.length) { alert('Escribe algo o adjunta una foto.'); return; }
             const btn = document.getElementById('btn-guardar-obs');
@@ -588,8 +585,8 @@ export function renderBodega(container, usuario) {
     function fmtFecha(ts) {
         if (!ts) return '—';
         return new Date(ts).toLocaleString('es-CL', {
-            day:'2-digit', month:'2-digit', year:'numeric',
-            hour:'2-digit', minute:'2-digit'
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
         });
     }
 }
