@@ -278,7 +278,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                             if (f && f.b64) {
                                 const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
                                 imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F4FF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx3, cy3)}</w:p></w:tc>`);
-                                lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E8EEF6"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(9,'555555',false)}</w:rPr><w:t>Foto ${fi+gi+1}</w:t></w:r></w:p></w:tc>`);
+                                const _uDes = f?.usuario ? ` — ${f.usuario}` : '';
+                                lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E8EEF6"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(9,'555555',false)}</w:rPr><w:t>Foto ${fi+gi+1}${_uDes}</w:t></w:r></w:p></w:tc>`);
                             } else {
                                 imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
                                 lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
@@ -359,7 +360,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                             if (f && f.b64) {
                                 const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
                                 imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F0F4FF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx3, cy3)}</w:p></w:tc>`);
-                                lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E8EEF6"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(9,'555555',false)}</w:rPr><w:t>Foto ${fi+gi+1}</w:t></w:r></w:p></w:tc>`);
+                                const _uComp = f?.usuario ? ` — ${f.usuario}` : "";
+                                lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="E8EEF6"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(9,"555555",false)}</w:rPr><w:t>Foto ${fi+gi+1}${_uComp}</w:t></w:r></w:p></w:tc>`);
                             } else {
                                 imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
                                 lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW3}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
@@ -415,7 +417,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                     const f = grupo[gi];
                     if (f && f.b64) {
                         const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
-                        const label = labelFn ? xE(labelFn(fi + gi)) : `Foto ${fi + gi + 1}`;
+                        const _uBloq = f?.usuario ? ` — ${f.usuario}` : "";
+                        const label = (labelFn ? xE(labelFn(fi + gi)) : `Foto ${fi + gi + 1}`) + _uBloq;
                         imgCells.push(TC(colW, 'FFFFFF', _mkImgWordRun(rid, cx, cy), true));
                         lblCells.push(TC(colW, 'F5F6F7',
                             `<w:r><w:rPr>${CAL(10,'555555',false)}</w:rPr><w:t xml:space="preserve">${label}</w:t></w:r>`,
@@ -450,7 +453,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                     const f = grupo[gi];
                     if (f && f.b64) {
                         const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
-                        const lbl = labelFn ? xE(labelFn(fi+gi)) : `Foto ${fi+gi+1}`;
+                        const _uGen = f?.usuario ? ` — ${f.usuario}` : "";
+                        const lbl = (labelFn ? xE(labelFn(fi+gi)) : `Foto ${fi+gi+1}`) + _uGen;
                         imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx, cy)}</w:p></w:tc>`);
                         lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(9,'555555',false)}</w:rPr><w:t>${lbl}</w:t></w:r></w:p></w:tc>`);
                     } else {
@@ -481,7 +485,8 @@ const loadJSZip = () => { if(window.JSZip) return Promise.resolve(window.JSZip);
                     if (f && f.b64) {
                         const rid = _regFoto(f, extraFilesRef, relsArrRef, rIdRef);
                         imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8FAFF"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr>${_mkImgWordRun(rid, cx, cy)}</w:p></w:tc>`);
-                        lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(8,'555555',false)}</w:rPr><w:t>Foto ${fi+gi+1}</w:t></w:r></w:p></w:tc>`);
+                        const _uIng = f?.usuario ? ` — ${f.usuario}` : "";
+                        lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2F8"/></w:tcPr><w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="0"/></w:pPr><w:r><w:rPr>${CAL(8,"555555",false)}</w:rPr><w:t>Foto ${fi+gi+1}${_uIng}</w:t></w:r></w:p></w:tc>`);
                     } else {
                         imgCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
                         lblCells.push(`<w:tc><w:tcPr><w:tcW w:w="${colW}" w:type="dxa"/></w:tcPr><w:p></w:p></w:tc>`);
