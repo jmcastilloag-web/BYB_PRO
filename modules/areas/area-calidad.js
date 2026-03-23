@@ -455,5 +455,6 @@ window.renderAreaCalidad = function(i, d, obs, p) {
                             ? `<button class="btn-finish" onclick="window.updateFlujo(${i},'salida_ok','despacho')">✅ DAR CHECK SALIDA → Despacho</button>`
                             : `<p style="color:#e67e22;font-weight:600;font-size:0.85em;">⚠️ Debes verificar todas las piezas y terminaciones antes de dar el check de salida.</p>`
                         }`;
+            }
     return UI;
 };
