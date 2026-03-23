@@ -1,34 +1,5 @@
 
-// ── Helper: bloque HTML de fotos simples (sin componentes) ──
-window._htmlFotosSimples = (i, etapa, titulo) => {
-    const d = window.data[i];
-    const key = 'fotos_b64_' + etapa;
-    const fotos = d[key] || [];
-    const max = 20;
-    const grid = fotos.map((f, fi) => `
-        <div style="position:relative;display:inline-block;margin:3px;">
-            <img src="data:image/${f.ext||'jpeg'};base64,${f.b64}"
-                 style="width:90px;height:68px;object-fit:cover;border-radius:4px;border:1px solid #dde1e7;cursor:pointer;"
-                 onclick="window._verFotoSimple('${etapa}',${fi},${i})">
-            <button onclick="window.eliminarFotoSimple(${i},'${etapa}',${fi})"
-                    style="position:absolute;top:-4px;right:-4px;background:#e74c3c;color:white;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;line-height:16px;padding:0;">✕</button>
-        </div>`).join('');
-    const btnAgregar = fotos.length < max
-        ? `<label style="display:inline-flex;align-items:center;gap:4px;background:#e8f0fe;border:1px solid #b0c8e8;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.8em;color:#004F88;font-weight:600;">
-            📷 Agregar fotos
-            <input type="file" accept="image/*" multiple style="display:none;"
-                onchange="window.subirFotosSimples(${i},'${etapa}',this)">
-        </label>`
-        : `<span style="font-size:0.78em;color:#27ae60;font-weight:700;">✅ ${max}/${max}</span>`;
-    const sinFotos = fotos.length === 0 ? '<span style="font-size:0.78em;color:#aaa;">Sin fotos aún</span>' : '';
-    return `<div style="margin-top:10px;background:#f8faff;border:1px solid #d0dce8;border-radius:6px;padding:10px;">
-        <div style="font-size:0.82em;font-weight:700;color:#004F88;margin-bottom:6px;">📷 ${titulo || 'Fotos'} (${fotos.length}/${max})</div>
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">${grid || sinFotos}</div>
-        ${btnAgregar}
-    </div>`;
-};
-
-// NOTA: _verFotoSimple, _fotosNuevaOT y _agregarFotosNuevaOT
+// NOTA: _htmlFotosSimples, _verFotoSimple, _fotosNuevaOT y _agregarFotosNuevaOT
 // están definidos en fotos.js (versión Cloudinary).
 // No redefinir aquí para evitar sobreescribir la versión correcta.
 
