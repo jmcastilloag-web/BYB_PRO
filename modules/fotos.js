@@ -384,13 +384,17 @@ window._urlToB64 = async (url) => {
         try {
             blob = await _fetchBlob(urlWord);
         } catch(e) {
-            // Si la transformacion falla (Strict Transformations activado), usa URL original
-            console.warn('Transformacion Cloudinary fallo, usando URL original:', e.message);
-            blob = await _fetchBlob(url);
+            console.error('⚠️ FOTO: Transformación Cloudinary falló, intentando URL original:', e.message);
+            try {
+                blob = await _fetchBlob(url);
+            } catch(e2) {
+                console.error('❌ FOTO: No se pudo descargar foto para Word:', url, e2.message);
+                return null;
+            }
         }
         return await _blobToB64(blob);
     } catch(e) {
-        console.warn('No se pudo descargar foto para Word:', url, e.message);
+        console.error('❌ FOTO: Error general descargando foto:', url, e.message);
         return null;
     }
 };
@@ -398,23 +402,29 @@ window._urlToB64 = async (url) => {
 // Prepara array [{ url }|{ b64,ext }] → [{ b64, ext, usuario }] para 05_docx.js
 window._prepararFotosParaWord = async (fotos) => {
     if (!fotos || fotos.length === 0) return [];
+    console.log(`📄 WORD: Preparando ${fotos.length} fotos...`);
     const result = [];
     for (const f of fotos) {
         if (!f) continue;
-        // Ya tiene b64 (foto antigua): conservar tal cual
         if (f.b64 && typeof f.b64 === "string" && f.b64.length > 100) {
+            console.log('📄 WORD: Foto con b64 directo OK');
             result.push(f);
             continue;
         }
-        // Tiene URL (foto nueva de Cloudinary): descargar y convertir
         if (f.url && typeof f.url === "string") {
+            console.log('📄 WORD: Descargando foto desde Cloudinary:', f.url.substring(0,60) + '...');
             const b64 = await window._urlToB64(f.url);
             if (b64 && b64.length > 100) {
-                // Preservar usuario y otros campos junto al b64
+                console.log('📄 WORD: ✅ Foto descargada OK');
                 result.push({ b64, ext: "jpeg", usuario: f.usuario || '', nombre: f.nombre || '' });
+            } else {
+                console.error('📄 WORD: ❌ Foto nula para URL:', f.url);
             }
+        } else {
+            console.error('📄 WORD: ❌ Foto sin b64 ni url:', JSON.stringify(f).substring(0,100));
         }
     }
+    console.log(`📄 WORD: ${result.length}/${fotos.length} fotos listas`);
     return result;
 };
 
