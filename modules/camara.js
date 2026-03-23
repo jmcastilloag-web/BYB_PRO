@@ -481,7 +481,7 @@ window.abrirCamaraSimples = (i, etapa, titulo) => {
             try {
                 const c = await _comprimirBlob(blob);
                 const url = await _subirBlobACloudinary(c, folder);
-                d[key].push({ url, ext: 'jpeg', nombre: blob.name });
+                d[key].push({ url, ext: 'jpeg', nombre: blob.name, usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
             } catch (e) { alert('Error al subir foto: ' + e.message); }
         }
         await window.save(); window.render();
@@ -502,7 +502,7 @@ window.abrirCamaraComponente = (i, etapa, clave) => {
             try {
                 const c = await _comprimirBlob(blob);
                 const url = await _subirBlobACloudinary(c, folder);
-                d[keyP][clave].push({ url, ext: 'jpeg', nombre: blob.name });
+                d[keyP][clave].push({ url, ext: 'jpeg', nombre: blob.name, usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
             } catch (e) { alert('Error al subir foto: ' + e.message); }
         }
         await window.save(); window.render();
@@ -519,7 +519,7 @@ window.abrirCamaraNuevaOT = () => {
             try {
                 const c = await _comprimirBlob(blob);
                 const url = await _subirBlobACloudinary(c, 'byb_norte/nueva_ot_temp');
-                window._fotosNuevaOT.push({ url, ext: 'jpeg', nombre: blob.name });
+                window._fotosNuevaOT.push({ url, ext: 'jpeg', nombre: blob.name, usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
             } catch (e) { console.error('Error foto nueva OT:', e); }
         }
         window._refrescarPreviewNuevaOT();
@@ -566,7 +566,7 @@ window.abrirCamaraSensorIngreso = (i, si) => {
             try {
                 const c = await _comprimirBlob(blob);
                 const url = await _subirBlobACloudinary(c, `byb_norte/ot_${d.ot||'sin_ot'}/sensor_ing_${si}`);
-                d.sensores_ingreso[si].fotos.push({ url, ext: 'jpeg' });
+                d.sensores_ingreso[si].fotos.push({ url, ext: 'jpeg', usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
             } catch (e) { alert('Error al subir foto: ' + e.message); }
         }
         await window.save(); window.render();
@@ -585,7 +585,7 @@ window.abrirCamaraSensorSalida = (i, si) => {
             try {
                 const c = await _comprimirBlob(blob);
                 const url = await _subirBlobACloudinary(c, `byb_norte/ot_${d.ot||'sin_ot'}/sensor_sal_${si}`);
-                d.sensores_salida_fotos[si].push({ url, ext: 'jpeg' });
+                d.sensores_salida_fotos[si].push({ url, ext: 'jpeg', usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
             } catch (e) { alert('Error al subir foto: ' + e.message); }
         }
         await window.save(); window.render();
