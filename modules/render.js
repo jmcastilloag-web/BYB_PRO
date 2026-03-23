@@ -617,6 +617,18 @@ window.render = () => {
             v.innerHTML = `<div class="card"><p style="color:red;">Error cargando bodega: ${err.message}</p></div>`;
         });
     }
+
+    // ── Vista Galería de Fotos ──
+    if (window.vistaActual === 'fotos') {
+        v.innerHTML = '<div class="card"><div id="fotos-vista-mount"></div></div>';
+        import('./fotos_vista.js').then(({ renderVistaFotos, inyectarEstilosFotos }) => {
+            inyectarEstilosFotos();
+            const mount = document.getElementById('fotos-vista-mount');
+            if (mount) renderVistaFotos(mount);
+        }).catch(err => {
+            v.innerHTML = `<div class="card"><p style="color:red;">Error cargando galería: ${err.message}</p></div>`;
+        });
+    }
 };
 
 // ── FUNCIONES GESTIÓN USUARIOS ──
