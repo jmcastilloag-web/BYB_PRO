@@ -2,25 +2,28 @@
 // 10_bodega.js — Módulo de Bodega (Realtime Database)
 // ============================================================
 
-import { getDatabase, ref, push, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-import { getApps } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, push, update, get }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { getApps }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 
 // ─── Reutilizar la app Firebase ya inicializada ────────────
-function getDB() { return getDatabase(getApps()[0]); }
+function getDB()  { return getDatabase(getApps()[0]); }
 function getSTG() { return getStorage(getApps()[0]); }
 
 // ─── Rutas en Realtime Database ───────────────────────────
 const PATH = {
-    items: (b) => `bodega/${b}/items`,
-    item: (b, id) => `bodega/${b}/items/${id}`,
-    movimientos: (b) => `bodega/${b}/movimientos`,
+    items:         (b) => `bodega/${b}/items`,
+    item:          (b, id) => `bodega/${b}/items/${id}`,
+    movimientos:   (b) => `bodega/${b}/movimientos`,
     observaciones: (b) => `bodega/${b}/observaciones`
 };
 
 export const BODEGAS = {
     PERNOS_PIEZAS: 'pernos_piezas',
-    MOTORES: 'motores'
+    MOTORES:       'motores'
 };
 
 // Pueden operar bodega: admin, encargado, y técnicos del área desarme/mantención
@@ -76,17 +79,17 @@ export async function ingresarItem(bodegaId, datos, fotos = [], usuario) {
 
     const item = {
         bodegaId,
-        nombre: datos.nombre,
-        descripcion: datos.descripcion || '',
-        cantidad: Number(datos.cantidad),
-        ubicaciones: datos.ubicaciones || [],
-        estado: 'en_bodega',
-        otId: datos.otId || '',
-        fotosIngreso: fotosUrls,
-        fotosEntrega: [],
-        bodegueroId: usuario.uid || usuario.usuario,
+        nombre:          datos.nombre,
+        descripcion:     datos.descripcion || '',
+        cantidad:        Number(datos.cantidad),
+        ubicaciones:     datos.ubicaciones || [],
+        estado:          'en_bodega',
+        otId:            datos.otId || '',
+        fotosIngreso:    fotosUrls,
+        fotosEntrega:    [],
+        bodegueroId:     usuario.uid || usuario.usuario,
         bodegueroNombre: usuario.nombre,
-        fechaIngreso: Date.now()
+        fechaIngreso:    Date.now()
     };
 
     const itemId = await dbPush(PATH.items(bodegaId), item);
@@ -108,47 +111,88 @@ export async function solicitarSalida(bodegaId, itemId, receptorUid, receptorNom
     const item = await dbGet(PATH.item(bodegaId, itemId));
     if (!item) throw new Error('Ítem no encontrado.');
     if (item.estado !== 'en_bodega') throw new Error('El ítem no está disponible.');
-    await dbUpdate(PATH.item(bodegaId, itemId), {
+
+    // Permitir especificar ubicaciones para la salida
+    const dataToUpdate = {
         estado: 'reservado',
         solicitudSalida: {
             receptorUid, receptorNombre,
-            otId: otId || item.otId || '',
-            bodegueroId: usuario.uid || usuario.usuario,
+            otId:            otId || item.otId || '',
+            bodegueroId:     usuario.uid || usuario.usuario,
             bodegueroNombre: usuario.nombre,
-            fechaSolicitud: Date.now(),
-            autorizado: false
+            fechaSolicitud:  Date.now(),
+            autorizado:      false,
+            ubicacionesSolicitadas: datos.ubicacionesSolicitadas || [] // Nueva propiedad
         }
-    });
+    };
+
+    await dbUpdate(PATH.item(bodegaId, itemId), dataToUpdate);
 }
+
 
 // ═══════════════════════════════════════════════════════════
 //  3. AUTORIZAR SALIDA
 // ═══════════════════════════════════════════════════════════
-export async function autorizarSalida(bodegaId, itemId, fotos = [], usuario) {
+export async function autorizarSalida(bodegaId, itemId, fotos = [], usuario, ubicacionesEntregadas = []) {
     const item = await dbGet(PATH.item(bodegaId, itemId));
     if (!item) throw new Error('Ítem no encontrado.');
     if (!item.solicitudSalida) throw new Error('Sin solicitud pendiente.');
     const sol = item.solicitudSalida;
     const uid = usuario.uid || usuario.usuario;
     if (sol.receptorUid !== uid) throw new Error('Solo el receptor puede autorizar.');
+
     const fotosUrls = fotos.length
         ? await subirFotos(fotos, `bodega/${bodegaId}/entregas`) : [];
-    await dbUpdate(PATH.item(bodegaId, itemId), {
-        estado: 'entregado',
+
+    // Lógica para actualizar cantidad si se entrega parcialmente
+    let nuevaCantidad = item.cantidad;
+    if (ubicacionesEntregadas.length > 0) {
+        // Asumimos que ubicacionesEntregadas es un array de objetos { nivel, fila, cantidad }
+        // Necesitamos calcular cuántas unidades se están entregando en total
+        const cantidadEntregada = ubicacionesEntregadas.reduce((sum, u) => sum + (u.cantidad || 1), 0);
+        nuevaCantidad -= cantidadEntregada;
+
+        if (nuevaCantidad < 0) {
+            throw new Error('La cantidad a entregar excede la cantidad disponible.');
+        }
+    }
+
+    const updateData = {
         fotosEntrega: fotosUrls,
         entregadoEn: Date.now(),
         'solicitudSalida/autorizado': true,
         'solicitudSalida/fechaEntrega': Date.now(),
         // Se registra quién entregó y quién recibió en el movimiento
-    });
+    };
+
+    if (nuevaCantidad === 0) {
+        updateData.estado = 'entregado';
+        updateData.cantidad = 0; // Asegurar que la cantidad sea 0 si se entrega todo
+        updateData.ubicaciones = []; // Vaciar ubicaciones si se entrega todo
+    } else {
+        updateData.cantidad = nuevaCantidad;
+        // Opcional: Actualizar las ubicaciones si solo se entrega una parte
+        // Esto requeriría una lógica más compleja para reducir la cantidad por ubicación
+        // Por ahora, mantenemos las ubicaciones originales o las vaciamos si la entrega es parcial
+        // y la lógica de la UI maneja la reducción de cantidad por ubicación.
+        // Si se entrega parcial, las ubicaciones podrían no ser relevantes si la cantidad total baja.
+        // Considerar si se debe mantener la información de las ubicaciones restantes.
+    }
+
+    await dbUpdate(PATH.item(bodegaId, itemId), updateData);
+
     await dbPush(PATH.movimientos(bodegaId), {
-        itemId, tipo: 'salida', cantidad: item.cantidad, otId: sol.otId || '',
+        itemId, tipo: 'salida',
+        cantidad: (ubicacionesEntregadas.length > 0 ? ubicacionesEntregadas.reduce((sum, u) => sum + (u.cantidad || 1), 0) : item.cantidad),
+        otId: sol.otId || '',
         fotos: fotosUrls,
-        receptor: { uid: uid, nombre: usuario.nombre }, // Quién recibe
+        ubicaciones: ubicacionesEntregadas, // Registrar las ubicaciones específicas entregadas
+        receptor:  { uid: uid, nombre: usuario.nombre }, // Quién recibe
         bodeguero: { uid: sol.bodegueroId, nombre: sol.bodegueroNombre }, // Quién solicitó
         fecha: Date.now()
     });
 }
+
 
 // ═══════════════════════════════════════════════════════════
 //  4. AGREGAR OBSERVACIÓN
@@ -322,7 +366,7 @@ export function renderBodega(container, usuario) {
     }
 
     function estadoLabel(e) {
-        return { en_bodega: '✅ En Bodega', reservado: '⏳ Reservado', entregado: '📤 Entregado' }[e] || e;
+        return { en_bodega:'✅ En Bodega', reservado:'⏳ Reservado', entregado:'📤 Entregado' }[e] || e;
     }
 
     // ── MODAL INGRESO ──
@@ -369,10 +413,10 @@ export function renderBodega(container, usuario) {
             if (!nombre) { alert('Ingresa un nombre.'); return; }
             const ubicaciones = [...document.querySelectorAll('.ubicacion-row')].map(r => ({
                 nivel: r.querySelector('.inp-nivel').value.toUpperCase().trim(),
-                fila: r.querySelector('.inp-fila').value.trim()
+                fila:  r.querySelector('.inp-fila').value.trim()
             })).filter(u => u.nivel && u.fila);
             const fotosFile = Array.from(document.getElementById('inp-fotos-ing').files || []);
-            const fotosCam = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-ing') : [];
+            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-ing') : [];
             const fotos = [...fotosFile, ...fotosCam];
             const btn = document.getElementById('btn-guardar-ingreso');
             btn.disabled = true; btn.textContent = 'Guardando...';
@@ -380,13 +424,13 @@ export function renderBodega(container, usuario) {
                 await ingresarItem(bodegaId, {
                     nombre,
                     descripcion: document.getElementById('inp-desc').value,
-                    cantidad: document.getElementById('inp-cantidad').value,
-                    otId: document.getElementById('inp-ot').value || '',
+                    cantidad:    document.getElementById('inp-cantidad').value,
+                    otId:        document.getElementById('inp-ot').value || '',
                     ubicaciones
                 }, fotos, usuario);
                 cerrarModal();
                 renderContenido(bodegaId);
-            } catch (e) {
+            } catch(e) {
                 alert('Error: ' + e.message);
                 btn.disabled = false; btn.textContent = '💾 Guardar ingreso';
             }
@@ -398,7 +442,7 @@ export function renderBodega(container, usuario) {
         const usuariosLista = window.usuarios || [];
         const opts = usuariosLista
             .filter(u => u.activo !== false)
-            .map(u => `<option value="${u.uid || u.usuario}">${u.nombre}</option>`).join('');
+            .map(u => `<option value="${u.uid||u.usuario}">${u.nombre}</option>`).join('');
 
         abrirModal(`
             <h3>📤 Solicitar Entrega</h3>
@@ -409,25 +453,72 @@ export function renderBodega(container, usuario) {
             </select>
             <label>OT Asociada (opcional)</label>
             <input id="inp-ot-salida" type="text" placeholder="N° OT">
+            <label>Ubicaciones a entregar</label>
+            <div id="ubicaciones-salida-list">
+                </div>
             <div style="background:#eff6ff;border-radius:8px;padding:10px;font-size:0.85em;color:#1e40af;margin-top:12px;">
                 El receptor deberá confirmar la recepción desde su vista.
             </div>
             <button id="btn-confirmar-solicitud" class="btn-primary" style="margin-top:16px;width:100%;">📤 Enviar solicitud</button>
         `);
 
+        // Lógica para selector de ubicaciones a entregar (basado en las del ítem)
+        const item = window.itemsData.find(i => i.id === itemId); // Asumiendo que itemsData está disponible globalmente
+        const ubicacionesItem = item ? item.ubicaciones : [];
+
+        function agregarUbicacionSalidaRow() {
+            const row = document.createElement('div');
+            row.className = 'ubicacion-row';
+            row.innerHTML = `
+                <select class="inp-nivel-salida">
+                    <option value="">Nivel...</option>
+                    ${ubicacionesItem.map(u => `<option value="${u.nivel}">${u.nivel}</option>`).join('')}
+                </select>
+                <select class="inp-fila-salida">
+                    <option value="">Fila...</option>
+                    ${ubicacionesItem.map(u => `<option value="${u.fila}">${u.fila}</option>`).join('')}
+                </select>
+                <input type="number" class="inp-cantidad-salida" min="1" value="1" placeholder="Cant.">
+                <button type="button" style="padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:#fee2e2;color:#b91c1c;">✕</button>`;
+            row.querySelector('button').addEventListener('click', () => row.remove());
+            document.getElementById('ubicaciones-salida-list').appendChild(row);
+        }
+
+        agregarUbicacionSalidaRow(); // Agregar la primera fila por defecto
+        document.getElementById('ubicaciones-salida-list').addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-add-ubicacion-salida')) {
+                agregarUbicacionSalidaRow();
+            }
+        });
+        // Podría ser útil un botón para "Agregar otra ubicación de entrega" si se permite la entrega parcial por ubicación.
+        // Por ahora, se asume que la primera fila es la que se puede editar.
+
         document.getElementById('btn-confirmar-solicitud').addEventListener('click', async () => {
             const sel = document.getElementById('inp-receptor');
             const receptorUid = sel.value;
             const receptorNombre = sel.options[sel.selectedIndex]?.text || '';
             if (!receptorUid) { alert('Selecciona un receptor.'); return; }
+
+            // Recopilar ubicaciones de salida
+            const ubicacionesSolicitadas = [...document.querySelectorAll('#ubicaciones-salida-list .ubicacion-row')].map(r => ({
+                nivel: r.querySelector('.inp-nivel-salida').value,
+                fila:  r.querySelector('.inp-fila-salida').value,
+                cantidad: parseInt(r.querySelector('.inp-cantidad-salida').value, 10) || 1
+            })).filter(u => u.nivel && u.fila);
+
+            if (ubicacionesSolicitadas.length === 0) {
+                alert('Debes especificar al menos una ubicación para la entrega.');
+                return;
+            }
+
             const btn = document.getElementById('btn-confirmar-solicitud');
             btn.disabled = true; btn.textContent = 'Enviando...';
             try {
                 await solicitarSalida(bodegaId, itemId, receptorUid, receptorNombre,
-                    document.getElementById('inp-ot-salida').value || '', usuario);
+                    document.getElementById('inp-ot-salida').value || '', usuario, ubicacionesSolicitadas); // Pasar ubicacionesSolicitadas
                 cerrarModal();
                 renderContenido(bodegaId);
-            } catch (e) {
+            } catch(e) {
                 alert('Error: ' + e.message);
                 btn.disabled = false; btn.textContent = '📤 Enviar solicitud';
             }
@@ -436,28 +527,104 @@ export function renderBodega(container, usuario) {
 
     // ── MODAL AUTORIZAR SALIDA ──
     function modalAutorizarSalida(bodegaId, itemId) {
+        // Obtener detalles de la solicitud para mostrar las ubicaciones solicitadas
+        const item = window.itemsData.find(i => i.id === itemId); // Asumiendo itemsData
+        const solicitud = item?.solicitudSalida;
+        const ubicacionesSolicitadas = solicitud?.ubicacionesSolicitadas || [];
+
+        let ubicacionesHtml = '';
+        if (ubicacionesSolicitadas.length > 0) {
+            ubicacionesHtml = `
+                <div style="margin-top:10px; font-size:0.85em; color:#374151;">
+                    <strong>Ubicaciones solicitadas:</strong>
+                    <ul>
+                        ${ubicacionesSolicitadas.map(u => `<li>${u.nivel}-${u.fila} (Cant: ${u.cantidad})</li>`).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
         abrirModal(`
             <h3>✅ Confirmar Recepción</h3>
             <p style="color:#555;">Al confirmar quedará registrado que recibiste este ítem.</p>
+            ${ubicacionesHtml}
             <label>📷 Fotos de entrega (opcional)</label>
             <input id="inp-fotos-entrega" type="file" multiple accept="image/*" style="margin-top:6px;">
             <button type="button" class="camara-btn-inline" style="margin-top:6px;"
                 onclick="window.abrirCamaraBodega('inp-fotos-entrega','prev-fotos-entrega',10)">📸 Cámara</button>
             <div id="prev-fotos-entrega" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;"></div>
+
+            <label style="margin-top:12px;">Ubicaciones entregadas (si aplica entrega parcial)</label>
+            <div id="ubicaciones-entregadas-list">
+                ${ubicacionesSolicitadas.length > 0 ? `
+                <div class="ubicacion-row">
+                    <select class="inp-nivel-entregado">
+                        <option value="">Nivel...</option>
+                        ${ubicacionesSolicitadas.map(u => `<option value="${u.nivel}">${u.nivel}</option>`).join('')}
+                    </select>
+                    <select class="inp-fila-entregado">
+                        <option value="">Fila...</option>
+                        ${ubicacionesSolicitadas.map(u => `<option value="${u.fila}">${u.fila}</option>`).join('')}
+                    </select>
+                    <input type="number" class="inp-cantidad-entregado" min="1" placeholder="Cant.">
+                    <button type="button" class="btn-add-ubicacion-entregada" style="padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:#e5e7eb;">+ Agregar</button>
+                </div>
+                ` : '<p style="font-size:0.85em;color:#888;">No se especificaron ubicaciones para esta solicitud.</p>'}
+            </div>
+
             <button id="btn-confirmar-recepcion" class="btn-primary" style="margin-top:16px;width:100%;">✅ Confirmar recepción</button>
         `);
+
         document.getElementById('btn-confirmar-recepcion').addEventListener('click', async () => {
             const fotosFile = Array.from(document.getElementById('inp-fotos-entrega').files || []);
-            const fotosCam = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-entrega') : [];
+            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-fotos-entrega') : [];
             const fotos = [...fotosFile, ...fotosCam];
+
+            // Recopilar ubicaciones entregadas si se especificaron
+            const ubicacionesEntregadas = [];
+            if (document.getElementById('ubicaciones-entregadas-list')) {
+                ubicacionesEntregadas.push(...[...document.querySelectorAll('#ubicaciones-entregadas-list .ubicacion-row')].map(r => ({
+                    nivel: r.querySelector('.inp-nivel-entregado').value,
+                    fila:  r.querySelector('.inp-fila-entregado').value,
+                    cantidad: parseInt(r.querySelector('.inp-cantidad-entregado').value, 10) || 1
+                })).filter(u => u.nivel && u.fila && u.cantidad > 0));
+            }
+            // Si no se especificaron ubicaciones entregadas y el ítem tiene cantidad > 0, se asume entrega total
+            const isEntregaParcial = ubicacionesEntregadas.length > 0;
+            const cantidadTotalEntregada = isEntregaParcial
+                ? ubicacionesEntregadas.reduce((sum, u) => sum + u.cantidad, 0)
+                : item.cantidad; // Si no es parcial, se entrega todo
+
             const btn = document.getElementById('btn-confirmar-recepcion');
             btn.disabled = true; btn.textContent = 'Guardando...';
             try {
-                await autorizarSalida(bodegaId, itemId, fotos, usuario);
+                await autorizarSalida(bodegaId, itemId, fotos, usuario, ubicacionesEntregadas);
                 cerrarModal(); renderContenido(bodegaId);
-            } catch (e) {
+            } catch(e) {
                 alert('Error: ' + e.message);
                 btn.disabled = false; btn.textContent = '✅ Confirmar recepción';
+            }
+        });
+
+        // Lógica para agregar más filas de ubicaciones entregadas
+        document.getElementById('ubicaciones-entregadas-list')?.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-add-ubicacion-entregada')) {
+                const list = document.getElementById('ubicaciones-entregadas-list');
+                const row = document.createElement('div');
+                row.className = 'ubicacion-row';
+                row.innerHTML = `
+                    <select class="inp-nivel-entregado">
+                        <option value="">Nivel...</option>
+                        ${ubicacionesSolicitadas.map(u => `<option value="${u.nivel}">${u.nivel}</option>`).join('')}
+                    </select>
+                    <select class="inp-fila-entregado">
+                        <option value="">Fila...</option>
+                        ${ubicacionesSolicitadas.map(u => `<option value="${u.fila}">${u.fila}</option>`).join('')}
+                    </select>
+                    <input type="number" class="inp-cantidad-entregado" min="1" placeholder="Cant.">
+                    <button type="button" style="padding:5px 10px;border-radius:6px;border:none;cursor:pointer;background:#fee2e2;color:#b91c1c;">✕</button>`;
+                row.querySelector('button').addEventListener('click', () => row.remove());
+                list.appendChild(row);
             }
         });
     }
@@ -471,7 +638,7 @@ export function renderBodega(container, usuario) {
             .map(u => `<img src="${u}" class="informe-foto" onclick="window.open('${u}')">`)
             .join('');
 
-        const ubicHtml = (item.ubicaciones || [])
+        const ubicHtml = (item.ubicaciones||[])
             .map(u => `<span class="ubicacion-badge grande">${u.nivel}−${u.fila}</span>`).join(' ');
 
         actualizarModal(`
@@ -487,22 +654,22 @@ export function renderBodega(container, usuario) {
                 <p style="margin:0;">
                     Cantidad: <strong>${item.cantidad}</strong> &nbsp;|&nbsp;
                     Estado: <strong>${estadoLabel(item.estado)}</strong> &nbsp;|&nbsp;
-                    OT: <strong>${item.otId || '—'}</strong>
+                    OT: <strong>${item.otId||'—'}</strong>
                 </p>
                 ${item.descripcion ? `<p style="color:#555;margin:6px 0 0;">${item.descripcion}</p>` : ''}
             </div>
 
-            ${(item.fotosIngreso || []).length ? `
+            ${(item.fotosIngreso||[]).length ? `
             <div class="informe-seccion">
                 <h4>📷 Fotos de Recepción</h4>
                 <div class="informe-fotos">${fotosHtml(item.fotosIngreso)}</div>
             </div>` : ''}
 
-            ${(item.fotosEntrega || []).length ? `
+            ${(item.fotosEntrega||[]).length ? `
             <div class="informe-seccion">
                 <h4>📷 Fotos de Entrega</h4>
                 <div class="informe-fotos">${fotosHtml(item.fotosEntrega)}</div>
-                <p style="font-size:0.85em;margin:6px 0 0;">Entregado a: <strong>${item.solicitudSalida?.receptorNombre || '—'}</strong></p>
+                <p style="font-size:0.85em;margin:6px 0 0;">Entregado a: <strong>${item.solicitudSalida?.receptorNombre||'—'}</strong></p>
             </div>` : ''}
 
             <div class="informe-seccion">
@@ -510,12 +677,17 @@ export function renderBodega(container, usuario) {
                 ${movimientos.length === 0 ? '<p style="color:#aaa;">Sin movimientos.</p>'
                     : movimientos.map(m => `
                         <div class="movimiento-row">
-                            <span class="mov-tipo ${m.tipo}">${m.tipo === 'ingreso' ? '📥 Ingreso' : '📤 Salida'}</span>
+                            <span class="mov-tipo ${m.tipo}">${m.tipo==='ingreso'?'📥 Ingreso':'📤 Salida'}</span>
                             <span>${fmtFecha(m.fecha)}</span>
-                            <span>${m.tipo === 'salida'
-                                ? `Receptor: ${m.receptor?.nombre || '—'}`
-                                : `Bodeguero: ${m.usuario?.nombre || '—'}`}</span>
-                            <span>OT: ${m.otId || '—'}</span>
+                            <span>${m.tipo==='salida'
+                                ?`Receptor: ${m.receptor?.nombre||'—'}`
+                                :`Bodeguero: ${m.usuario?.nombre||'—'}`}</span>
+                            <span>OT: ${m.otId||'—'}</span>
+                            ${m.ubicaciones && m.ubicaciones.length > 0 ? `
+                                <div style="font-size:0.8em;color:#555;">
+                                    Ubicaciones: ${m.ubicaciones.map(u => `${u.nivel}-${u.fila} (x${u.cantidad})`).join(', ')}
+                                </div>
+                            `: ''}
                         </div>`).join('')}
             </div>
 
@@ -527,7 +699,7 @@ export function renderBodega(container, usuario) {
                             <div class="obs-row">
                                 <p style="margin:0 0 4px;">${o.texto}</p>
                                 <small style="color:#888;">${o.usuario?.nombre} — ${fmtFecha(o.fecha)}</small>
-                                ${(o.fotos || []).length ? `<div class="informe-fotos" style="margin-top:6px;">${fotosHtml(o.fotos)}</div>` : ''}
+                                ${(o.fotos||[]).length?'<div class="informe-fotos" style="margin-top:6px;">'+fotosHtml(o.fotos)+'</div>':''}
                             </div>`).join('')}
                 </div>
                 <div style="margin-top:12px;">
@@ -545,7 +717,7 @@ export function renderBodega(container, usuario) {
         document.getElementById('btn-guardar-obs').addEventListener('click', async () => {
             const texto = document.getElementById('inp-obs-texto').value.trim();
             const fotosFile = Array.from(document.getElementById('inp-obs-fotos').files || []);
-            const fotosCam = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-obs-fotos') : [];
+            const fotosCam  = window._getBodegaCamaraBlobs ? window._getBodegaCamaraBlobs('inp-obs-fotos') : [];
             const fotos = [...fotosFile, ...fotosCam];
             if (!texto && !fotos.length) { alert('Escribe algo o adjunta una foto.'); return; }
             const btn = document.getElementById('btn-guardar-obs');
@@ -585,8 +757,8 @@ export function renderBodega(container, usuario) {
     function fmtFecha(ts) {
         if (!ts) return '—';
         return new Date(ts).toLocaleString('es-CL', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit'
+            day:'2-digit', month:'2-digit', year:'numeric',
+            hour:'2-digit', minute:'2-digit'
         });
     }
 }
@@ -644,6 +816,13 @@ export function inyectarEstilosBodega() {
         .mov-tipo.ingreso { background:#d1fae5; color:#065f46; }
         .mov-tipo.salida  { background:#fef3c7; color:#92400e; }
         .obs-row { background:#f9fafb; border-radius:8px; padding:10px; margin:6px 0; font-size:0.88em; }
+        /* Estilos para selector de ubicaciones en modal de salida */
+        .ubicacion-row select { flex: 1; }
+        .ubicacion-row input[type="number"] { width: 70px; }
+        .btn-add-ubicacion-salida, .btn-add-ubicacion-entregada {
+            padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; background: #e5e7eb; font-size: 0.85em; white-space: nowrap;
+        }
+        .btn-add-ubicacion-entregada { margin-left: 8px; } /* Espacio si se agrega después de cantidad */
     `;
     document.head.appendChild(s);
 }
