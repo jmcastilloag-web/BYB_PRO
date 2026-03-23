@@ -137,14 +137,18 @@ export async function autorizarSalida(bodegaId, itemId, fotos = [], usuario) {
     const fotosUrls = fotos.length
         ? await subirFotos(fotos, `bodega/${bodegaId}/entregas`) : [];
     await dbUpdate(PATH.item(bodegaId, itemId), {
-        estado: 'entregado', fotosEntrega: fotosUrls, entregadoEn: Date.now(),
-        'solicitudSalida/autorizado': true, 'solicitudSalida/fechaEntrega': Date.now()
+        estado: 'entregado',
+        fotosEntrega: fotosUrls,
+        entregadoEn: Date.now(),
+        'solicitudSalida/autorizado': true,
+        'solicitudSalida/fechaEntrega': Date.now(),
+        // Se registra quién entregó y quién recibió en el movimiento
     });
     await dbPush(PATH.movimientos(bodegaId), {
         itemId, tipo: 'salida', cantidad: item.cantidad, otId: sol.otId || '',
         fotos: fotosUrls,
-        receptor:  { uid, nombre: usuario.nombre },
-        bodeguero: { uid: sol.bodegueroId, nombre: sol.bodegueroNombre },
+        receptor:  { uid: uid, nombre: usuario.nombre }, // Quién recibe
+        bodeguero: { uid: sol.bodegueroId, nombre: sol.bodegueroNombre }, // Quién solicitó
         fecha: Date.now()
     });
 }
@@ -526,7 +530,7 @@ export function renderBodega(container, usuario) {
                             <div class="obs-row">
                                 <p style="margin:0 0 4px;">${o.texto}</p>
                                 <small style="color:#888;">${o.usuario?.nombre} — ${fmtFecha(o.fecha)}</small>
-                                ${(o.fotos||[]).length?<div class="informe-fotos" style="margin-top:6px;">${fotosHtml(o.fotos)}</div>:''}
+                                ${(o.fotos||[]).length?`<div class="informe-fotos" style="margin-top:6px;">${fotosHtml(o.fotos)}</div>`:''}
                             </div>`).join('')}
                 </div>
                 <div style="margin-top:12px;">
