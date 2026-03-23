@@ -28,43 +28,9 @@ window._htmlFotosSimples = (i, etapa, titulo) => {
     </div>`;
 };
 
-window._verFotoSimple = (etapa, idx, i) => {
-    const d = window.data[i];
-    const fotos = d['fotos_b64_' + etapa] || [];
-    const f = fotos[idx];
-    if (!f) return;
-    const win = window.open('');
-    win.document.write('<html><body style="margin:0;background:#000;display:flex;justify-content:center;align-items:center;min-height:100vh;"><img src="data:image/' + (f.ext||'jpeg') + ';base64,' + f.b64 + '" style="max-width:100vw;max-height:100vh;object-fit:contain;"></body></html>');
-};
-
-// ── Fotos para nueva OT ──
-window._fotosNuevaOT = [];
-window._agregarFotosNuevaOT = async (inputEl) => {
-    const files = Array.from(inputEl.files);
-    for (const file of files) {
-        if (window._fotosNuevaOT.length >= 20) break;
-        const r = new FileReader();
-        await new Promise(res => {
-            r.onload = () => {
-                const b64 = r.result.split(',')[1];
-                const ext = file.name.split('.').pop().toLowerCase();
-                window._fotosNuevaOT.push({ b64, ext: ext === 'jpg' ? 'jpeg' : ext });
-                res();
-            };
-            r.readAsDataURL(file);
-        });
-    }
-    const prev = document.getElementById('fotos_nueva_ot_preview');
-    if (prev) {
-        prev.innerHTML = window._fotosNuevaOT.map((f, fi) =>
-            `<div style="position:relative;display:inline-block;margin:2px;">
-                <img src="data:image/${f.ext};base64,${f.b64}" style="width:60px;height:46px;object-fit:cover;border-radius:3px;border:1px solid #dde1e7;">
-                <button onclick="window._fotosNuevaOT.splice(${fi},1); window._agregarFotosNuevaOT({files:[]});"
-                    style="position:absolute;top:-3px;right:-3px;background:#e74c3c;color:white;border:none;border-radius:50%;width:14px;height:14px;font-size:9px;cursor:pointer;line-height:14px;padding:0;">✕</button>
-            </div>`
-        ).join('');
-    }
-};
+// NOTA: _verFotoSimple, _fotosNuevaOT y _agregarFotosNuevaOT
+// están definidos en fotos.js (versión Cloudinary).
+// No redefinir aquí para evitar sobreescribir la versión correcta.
 
 
 window.render = () => {
