@@ -88,7 +88,7 @@ const _procesarYSubir = async (files, i, key, carpeta, maxFotos, progEl) => {
         try {
             const blob = await comprimirImagen(file);
             const url  = await subirACloudinary(blob, carpeta);
-            d[key].push({ url, ext: 'jpeg', nombre: file.name });
+            d[key].push({ url, ext: 'jpeg', nombre: file.name, usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
             subidas++;
         } catch (e) {
             console.error('Error subiendo:', file.name, e);
@@ -171,7 +171,7 @@ window.subirFotosComponente = async (i, etapa, clave, inputEl) => {
         try {
             const blob = await comprimirImagen(file);
             const url  = await subirACloudinary(blob, folder);
-            d[keyP][clave].push({ url, ext: 'jpeg', nombre: file.name });
+            d[keyP][clave].push({ url, ext: 'jpeg', nombre: file.name, usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
             subidas++;
         } catch (e) {
             console.error('Error foto componente:', e);
@@ -201,7 +201,7 @@ window._agregarFotosNuevaOT = async (inputEl) => {
             // Subir a Cloudinary de inmediato (evita que el blob se invalide)
             // Usamos carpeta temporal; se moverá al número de OT al crearla
             const url = await subirACloudinary(blob, `byb_norte/nueva_ot_temp`);
-            window._fotosNuevaOT.push({ url, ext: 'jpeg', nombre: files[fi].name });
+            window._fotosNuevaOT.push({ url, ext: 'jpeg', nombre: files[fi].name, usuario: window.usuarioActual?.nombre || window.usuarioActual?.usuario || '—' });
         } catch(e) { console.error('Error foto nueva OT:', e); }
     }
     if (progEl) progEl.textContent = '';
