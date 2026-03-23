@@ -66,13 +66,13 @@
             </div>
             <div style="text-align:left; margin-bottom:14px;">
                 <label style="font-size:0.78em;font-weight:700;color:#7f8c8d;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:4px;">Contraseña</label>
-                <input id="loginPass" type="password" placeholder="Ingrese su contraseña" style="width:100%;padding:10px 12px;border:1.5px solid #dde1e7;border-radius:6px;font-size:0.95em;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')window.hacerLogin()">
+                <input id="loginPass" type="password" placeholder="Ingrese su contraseña" style="width:100%;padding:10px 12px;border:1.5px solid #dde1e7;border-radius:6px;font-size:0.95em;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter'){if(window.hacerLogin)window.hacerLogin();else document.querySelector('button[onclick*=hacerLogin]')?.click();}">
             </div>
             <div style="text-align:left; margin-bottom:20px; display:flex; align-items:center; gap:8px;">
                 <input type="checkbox" id="loginRecordar" style="width:16px;height:16px;cursor:pointer;accent-color:#1a2a3a;">
                 <label for="loginRecordar" style="font-size:0.85em;color:#555;cursor:pointer;user-select:none;">Recordar sesión en este dispositivo</label>
             </div>
-            <button onclick="window.hacerLogin()" style="width:100%;background:linear-gradient(135deg,#1a2a3a,#2c3e50);color:white;border:none;padding:13px;border-radius:8px;font-size:1em;font-weight:700;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(0,0,0,0.2);">🔐 INGRESAR</button>
+            <button onclick="if(window.hacerLogin)window.hacerLogin();else{document.getElementById('loginError').textContent='Cargando sistema, intente de nuevo...';}" style="width:100%;background:linear-gradient(135deg,#1a2a3a,#2c3e50);color:white;border:none;padding:13px;border-radius:8px;font-size:1em;font-weight:700;cursor:pointer;letter-spacing:0.5px;box-shadow:0 4px 12px rgba(0,0,0,0.2);">🔐 INGRESAR</button>
             <p id="loginError" style="color:#e74c3c;font-size:0.85em;margin-top:12px;min-height:18px;"></p>
         </div>
     </div>
