@@ -18,7 +18,7 @@ const PATH = {
     items:         (b) => `bodega/${b}/items`,
     item:          (b, id) => `bodega/${b}/items/${id}`,
     movimientos:   (b) => `bodega/${b}/movimientos`,
-    observaciones: (b) => `bodega/${b}/observaciones`,
+    observaciones: (b) => `bodega/${b}/observaciones`
 };
 
 export const BODEGAS = {
@@ -526,7 +526,7 @@ export function renderBodega(container, usuario) {
                             <div class="obs-row">
                                 <p style="margin:0 0 4px;">${o.texto}</p>
                                 <small style="color:#888;">${o.usuario?.nombre} — ${fmtFecha(o.fecha)}</small>
-                                ${(o.fotos||[]).length?`<div class="informe-fotos" style="margin-top:6px;">${fotosHtml(o.fotos)}</div>`:''}
+                                ${(o.fotos||[]).length?<div class="informe-fotos" style="margin-top:6px;">${fotosHtml(o.fotos)}</div>:''}
                             </div>`).join('')}
                 </div>
                 <div style="margin-top:12px;">
