@@ -286,7 +286,7 @@ const _girarCamara = async () => {
 };
 
 // ── CAPTURAR FOTO ─────────────────────────────────────────────
-// LÓGICA SIMPLE:
+// LÓGICA ERROR:
 //   1. Capturar el frame del video tal como viene
 //   2. Si videoHeight > videoWidth → está girado → rotar 90°
 //   3. Recortar al aspecto seleccionado (siempre landscape)
@@ -314,19 +314,25 @@ const _capturarFoto = async () => {
 
     // Paso 2: si el video vino en portrait (vH > vW), rotarlo 90° para dejarlo landscape
     let srcW, srcH;
-    const rotado = vH > vW;
+    const rotado = vH > vW; // Detecta si el stream está en modo retrato (cámara frontal o trasera en modo retrato)
 
     if (rotado) {
-        srcW = vH; srcH = vW;
+        // Si el stream está en modo retrato, necesitamos rotarlo para que el canvas principal sea landscape
+        srcW = vH; // El ancho efectivo será la altura del video original
+        srcH = vW; // La altura efectiva será el ancho del video original
         _canvas.width  = srcW;
         _canvas.height = srcH;
         _ctx.save();
-        _ctx.translate(srcW / 2, srcH / 2);
-        _ctx.rotate(Math.PI / 2);
+        _ctx.translate(srcW / 2, srcH / 2); // Centrar para rotar
+        _ctx.rotate(Math.PI / 2); // Rotar 90 grados
+        // Dibujar el contenido del tmpCanvas rotado en el canvas principal
+        // Las coordenadas de dibujo deben ajustarse a la transformación
         _ctx.drawImage(tmpCanvas, -vW / 2, -vH / 2, vW, vH);
         _ctx.restore();
     } else {
-        srcW = vW; srcH = vH;
+        // Si el stream ya está en modo landscape, simplemente copiamos
+        srcW = vW;
+        srcH = vH;
         _canvas.width  = srcW;
         _canvas.height = srcH;
         _ctx.drawImage(tmpCanvas, 0, 0);
@@ -335,20 +341,28 @@ const _capturarFoto = async () => {
     // Paso 3: recortar al aspecto seleccionado (landscape garantizado)
     const asp = _ASPECTOS[_aspectoActual] || _ASPECTOS['4:3'];
     const targetRatio = asp.w / asp.h;
-    const srcRatio    = srcW / srcH;
+    const srcRatio    = srcW / srcH; // Ratio del canvas principal (que ya está en landscape)
 
     let cropW, cropH;
+    // Determinar las dimensiones de recorte para que coincidan con el targetRatio
     if (srcRatio >= targetRatio) {
-        cropH = srcH; cropW = Math.round(cropH * targetRatio);
+        // Si el ratio de la fuente es mayor o igual al deseado, ajustamos la altura
+        cropH = srcH;
+        cropW = Math.round(cropH * targetRatio);
     } else {
-        cropW = srcW; cropH = Math.round(cropW / targetRatio);
+        // Si el ratio de la fuente es menor, ajustamos el ancho
+        cropW = srcW;
+        cropH = Math.round(cropW / targetRatio);
     }
+    // Calcular la posición de inicio del recorte (centrado)
     const cropX = Math.round((srcW - cropW) / 2);
     const cropY = Math.round((srcH - cropH) / 2);
 
+    // Crear un nuevo canvas para el recorte final
     const outCanvas = document.createElement('canvas');
     outCanvas.width  = cropW;
     outCanvas.height = cropH;
+    // Dibujar la porción recortada del canvas principal en el outCanvas
     outCanvas.getContext('2d').drawImage(_canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
     outCanvas.toBlob(blob => {
@@ -435,13 +449,13 @@ const _comprimirBlob = (blob) => new Promise((resolve, reject) => {
         let W = img.naturalWidth;
         let H = img.naturalHeight;
         // El blob ya viene landscape desde _capturarFoto, pero por si acaso:
-        if (H > W) { [W, H] = [H, W]; }
-        if (W > COMP_MAX_PX_CAM) { H = Math.round(H * COMP_MAX_PX_CAM / W); W = COMP_MAX_PX_CAM; }
+        if (H > W) { [W, H] = [H, W]; } // Asegura que W sea el lado más largo
+        if (W > COMP_MAX_PX_CAM) { H = Math.round(H * COMP_MAX_PX_CAM / W); W = COMP_MAX_PX_CAM; } // Escala manteniendo ratio
         const cv = document.createElement('canvas');
         cv.width = W; cv.height = H;
         const c = cv.getContext('2d');
-        c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
-        c.drawImage(img, 0, 0, W, H);
+        c.fillStyle = '#fff'; c.fillRect(0, 0, W, H); // Fondo blanco por si acaso
+        c.drawImage(img, 0, 0, W, H); // Dibuja la imagen escalada
         cv.toBlob(b => {
             if (!b) { reject(new Error('No se pudo comprimir')); return; }
             resolve(b);
@@ -536,7 +550,7 @@ setTimeout(() => {
             const btnCam = `<button class="camara-btn-inline"
                 onclick="window.abrirCamaraSimples(${i},'${etapa}','${titulo || etapa}')">
                 📸 Cámara</button>`;
-            html = html.replace(/(<\/label>)(\s*<\/div>)$/, `$1 ${btnCam}$2`);
+            html = html.replace(/(<\\/label>)(\\s*<\\/div>)$/, `$1 ${btnCam}$2`);
         }
         return html;
     };
@@ -661,7 +675,7 @@ window._refrescarPreviewBodegaPublic = (inputId, previewId) => {
 
 window._getBodegaCamaraBlobs = (inputId) => {
     const blobs = window._bodegaCamaraBlobs[inputId] || [];
-    window._bodegaCamaraBlobs[inputId] = [];
+    window._bodegaCamaraBlobs[inputId] = []; // Limpiar después de obtener
     return blobs;
 };
 
