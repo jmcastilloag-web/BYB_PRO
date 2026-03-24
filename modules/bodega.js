@@ -2,7 +2,7 @@
 // 10_bodega.js — Módulo de Bodega (Realtime Database)
 // ============================================================
 
-import { getDatabase, ref, push, update, get }
+import { getDatabase, ref, push, update, get, remove }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL }
     from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
@@ -105,14 +105,13 @@ export async function ingresarItem(bodegaId, datos, fotos = [], usuario) {
 // ═══════════════════════════════════════════════════════════
 //  2. SOLICITAR SALIDA
 // ═══════════════════════════════════════════════════════════
-export async function solicitarSalida(bodegaId, itemId, receptorUid, receptorNombre, otId, usuario) {
+export async function solicitarSalida(bodegaId, itemId, receptorUid, receptorNombre, otId, usuario, ubicacionesSolicitadas = []) {
     if (!puedeOperar(usuario))
         throw new Error('Sin permisos para solicitar una salida.');
     const item = await dbGet(PATH.item(bodegaId, itemId));
     if (!item) throw new Error('Ítem no encontrado.');
     if (item.estado !== 'en_bodega') throw new Error('El ítem no está disponible.');
 
-    // Permitir especificar ubicaciones para la salida
     const dataToUpdate = {
         estado: 'reservado',
         solicitudSalida: {
@@ -122,7 +121,7 @@ export async function solicitarSalida(bodegaId, itemId, receptorUid, receptorNom
             bodegueroNombre: usuario.nombre,
             fechaSolicitud:  Date.now(),
             autorizado:      false,
-            ubicacionesSolicitadas: datos.ubicacionesSolicitadas || [] // Nueva propiedad
+            ubicacionesSolicitadas
         }
     };
 
@@ -266,6 +265,68 @@ export async function obtenerPendientesAutorizacion(bodegaId, uid) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  10. ELIMINAR ÍTEM
+// ═══════════════════════════════════════════════════════════
+export async function eliminarItem(bodegaId, itemId, usuario) {
+    if (!["admin", "encargado", "bodeguero"].includes(usuario.rol))
+        throw new Error('Sin permisos para eliminar ítems.');
+    await remove(ref(getDB(), PATH.item(bodegaId, itemId)));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  11. OBTENER ÍTEMS POR OT
+// ═══════════════════════════════════════════════════════════
+export async function obtenerItemsPorOT(bodegaId, otId) {
+    const items = await obtenerItems(bodegaId);
+    const otNorm = (otId || '').trim().toLowerCase();
+    return items.filter(i =>
+        i.otId && i.otId.trim().toLowerCase() === otNorm && i.estado === 'en_bodega'
+    );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  12. ENTREGAR POR OT (entrega directa masiva)
+// ═══════════════════════════════════════════════════════════
+export async function entregarPorOT(bodegaId, otId, receptorUid, receptorNombre, itemsSeleccionados, usuario) {
+    if (!puedeOperar(usuario)) throw new Error('Sin permisos para realizar entregas.');
+    if (!itemsSeleccionados || !itemsSeleccionados.length) throw new Error('No hay ítems seleccionados.');
+
+    const ahora = Date.now();
+    for (const item of itemsSeleccionados) {
+        await dbUpdate(PATH.item(bodegaId, item.id), {
+            estado:       'entregado',
+            cantidad:     0,
+            ubicaciones:  [],
+            fotosEntrega: [],
+            entregadoEn:  ahora,
+            solicitudSalida: {
+                receptorUid,
+                receptorNombre,
+                otId,
+                bodegueroId:     usuario.uid || usuario.usuario,
+                bodegueroNombre: usuario.nombre,
+                fechaSolicitud:  ahora,
+                fechaEntrega:    ahora,
+                autorizado:      true,
+                ubicacionesSolicitadas: item.ubicaciones || []
+            }
+        });
+        await dbPush(PATH.movimientos(bodegaId), {
+            itemId:    item.id,
+            tipo:      'salida',
+            cantidad:  item.cantidad,
+            otId,
+            fotos:     [],
+            ubicaciones: item.ubicaciones || [],
+            receptor:  { uid: receptorUid, nombre: receptorNombre },
+            bodeguero: { uid: usuario.uid || usuario.usuario, nombre: usuario.nombre },
+            fecha:     ahora
+        });
+    }
+    return itemsSeleccionados.length;
+}
+
+// ═══════════════════════════════════════════════════════════
 //  RENDER PRINCIPAL
 // ═══════════════════════════════════════════════════════════
 export function renderBodega(container, usuario) {
@@ -302,6 +363,8 @@ export function renderBodega(container, usuario) {
             esBodeguero ? Promise.resolve([]) : obtenerPendientesAutorizacion(bodegaId, uid)
         ]);
 
+        window.itemsData = items; // cache para modales
+
         content.innerHTML = `
             ${pendientes.length ? `
             <div class="bodega-alertas">
@@ -318,9 +381,11 @@ export function renderBodega(container, usuario) {
             <div class="bodega-busqueda">
                 <input id="buscar-bodega" type="text" placeholder="Buscar nombre, nivel, fila...">
                 <button id="btn-buscar-bodega" style="padding:8px 14px;border-radius:8px;border:1px solid #d1d5db;cursor:pointer;">🔍</button>
-                ${esBodeguero ? `<button id="btn-nuevo-item" class="btn-primary">+ Nuevo ingreso</button>` : ''}
+                ${esBodeguero ? `
+                    <button id="btn-entrega-ot" class="btn-primary" style="background:#059669;">📋 Entrega por OT</button>
+                    <button id="btn-nuevo-item" class="btn-primary">+ Nuevo ingreso</button>
+                ` : ''}
             </div>
-
             <div class="bodega-tabla-wrapper">
                 <table class="bodega-tabla">
                     <thead><tr>
@@ -342,6 +407,9 @@ export function renderBodega(container, usuario) {
                                         ${esBodeguero && it.estado==='en_bodega'
                                             ? `<button class="btn-pedir-salida" data-item="${it.id}" data-bodega="${bodegaId}">📤 Entrega</button>`
                                             : ''}
+                                        ${esBodeguero
+                                            ? `<button class="btn-eliminar-item" data-item="${it.id}" data-bodega="${bodegaId}" data-nombre="${it.nombre}">🗑</button>`
+                                            : ''}
                                     </td>
                                 </tr>`).join('')
                         }
@@ -351,6 +419,7 @@ export function renderBodega(container, usuario) {
         `;
 
         document.getElementById('btn-nuevo-item')?.addEventListener('click', () => modalIngreso(bodegaId));
+        document.getElementById('btn-entrega-ot')?.addEventListener('click', () => modalEntregaPorOT(bodegaId));
         document.getElementById('btn-buscar-bodega')?.addEventListener('click', () => {
             const q = document.getElementById('buscar-bodega').value.toLowerCase();
             document.querySelectorAll('#bodega-tbody tr').forEach(r => {
@@ -363,6 +432,8 @@ export function renderBodega(container, usuario) {
             b.addEventListener('click', () => modalSolicitarSalida(b.dataset.bodega, b.dataset.item)));
         content.querySelectorAll('.btn-autorizar-salida').forEach(b =>
             b.addEventListener('click', () => modalAutorizarSalida(b.dataset.bodega, b.dataset.item)));
+        content.querySelectorAll('.btn-eliminar-item').forEach(b =>
+            b.addEventListener('click', () => confirmarEliminar(b.dataset.bodega, b.dataset.item, b.dataset.nombre)));
     }
 
     function estadoLabel(e) {
@@ -515,13 +586,138 @@ export function renderBodega(container, usuario) {
             btn.disabled = true; btn.textContent = 'Enviando...';
             try {
                 await solicitarSalida(bodegaId, itemId, receptorUid, receptorNombre,
-                    document.getElementById('inp-ot-salida').value || '', usuario, ubicacionesSolicitadas); // Pasar ubicacionesSolicitadas
+                    document.getElementById('inp-ot-salida').value || '', usuario, ubicacionesSolicitadas);
                 cerrarModal();
                 renderContenido(bodegaId);
             } catch(e) {
                 alert('Error: ' + e.message);
                 btn.disabled = false; btn.textContent = '📤 Enviar solicitud';
             }
+        });
+    }
+
+    // ── CONFIRMAR ELIMINACIÓN ──
+    function confirmarEliminar(bodegaId, itemId, nombre) {
+        abrirModal(`
+            <h3>🗑 Eliminar ítem</h3>
+            <p style="color:#555;">¿Estás seguro de que deseas eliminar <strong>${nombre}</strong>?<br>
+            Esta acción no se puede deshacer.</p>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button id="btn-cancel-elim" style="flex:1;padding:10px;border-radius:8px;border:1px solid #d1d5db;cursor:pointer;background:#f9fafb;">Cancelar</button>
+                <button id="btn-ok-elim" style="flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;background:#dc2626;color:white;font-weight:700;">🗑 Eliminar</button>
+            </div>
+        `);
+        document.getElementById('btn-cancel-elim').addEventListener('click', cerrarModal);
+        document.getElementById('btn-ok-elim').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-ok-elim');
+            btn.disabled = true; btn.textContent = 'Eliminando...';
+            try {
+                await eliminarItem(bodegaId, itemId, usuario);
+                cerrarModal();
+                renderContenido(bodegaId);
+            } catch(e) {
+                alert('Error: ' + e.message);
+                btn.disabled = false; btn.textContent = '🗑 Eliminar';
+            }
+        });
+    }
+
+    // ── MODAL ENTREGA POR OT ──
+    async function modalEntregaPorOT(bodegaId) {
+        const usuariosLista = window.usuarios || [];
+        const optsUsuarios = usuariosLista
+            .filter(u => u.activo !== false)
+            .map(u => `<option value="${u.uid||u.usuario}">${u.nombre}</option>`).join('');
+
+        abrirModal(`
+            <h3>📋 Entrega por OT</h3>
+            <label>N° OT</label>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+                <input id="inp-ot-buscar" type="text" placeholder="Ej: OT-2024-001" style="flex:1;">
+                <button id="btn-buscar-ot" class="btn-primary" style="white-space:nowrap;">🔍 Buscar</button>
+            </div>
+            <div id="ot-items-resultado" style="margin-top:14px;"></div>
+        `);
+
+        document.getElementById('btn-buscar-ot').addEventListener('click', async () => {
+            const otId = document.getElementById('inp-ot-buscar').value.trim();
+            if (!otId) { alert('Ingresa un N° de OT.'); return; }
+            const btnB = document.getElementById('btn-buscar-ot');
+            btnB.disabled = true; btnB.textContent = 'Buscando...';
+
+            const items = await obtenerItemsPorOT(bodegaId, otId);
+            btnB.disabled = false; btnB.textContent = '🔍 Buscar';
+
+            const res = document.getElementById('ot-items-resultado');
+            if (!items.length) {
+                res.innerHTML = `<p style="color:#f87171;font-size:0.9em;">No se encontraron ítems en bodega para la OT <strong>${otId}</strong>.</p>`;
+                return;
+            }
+
+            res.innerHTML = `
+                <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px;margin-bottom:12px;">
+                    <p style="margin:0 0 8px;font-weight:700;color:#166534;">✅ ${items.length} ítem(s) encontrado(s) para OT: ${otId}</p>
+                    <div style="font-size:0.85em;color:#374151;">
+                        ${items.map((it, idx) => `
+                            <label style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #dcfce7;cursor:pointer;">
+                                <input type="checkbox" class="chk-item-ot" data-idx="${idx}" checked
+                                    style="margin-top:3px;accent-color:#059669;">
+                                <span>
+                                    <strong>${it.nombre}</strong>
+                                    ${it.descripcion ? `<em style="color:#6b7280;"> — ${it.descripcion}</em>` : ''}
+                                    <br>
+                                    Cant: <strong>${it.cantidad}</strong> &nbsp;|&nbsp;
+                                    Ubicaciones: ${(it.ubicaciones||[]).map(u =>
+                                        `<span class="ubicacion-badge">${u.nivel}-${u.fila}</span>`
+                                    ).join(' ') || '<span style="color:#aaa;">Sin ubicación</span>'}
+                                </span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <label>👤 Entregar a</label>
+                <select id="inp-receptor-ot" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;margin-top:4px;box-sizing:border-box;font-size:0.9em;">
+                    <option value="">Selecciona receptor...</option>
+                    ${optsUsuarios}
+                </select>
+
+                <div style="background:#eff6ff;border-radius:8px;padding:10px;font-size:0.85em;color:#1e40af;margin-top:12px;">
+                    La entrega quedará registrada con: bodeguero <strong>${usuario.nombre}</strong> → receptor seleccionado.
+                </div>
+
+                <button id="btn-confirmar-entrega-ot" class="btn-primary" style="margin-top:16px;width:100%;background:#059669;font-size:1em;padding:12px;">
+                    ✅ Confirmar entrega de ítems seleccionados
+                </button>
+            `;
+
+            // Guardar items en closure para usarlos al confirmar
+            window._otItemsCache = items;
+
+            document.getElementById('btn-confirmar-entrega-ot').addEventListener('click', async () => {
+                const sel = document.getElementById('inp-receptor-ot');
+                const receptorUid = sel.value;
+                const receptorNombre = sel.options[sel.selectedIndex]?.text || '';
+                if (!receptorUid) { alert('Selecciona un receptor.'); return; }
+
+                // Solo los ítems con checkbox marcado
+                const checkeados = [...document.querySelectorAll('.chk-item-ot:checked')]
+                    .map(chk => window._otItemsCache[parseInt(chk.dataset.idx)]);
+
+                if (!checkeados.length) { alert('Selecciona al menos un ítem.'); return; }
+
+                const btn = document.getElementById('btn-confirmar-entrega-ot');
+                btn.disabled = true; btn.textContent = 'Guardando...';
+                try {
+                    const n = await entregarPorOT(bodegaId, otId, receptorUid, receptorNombre, checkeados, usuario);
+                    cerrarModal();
+                    renderContenido(bodegaId);
+                    alert(`✅ ${n} ítem(s) entregado(s) correctamente a ${receptorNombre}.`);
+                } catch(e) {
+                    alert('Error: ' + e.message);
+                    btn.disabled = false; btn.textContent = '✅ Confirmar entrega de ítems seleccionados';
+                }
+            });
         });
     }
 
@@ -659,6 +855,17 @@ export function renderBodega(container, usuario) {
                 ${item.descripcion ? `<p style="color:#555;margin:6px 0 0;">${item.descripcion}</p>` : ''}
             </div>
 
+            ${item.solicitudSalida?.autorizado ? `
+            <div class="informe-seccion" style="background:#f0fdf4;border-radius:8px;padding:10px;">
+                <h4>🤝 Entrega registrada</h4>
+                <p style="margin:0;font-size:0.9em;">
+                    <strong>Bodeguero:</strong> ${item.solicitudSalida.bodegueroNombre || '—'}<br>
+                    <strong>Entregado a:</strong> ${item.solicitudSalida.receptorNombre || '—'}<br>
+                    <strong>Fecha:</strong> ${fmtFecha(item.solicitudSalida.fechaEntrega || item.entregadoEn)}<br>
+                    <strong>OT:</strong> ${item.solicitudSalida.otId || '—'}
+                </p>
+            </div>` : ''}
+
             ${(item.fotosIngreso||[]).length ? `
             <div class="informe-seccion">
                 <h4>📷 Fotos de Recepción</h4>
@@ -712,6 +919,13 @@ export function renderBodega(container, usuario) {
                     <button id="btn-guardar-obs" class="btn-primary" style="margin-top:4px;">💬 Guardar observación</button>
                 </div>
             </div>
+
+            ${puedeOperar(usuario) ? `
+            <div style="margin-top:8px;padding-top:12px;border-top:1px solid #fee2e2;">
+                <button id="btn-del-desde-informe" style="width:100%;padding:10px;border-radius:8px;border:none;cursor:pointer;background:#fee2e2;color:#dc2626;font-weight:700;">
+                    🗑 Eliminar ítem
+                </button>
+            </div>` : ''}
         `);
 
         document.getElementById('btn-guardar-obs').addEventListener('click', async () => {
@@ -724,6 +938,11 @@ export function renderBodega(container, usuario) {
             btn.disabled = true; btn.textContent = 'Guardando...';
             await agregarObservacion(bodegaId, itemId, texto, fotos, usuario);
             modalInforme(bodegaId, itemId);
+        });
+
+        document.getElementById('btn-del-desde-informe')?.addEventListener('click', () => {
+            cerrarModal();
+            setTimeout(() => confirmarEliminar(bodegaId, itemId, item.nombre), 150);
         });
     }
 
@@ -789,10 +1008,11 @@ export function inyectarEstilosBodega() {
         .estado-badge.estado-en_bodega { background:#d1fae5; color:#065f46; }
         .estado-badge.estado-reservado  { background:#fef9c3; color:#854d0e; }
         .estado-badge.estado-entregado  { background:#e0e7ff; color:#3730a3; }
-        .btn-ver-item, .btn-pedir-salida, .btn-autorizar-salida { padding:4px 10px; border-radius:6px; border:none; cursor:pointer; font-size:0.82em; margin-right:4px; }
+        .btn-ver-item, .btn-pedir-salida, .btn-autorizar-salida, .btn-eliminar-item { padding:4px 10px; border-radius:6px; border:none; cursor:pointer; font-size:0.82em; margin-right:4px; }
         .btn-ver-item       { background:#e0e7ff; color:#1e1b4b; }
         .btn-pedir-salida   { background:#fef3c7; color:#92400e; }
         .btn-autorizar-salida { background:#d1fae5; color:#064e3b; font-weight:700; }
+        .btn-eliminar-item  { background:#fee2e2; color:#dc2626; }
         .bodega-alertas { background:#fff7ed; border:1px solid #fdba74; border-radius:12px; padding:16px; margin-bottom:16px; }
         .bodega-pendiente-card { background:white; border-radius:8px; padding:12px; margin:8px 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap; border:1px solid #fed7aa; font-size:0.88em; }
         #bodega-modal-ov { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:9999; padding:16px; box-sizing:border-box; }
