@@ -293,34 +293,19 @@ export async function entregarPorOT(bodegaId, otId, receptorUid, receptorNombre,
 
     const ahora = Date.now();
     for (const item of itemsSeleccionados) {
+        // Se deja en 'reservado' para que el receptor vea la alerta y confirme la recepción
         await dbUpdate(PATH.item(bodegaId, item.id), {
-            estado:       'entregado',
-            cantidad:     0,
-            ubicaciones:  [],
-            fotosEntrega: [],
-            entregadoEn:  ahora,
+            estado: 'reservado',
             solicitudSalida: {
                 receptorUid,
                 receptorNombre,
                 otId,
-                bodegueroId:     usuario.uid || usuario.usuario,
-                bodegueroNombre: usuario.nombre,
-                fechaSolicitud:  ahora,
-                fechaEntrega:    ahora,
-                autorizado:      true,
+                bodegueroId:            usuario.uid || usuario.usuario,
+                bodegueroNombre:        usuario.nombre,
+                fechaSolicitud:         ahora,
+                autorizado:             false,
                 ubicacionesSolicitadas: item.ubicaciones || []
             }
-        });
-        await dbPush(PATH.movimientos(bodegaId), {
-            itemId:    item.id,
-            tipo:      'salida',
-            cantidad:  item.cantidad,
-            otId,
-            fotos:     [],
-            ubicaciones: item.ubicaciones || [],
-            receptor:  { uid: receptorUid, nombre: receptorNombre },
-            bodeguero: { uid: usuario.uid || usuario.usuario, nombre: usuario.nombre },
-            fecha:     ahora
         });
     }
     return itemsSeleccionados.length;
@@ -687,7 +672,7 @@ export function renderBodega(container, usuario) {
                 </div>
 
                 <button id="btn-confirmar-entrega-ot" class="btn-primary" style="margin-top:16px;width:100%;background:#059669;font-size:1em;padding:12px;">
-                    ✅ Confirmar entrega de ítems seleccionados
+                    📤 Enviar solicitud de entrega
                 </button>
             `;
 
@@ -712,10 +697,10 @@ export function renderBodega(container, usuario) {
                     const n = await entregarPorOT(bodegaId, otId, receptorUid, receptorNombre, checkeados, usuario);
                     cerrarModal();
                     renderContenido(bodegaId);
-                    alert(`✅ ${n} ítem(s) entregado(s) correctamente a ${receptorNombre}.`);
+                    alert(`📤 ${n} ítem(s) enviado(s) a ${receptorNombre}.\nEl receptor verá la notificación para confirmar la recepción.`);
                 } catch(e) {
                     alert('Error: ' + e.message);
-                    btn.disabled = false; btn.textContent = '✅ Confirmar entrega de ítems seleccionados';
+                    btn.disabled = false; btn.textContent = '📤 Enviar solicitud de entrega';
                 }
             });
         });
