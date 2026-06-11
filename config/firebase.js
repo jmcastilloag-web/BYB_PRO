@@ -18,4 +18,8 @@ const storage = getStorage(app);
 const dbRef = ref(db, 'taller_byb');
 const usersRef = ref(db, 'usuarios_byb');
 
-export { db, storage, dbRef, usersRef, set, onValue, sRef, uploadBytes, getDownloadURL };
+const chatMsgRef = ref(db, 'chat_byb/mensajes');
+const chatGrpRef  = ref(db, 'chat_byb/grupos');
+const chatVisRef  = ref(db, 'chat_byb/vistos');
+
+export { db, storage, dbRef, usersRef, set, onValue, sRef, uploadBytes, getDownloadURL, chatMsgRef, chatGrpRef, chatVisRef };
