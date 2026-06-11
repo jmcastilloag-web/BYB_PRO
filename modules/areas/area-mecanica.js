@@ -229,7 +229,67 @@ window.renderAreaMecanica = function(i, d, obs, p) {
                             </div>
                         </div>
                     ${window._htmlFotosSimples ? window._htmlFotosSimples(i,'mecanica_generales','Fotos Generales Mecánica') : ''}
-                    <button class="btn-finish" onclick="window.updateFlujo(${i},'mec_fin')">✅ Fin Mecánica</button>`;
+                    ${(()=>{
+                        // ── Bloqueo: todos los trabajos deben estar ok:true ──
+                        const trab      = d.mec_trab_usuario || {};
+                        const trabajosMecCheck = [];
+                        if(d.enc_lc=='si') trabajosMecCheck.push('encam_lc');
+                        if(d.enc_ll=='si') trabajosMecCheck.push('encam_ll');
+                        if(d.met_lc=='si') trabajosMecCheck.push('metal_lc');
+                        if(d.met_ll=='si') trabajosMecCheck.push('metal_ll');
+                        if((d.detalle||{}).rectificado=='si') trabajosMecCheck.push('rectif');
+                        if((d.detalle||{}).fabricacion=='si') trabajosMecCheck.push('fabric');
+                        if(trabajosMecCheck.length===0) trabajosMecCheck.push('trab_gral');
+
+                        const pendientes = trabajosMecCheck.filter(k => !trab[k]?.ok);
+                        const tomados    = trabajosMecCheck.filter(k => trab[k]?.usuario && !trab[k]?.ok);
+                        const sinTomar   = trabajosMecCheck.filter(k => !trab[k]?.usuario);
+                        const todoOk     = pendientes.length === 0;
+
+                        if (todoOk) {
+                            return `<button class="btn-finish" onclick="window.updateFlujo(${i},'mec_fin')">✅ Fin Mecánica — Todos los trabajos completados</button>`;
+                        }
+
+                        // Construir resumen de bloqueo
+                        const labelMap = {
+                            encam_lc:'Encamisado LC', encam_ll:'Encamisado LL',
+                            metal_lc:'Metalado Eje LC', metal_ll:'Metalado Eje LL',
+                            rectif:'Rectificado General', fabric:'Fabricación de Pieza',
+                            trab_gral:'Trabajo Mecánico General'
+                        };
+                        const filasPend = pendientes.map(k => {
+                            const t = trab[k];
+                            const estado = !t?.usuario
+                                ? '<span style="color:#e74c3c;font-weight:700;">Sin asignar</span>'
+                                : `<span style="color:#e8a000;font-weight:700;">⏳ En curso — ${t.usuario}</span>`;
+                            return `<tr>
+                                <td style="padding:4px 8px;font-size:0.83em;">${labelMap[k]||k}</td>
+                                <td style="padding:4px 8px;">${estado}</td>
+                            </tr>`;
+                        }).join('');
+
+                        return `
+                        <div style="background:#fff8f0;border:2px solid #e8a000;border-radius:10px;padding:14px 16px;margin-top:10px;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                                <span style="font-size:1.3em;">🔒</span>
+                                <div>
+                                    <div style="font-weight:700;color:#8a5c00;font-size:0.95em;">No se puede cerrar Mecánica</div>
+                                    <div style="font-size:0.8em;color:#a07020;margin-top:2px;">Faltan <b>${pendientes.length}</b> trabajo(s) por completar:</div>
+                                </div>
+                            </div>
+                            <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;border:1px solid #f0d080;">
+                                <thead><tr style="background:#fff3cd;">
+                                    <th style="padding:5px 8px;font-size:0.78em;text-align:left;color:#6d4c00;">Trabajo</th>
+                                    <th style="padding:5px 8px;font-size:0.78em;text-align:left;color:#6d4c00;">Estado</th>
+                                </tr></thead>
+                                <tbody>${filasPend}</tbody>
+                            </table>
+                            <div style="margin-top:10px;font-size:0.8em;color:#888;font-style:italic;">
+                                ✔ Cada mecánico debe marcar su trabajo como terminado antes de que se pueda dar el OK final.
+                            </div>
+                            <button disabled style="margin-top:10px;width:100%;padding:9px;background:#ccc;color:#888;border:none;border-radius:6px;cursor:not-allowed;font-size:0.9em;font-weight:600;">🔒 Fin Mecánica (bloqueado)</button>
+                        </div>`;
+                    })()}`;
             }
     return UI;
 };
